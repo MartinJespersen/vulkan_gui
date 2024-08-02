@@ -2,9 +2,10 @@
 #include <glm/glm.hpp>
 #include <vulkan/vulkan_core.h>
 
-struct Vertex
+struct BoxInstance
 {
-  glm::vec2 pos;
+  glm::vec2 pos1;
+  glm::vec2 pos2;
   glm::vec3 color;
 
   // TODO: add binding description and attribute description for instance data
@@ -12,23 +13,28 @@ struct Vertex
   {
     VkVertexInputBindingDescription bindingDescription{};
     bindingDescription.binding = 0;
-    bindingDescription.stride = sizeof(Vertex);
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    bindingDescription.stride = sizeof(BoxInstance);
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
     return bindingDescription;
   }
-  static std::array<VkVertexInputAttributeDescription, 2>
+  static std::array<VkVertexInputAttributeDescription, 3>
   getAttributeDescriptions()
   {
-    std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+    std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
     attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-    attributeDescriptions[0].offset = offsetof(Vertex, pos);
+    attributeDescriptions[0].offset = offsetof(BoxInstance, pos1);
 
     attributeDescriptions[1].binding = 0;
     attributeDescriptions[1].location = 1;
-    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[1].offset = offsetof(Vertex, color);
+    attributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[1].offset = offsetof(BoxInstance, pos2);
+
+    attributeDescriptions[2].binding = 0;
+    attributeDescriptions[2].location = 2;
+    attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[2].offset = offsetof(BoxInstance, color);
 
     return attributeDescriptions;
   }

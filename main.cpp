@@ -101,7 +101,7 @@ private:
   std::vector<VkFence> inFlightFences;
   uint32_t currentFrame = 0;
 
-  VkBuffer vertexBuffer;
+  VkBuffer instanceBuffer;
   VkDeviceMemory vertexBufferMemory;
   VkBuffer indexBuffer;
   VkDeviceMemory indexBufferMemory;
@@ -118,11 +118,12 @@ private:
   VkImageView textureImageView;
   VkSampler textureSampler;
 
-  const std::vector<Vertex> vertices = {
-      {{-1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}},
-      {{1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}},
-      {{1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
-      {{-1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}}};
+  const std::vector<BoxInstance> boxInstances = {
+      {{-0.5f, -0.5f}, {0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},
+      // {{0.8f, -1.0f}, {1.0f, -0.8f}, {0.0f, 1.0f, 0.0f}},
+      // {{0.8f, 0.8f}, {-1.0f, -1.0f}, {0.0f, 0.0f, 1.0f}},
+      // {{-1.0f, 0.8f}, {-0.8, -1.0f}, {0.0f, 0.0f, 0.0f}}};
+  };
   const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
   struct UniformBufferObject
@@ -172,7 +173,7 @@ private:
     //   createTextureImageView();
     // createTextureSampler();
     // TODO: create instance buffer and memory
-    createVertexBuffer();
+    createInstanceBuffer();
     createIndexBuffer();
     createUniformBuffers();
     createDescriptorPool();
@@ -203,7 +204,7 @@ private:
     vkDestroyBuffer(device, indexBuffer, nullptr);
     vkFreeMemory(device, indexBufferMemory, nullptr);
 
-    vkDestroyBuffer(device, vertexBuffer, nullptr);
+    vkDestroyBuffer(device, instanceBuffer, nullptr);
     vkFreeMemory(device, vertexBufferMemory, nullptr);
 
     vkDestroyCommandPool(device, commandPool, nullptr);
@@ -700,10 +701,10 @@ private:
     vkFreeMemory(device, stagingBufferMemory, nullptr);
   }
 
-  void createVertexBuffer()
+  void createInstanceBuffer()
   {
 
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+    VkDeviceSize bufferSize = sizeof(boxInstances[0]) * boxInstances.size();
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     createBuffer(bufferSize,
@@ -715,14 +716,14 @@ private:
 
     void *data;
     vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, vertices.data(), (size_t)bufferSize);
+    memcpy(data, boxInstances.data(), (size_t)bufferSize);
     vkUnmapMemory(device, stagingBufferMemory);
     createBuffer(
         bufferSize,
         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, instanceBuffer, vertexBufferMemory);
 
-    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+    copyBuffer(stagingBuffer, instanceBuffer, bufferSize);
 
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
@@ -815,7 +816,7 @@ private:
     vkResetFences(device, 1, &inFlightFences[currentFrame]);
     vkResetCommandBuffer(commandBuffers[currentFrame], 0);
     recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
-    updateUniformBuffer(currentFrame);
+    // updateUniformBuffer(currentFrame);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -910,7 +911,7 @@ private:
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     // TODO: bind instance buffers
-    VkBuffer vertexBuffers[] = {vertexBuffer};
+    VkBuffer vertexBuffers[] = {instanceBuffer};
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
@@ -918,8 +919,7 @@ private:
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0,
-                     0, 0);
+    vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(boxInstances.size()), 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -1026,8 +1026,8 @@ private:
     vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
     vertexInputInfo.vertexAttributeDescriptionCount = 0;
     vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+    auto bindingDescription = BoxInstance::getBindingDescription();
+    auto attributeDescriptions = BoxInstance::getAttributeDescriptions();
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.vertexAttributeDescriptionCount =
         static_cast<uint32_t>(attributeDescriptions.size());
@@ -1060,7 +1060,7 @@ private:
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
     rasterizer.lineWidth = 1.0f;
     rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f; // Optional
