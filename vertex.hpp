@@ -1,6 +1,15 @@
+#pragma once
 #include <array>
+
 #include <glm/glm.hpp>
 #include <vulkan/vulkan_core.h>
+
+struct GlyphBox
+{
+  glm::float32 width;
+  glm::float32 height;
+  glm::float32 bufferOffset;
+};
 
 struct BoxInstance
 {
@@ -8,7 +17,6 @@ struct BoxInstance
   glm::vec2 pos2;
   glm::vec3 color;
 
-  // TODO: add binding description and attribute description for instance data
   static VkVertexInputBindingDescription getBindingDescription()
   {
     VkVertexInputBindingDescription bindingDescription{};

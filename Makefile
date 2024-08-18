@@ -3,7 +3,7 @@
 STB_INCLUDE_PATH = /home/martin/libraries/stb
 EXEC = VulkanTest
 CFLAGS = -std=c++17 -I$(STB_INCLUDE_PATH)
-LDFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
+LDFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi -lfreetype
 
 all: debug
 
