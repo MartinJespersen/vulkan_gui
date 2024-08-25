@@ -8,7 +8,7 @@ struct GlyphBox
 {
   glm::float32 width;
   glm::float32 height;
-  glm::float32 bufferOffset;
+  glm::float32 glyphOffset;
 };
 
 struct BoxInstance

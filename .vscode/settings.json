@@ -52,6 +52,8 @@
         "optional": "cpp",
         "ratio": "cpp",
         "fstream": "cpp",
-        "map": "cpp"
+        "map": "cpp",
+        "buffer": "cpp",
+        "netfwd": "cpp"
     }
 }

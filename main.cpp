@@ -1,7 +1,5 @@
-
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
-#include "vertex.hpp"
 #include <GLFW/glfw3.h>
 #include <algorithm> // Necessary for std::clamp
 #include <cstdint>   // Necessary for uint32_t
@@ -18,14 +16,16 @@
 #include <vector>
 #include <chrono>
 #include <map>
-#include "buffer.hpp"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#include "fonts.hpp"
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
+#include "fonts.hpp"
+#include "buffer.hpp"
+#include "vertex.hpp"
+#include "shader.hpp"
 
 VkResult CreateDebugUtilsMessengerEXT(
     VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
@@ -123,9 +123,6 @@ private:
   VkDeviceMemory textureImageMemory;
   VkImageView textureImageView;
   VkSampler textureSampler;
-  FT_Library ft;
-  FT_Face face;
-  std::map<char, Character> characters;
 
   VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
   VkImage colorImage;
@@ -136,8 +133,7 @@ private:
       {{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
       {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
       {{0.0f, 0.8f}, {0.2f, 1.0f}, {0.8f, 0.8f, 0.8f}},
-      {{0.8f, 0.8f}, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
-      {{0.0f, 0.4f}, {1.0f, 0.6f}, {1.0f, 0.0f, 0.0f}}};
+      {{0.8f, 0.8f}, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}}};
   const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
   struct UniformBufferObject
@@ -188,6 +184,9 @@ private:
     createTextureSampler();
     createBoxInstBuffer();
     createBoxIndexBuffer();
+    createTextGraphicsPipeline(device, renderPass, swapChainExtent, descriptorSetLayout, msaaSamples, "shaders/text_vert.spv", "shaders/text_frag.spv");
+    createGlyphInstBuffer(physicalDevice, device, commandPool, graphicsQueue);
+    createGlyphIndexBuffer(physicalDevice, device, commandPool, graphicsQueue);
     createUniformBuffers();
     createDescriptorPool();
     createDescriptorSets();
@@ -224,6 +223,7 @@ private:
     vkDestroyImage(device, textureImage, nullptr);
     vkDestroyImageView(device, textureImageView, nullptr);
     vkDestroySampler(device, textureSampler, nullptr);
+    cleanupFontResources(device);
 
     vkDestroyCommandPool(device, commandPool, nullptr);
 
@@ -291,11 +291,12 @@ private:
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = VK_FILTER_LINEAR;
     samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.unnormalizedCoordinates = VK_TRUE;
 
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.anisotropyEnable = VK_TRUE;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.anisotropyEnable = VK_FALSE;
 
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(physicalDevice, &properties);
@@ -305,7 +306,7 @@ private:
     samplerInfo.compareEnable = VK_FALSE; // if true texels will be compared to a value and result used in filtering
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
     // for mipmapping
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = 0.0f;
@@ -347,7 +348,7 @@ private:
   void createTextureImage()
   {
     int texWidth, texHeight;
-    unsigned char *pixels = initGlyphs(&texWidth, &texHeight, &characters);
+    unsigned char *pixels = initGlyphs(&texWidth, &texHeight);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
     if (!pixels)
@@ -372,7 +373,7 @@ private:
     memcpy(data, pixels, static_cast<size_t>(imageSize));             // copy the pixel data to the buffer
     vkUnmapMemory(device, stagingBufferMemory);                       // unmap the buffer memory so cpu no longer has access to it
 
-    stbi_image_free(pixels);
+    delete pixels;
 
     createImage(texWidth, texHeight, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
     transitionImageLayout(textureImage, VK_FORMAT_R8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -884,6 +885,7 @@ private:
     }
 
     BoxRenderPass(commandBuffer, imageIndex);
+    TextRenderPass(commandBuffer, renderPass, swapChainFramebuffers[imageIndex], swapChainExtent, pipelineLayout, descriptorSets[currentFrame]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
     {
@@ -937,40 +939,6 @@ private:
     vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(boxInstances.size()), 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
-  }
-
-  void TextRenderPass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
-  {
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = renderPass;
-    renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
-    renderPassInfo.renderArea.offset = {0, 0};
-    renderPassInfo.renderArea.extent = swapChainExtent;
-
-    VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
-
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo,
-                         VK_SUBPASS_CONTENTS_INLINE);
-
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      graphicsPipeline);
-
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(swapChainExtent.width);
-    viewport.height = static_cast<float>(swapChainExtent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = swapChainExtent;
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
   }
 
   void createCommandBuffers()
@@ -1034,8 +1002,8 @@ private:
     auto vertShaderCode = readFile("shaders/vert.spv");
     auto fragShaderCode = readFile("shaders/frag.spv");
 
-    VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-    VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+    VkShaderModule vertShaderModule = createShaderModule(device, vertShaderCode);
+    VkShaderModule fragShaderModule = createShaderModule(device, fragShaderCode);
 
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
     vertShaderStageInfo.sType =
@@ -1684,41 +1652,6 @@ private:
 
       return actualExtent;
     }
-  }
-
-  static std::vector<char> readFile(const std::string &filename)
-  {
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-    if (!file.is_open())
-    {
-      throw std::runtime_error("failed to open file!");
-    }
-
-    size_t fileSize = (size_t)file.tellg();
-    std::vector<char> buffer(fileSize);
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
-
-    return buffer;
-  }
-
-  VkShaderModule createShaderModule(const std::vector<char> &code)
-  {
-    VkShaderModuleCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = code.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
-
-    VkShaderModule shaderModule;
-    if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) !=
-        VK_SUCCESS)
-    {
-      throw std::runtime_error("failed to create shader module!");
-    }
-
-    return shaderModule;
   }
 
   void createRenderPass()

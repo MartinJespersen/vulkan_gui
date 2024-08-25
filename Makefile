@@ -10,7 +10,7 @@ all: debug
 release: CFLAGS  += -O2 -DNDEBUG
 release: $(EXEC)
 
-debug: CFLAGS += -g
+debug: CFLAGS += -g -O0
 debug: $(EXEC)
 
 test: $(EXEC)

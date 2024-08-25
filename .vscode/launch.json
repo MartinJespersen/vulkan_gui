@@ -8,7 +8,7 @@
             "name": "g++ debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileDirname}/VulkanTest",
+            "program": "${workspaceFolder}/VulkanTest",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -22,7 +22,7 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "build",
+            "preLaunchTask": "build project",
             "miDebuggerPath": "/usr/bin/gdb"
         }
     ]
