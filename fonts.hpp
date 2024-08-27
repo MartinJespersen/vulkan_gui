@@ -66,13 +66,12 @@ std::map<char, Character> characters;
 std::vector<BufferGlyph> glyphInstances;
 VkPipeline graphicsPipeline;
 VkPipelineLayout pipelineLayout;
+VkRenderPass renderPass;
 const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
 void TextRenderPass(VkCommandBuffer commandBuffer,
-                    VkRenderPass renderPass,
                     VkFramebuffer swapChainFramebuffer,
                     VkExtent2D swapChainExtent,
-                    VkPipelineLayout pipelineLayout,
                     VkDescriptorSet descriptorSet)
 {
     VkRenderPassBeginInfo renderPassInfo{};
@@ -121,9 +120,9 @@ void TextRenderPass(VkCommandBuffer commandBuffer,
 
 void createGlyphInstBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue queue)
 {
-    std::string text = "H"; // should be an input
-    float x = 400;          // should be an input
-    float y = 300;          // should be an input
+    std::string text = "Hej med dig"; // should be an input
+    float x = 400;                    // should be an input
+    float y = 300;                    // should be an input
     glyphInstances.clear();
     glyphInstances.reserve(text.size());
     for (int i = 0; i < text.size(); i++)
@@ -138,7 +137,7 @@ void createGlyphInstBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkC
         }
         Character &ch = characters.at(text[i]);
         float xpos = x + ch.bearingX;
-        float ypos = y - (ch.height - ch.bearingY);
+        float ypos = y - ch.bearingY;
 
         BufferGlyph tempGlyph = {{xpos, ypos}, {ch.width + xpos, ch.height + ypos}, ch.glyphOffset};
         glyphInstances.push_back(tempGlyph);
@@ -274,7 +273,6 @@ unsigned char *initGlyphs(int *width, int *height)
 }
 
 void createTextGraphicsPipeline(VkDevice device,
-                                VkRenderPass renderPass,
                                 VkExtent2D swapChainExtent,
 
                                 VkDescriptorSetLayout descriptorSetLayout,
@@ -446,6 +444,69 @@ void createTextGraphicsPipeline(VkDevice device,
     vkDestroyShaderModule(device, vertShaderModule, nullptr);
 }
 
+void createTextRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFlagBits msaaSamples)
+{
+    VkAttachmentDescription colorAttachment{};
+    colorAttachment.format = swapChainImageFormat;
+    colorAttachment.samples = msaaSamples;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // This property tells something about how memory is stored in buffer
+                                                                   // This one is optimal for presentation
+
+    VkAttachmentDescription colorAttachmentResolve{};
+    colorAttachmentResolve.format = swapChainImageFormat;
+    colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference colorAttachmentRef{};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; // This one is optimal for color attachment for writing colors from fragment shader
+
+    VkAttachmentReference colorAttachmentResolveRef{};
+    colorAttachmentResolveRef.attachment = 1;
+    colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorAttachmentRef;
+    subpass.pResolveAttachments = &colorAttachmentResolveRef;
+
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, colorAttachmentResolve};
+
+    VkRenderPassCreateInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    renderPassInfo.pAttachments = attachments.data();
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+    renderPassInfo.dependencyCount = 1;
+    renderPassInfo.pDependencies = &dependency;
+
+    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) !=
+        VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create render pass!");
+    }
+}
+
 void cleanupFontResources(VkDevice device)
 {
     vkDestroyPipeline(device, graphicsPipeline, nullptr);
@@ -454,4 +515,5 @@ void cleanupFontResources(VkDevice device)
     vkFreeMemory(device, glyphMemoryBuffer, nullptr);
     vkDestroyBuffer(device, glyphIndexBuffer, nullptr);
     vkFreeMemory(device, glyphIndexMemoryBuffer, nullptr);
+    vkDestroyRenderPass(device, renderPass, nullptr);
 }

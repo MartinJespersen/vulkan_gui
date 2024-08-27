@@ -184,7 +184,8 @@ private:
     createTextureSampler();
     createBoxInstBuffer();
     createBoxIndexBuffer();
-    createTextGraphicsPipeline(device, renderPass, swapChainExtent, descriptorSetLayout, msaaSamples, "shaders/text_vert.spv", "shaders/text_frag.spv");
+    createTextRenderPass(device, swapChainImageFormat, msaaSamples);
+    createTextGraphicsPipeline(device, swapChainExtent, descriptorSetLayout, msaaSamples, "shaders/text_vert.spv", "shaders/text_frag.spv");
     createGlyphInstBuffer(physicalDevice, device, commandPool, graphicsQueue);
     createGlyphIndexBuffer(physicalDevice, device, commandPool, graphicsQueue);
     createUniformBuffers();
@@ -885,7 +886,7 @@ private:
     }
 
     BoxRenderPass(commandBuffer, imageIndex);
-    TextRenderPass(commandBuffer, renderPass, swapChainFramebuffers[imageIndex], swapChainExtent, pipelineLayout, descriptorSets[currentFrame]);
+    TextRenderPass(commandBuffer, swapChainFramebuffers[imageIndex], swapChainExtent, descriptorSets[currentFrame]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
     {
