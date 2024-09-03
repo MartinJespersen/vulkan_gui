@@ -5,7 +5,6 @@
 #include <cstdint>   // Necessary for uint32_t
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
@@ -15,7 +14,6 @@
 #include <stdexcept>
 #include <vector>
 #include <chrono>
-#include <map>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -186,7 +184,6 @@ private:
     createBoxIndexBuffer();
     createTextRenderPass(device, swapChainImageFormat, msaaSamples);
     createTextGraphicsPipeline(device, swapChainExtent, descriptorSetLayout, msaaSamples, "shaders/text_vert.spv", "shaders/text_frag.spv");
-    createGlyphInstBuffer(physicalDevice, device, commandPool, graphicsQueue);
     createGlyphIndexBuffer(physicalDevice, device, commandPool, graphicsQueue);
     createUniformBuffers();
     createDescriptorPool();
@@ -886,6 +883,9 @@ private:
     }
 
     BoxRenderPass(commandBuffer, imageIndex);
+    Text texts[] = {{"testing", 300, 300}, {"more testing", 300, 400}, {"even more testing", 500, 300}};
+    addTexts(texts, sizeof(texts) / sizeof(texts[0]));
+    mapInstancesToBuffer(physicalDevice, device, commandPool, graphicsQueue);
     TextRenderPass(commandBuffer, swapChainFramebuffers[imageIndex], swapChainExtent, descriptorSets[currentFrame]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)

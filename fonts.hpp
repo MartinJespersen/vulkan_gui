@@ -11,7 +11,7 @@
 #include "shader.hpp"
 
 const int MAX_GLYPHS = 126;
-struct BufferGlyph
+struct GlyphBuffer
 {
     glm::vec2 pos;
     glm::vec2 size;
@@ -21,7 +21,7 @@ struct BufferGlyph
     {
         VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = 0;
-        bindingDescription.stride = sizeof(BufferGlyph);
+        bindingDescription.stride = sizeof(GlyphBuffer);
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
         return bindingDescription;
     }
@@ -32,19 +32,52 @@ struct BufferGlyph
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
         attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[0].offset = offsetof(BufferGlyph, pos);
+        attributeDescriptions[0].offset = offsetof(GlyphBuffer, pos);
 
         attributeDescriptions[1].binding = 0;
         attributeDescriptions[1].location = 1;
         attributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(BufferGlyph, size);
+        attributeDescriptions[1].offset = offsetof(GlyphBuffer, size);
 
         attributeDescriptions[2].binding = 0;
         attributeDescriptions[2].location = 2;
         attributeDescriptions[2].format = VK_FORMAT_R32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(BufferGlyph, glyphOffset);
+        attributeDescriptions[2].offset = offsetof(GlyphBuffer, glyphOffset);
 
         return attributeDescriptions;
+    }
+};
+
+struct ArrayGlyphInstance
+{
+    GlyphBuffer *data;
+    size_t size;
+    size_t capacity;
+
+    inline int pushBack(GlyphBuffer glyph)
+    {
+        if (size >= capacity)
+        {
+            return -1;
+        }
+        data[size] = glyph;
+        size++;
+
+        return 0;
+    }
+
+    inline void reset(size_t newSize)
+    {
+        if (newSize > capacity)
+        {
+            if (data)
+            {
+                delete[] data;
+            }
+            this->capacity = newSize;
+            data = new GlyphBuffer[this->capacity];
+        }
+        size = 0;
     }
 };
 
@@ -58,12 +91,20 @@ struct Character
     float glyphOffset;
 };
 
+struct Text
+{
+    std::string text;
+    float x;
+    float y;
+};
+
 VkBuffer glyphInstBuffer;
 VkDeviceMemory glyphMemoryBuffer;
+VkDeviceSize glyphInstBufferSize;
 VkBuffer glyphIndexBuffer;
 VkDeviceMemory glyphIndexMemoryBuffer;
 std::map<char, Character> characters;
-std::vector<BufferGlyph> glyphInstances;
+ArrayGlyphInstance glyphInstances;
 VkPipeline graphicsPipeline;
 VkPipelineLayout pipelineLayout;
 VkRenderPass renderPass;
@@ -113,18 +154,13 @@ void TextRenderPass(VkCommandBuffer commandBuffer,
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
-    vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(glyphInstances.size()), 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(glyphInstances.size), 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 }
 
-void createGlyphInstBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue queue)
+void addText(std::string text, float x, float y)
 {
-    std::string text = "Hej med dig"; // should be an input
-    float x = 400;                    // should be an input
-    float y = 300;                    // should be an input
-    glyphInstances.clear();
-    glyphInstances.reserve(text.size());
     for (int i = 0; i < text.size(); i++)
     {
         if (text[i] >= MAX_GLYPHS)
@@ -139,70 +175,79 @@ void createGlyphInstBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkC
         float xpos = x + ch.bearingX;
         float ypos = y - ch.bearingY;
 
-        BufferGlyph tempGlyph = {{xpos, ypos}, {ch.width + xpos, ch.height + ypos}, ch.glyphOffset};
-        glyphInstances.push_back(tempGlyph);
+        GlyphBuffer tempGlyph = {{xpos, ypos}, {ch.width + xpos, ch.height + ypos}, ch.glyphOffset};
+
+        if (glyphInstances.pushBack(tempGlyph))
+        {
+            throw std::runtime_error("Failed to add glyph to buffer!");
+        }
         x += (ch.advance >> 6); // TODO: Consider what will happen x grows outside the screen
     }
+}
 
+void addTexts(Text *texts, size_t len)
+{
+
+    size_t bufferSize = 0;
+
+    for (size_t i = 0; i < len; i++)
+    {
+        bufferSize += texts[i].text.size();
+    }
+
+    glyphInstances.reset(bufferSize);
+
+    for (size_t i = 0; i < len; i++)
+    {
+        addText(texts[i].text, texts[i].x, texts[i].y);
+    }
+}
+
+void mapInstancesToBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue queue)
+{
     // Create the buffer for the text instances
-    VkDeviceSize bufferSize = sizeof(BufferGlyph) * glyphInstances.size();
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    createBuffer(
-        physicalDevice,
-        device,
-        bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingBuffer, stagingBufferMemory);
+    VkDeviceSize bufferSize = sizeof(GlyphBuffer) * glyphInstances.size;
+    if (bufferSize > glyphInstBufferSize)
+    {
+
+        vkDestroyBuffer(device, glyphInstBuffer, nullptr);
+        vkFreeMemory(device, glyphMemoryBuffer, nullptr);
+
+        createBuffer(
+            physicalDevice,
+            device,
+            bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            glyphInstBuffer, glyphMemoryBuffer);
+    }
+
+    // TODO: Consider using vkFlushMappedMemoryRanges and vkInvalidateMappedMemoryRanges instead of VK_MEMORY_PROPERTY_HOST_COHERENT_BIT for performance.
 
     void *data;
-    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, glyphInstances.data(), (size_t)bufferSize);
-    vkUnmapMemory(device, stagingBufferMemory);
+    vkMapMemory(device, glyphMemoryBuffer, 0, bufferSize, 0, &data);
+    memcpy(data, glyphInstances.data, (size_t)bufferSize);
+    vkUnmapMemory(device, glyphMemoryBuffer);
 
-    createBuffer(
-        physicalDevice,
-        device,
-        bufferSize,
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, glyphInstBuffer, glyphMemoryBuffer);
-
-    copyBuffer(device, commandPool, queue, stagingBuffer, glyphInstBuffer, bufferSize);
-
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
+    glyphInstBufferSize = bufferSize;
 }
 
 void createGlyphIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue)
 {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
     createBuffer(physicalDevice,
                  device,
                  bufferSize,
-                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                 VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                 stagingBuffer, stagingBufferMemory);
+                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, // these are not the most performant flags
+                 glyphIndexBuffer, glyphIndexMemoryBuffer);
+    // TODO: Consider using staging buffer that copies to the glyphIndexBuffer with VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 
     void *data;
-    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(device, glyphIndexMemoryBuffer, 0, bufferSize, 0, &data);
     memcpy(data, indices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device, stagingBufferMemory);
-
-    createBuffer(
-        physicalDevice,
-        device,
-        bufferSize,
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, glyphIndexBuffer, glyphIndexMemoryBuffer);
-
-    copyBuffer(device, commandPool, graphicsQueue, stagingBuffer, glyphIndexBuffer, bufferSize);
-
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
+    vkUnmapMemory(device, glyphIndexMemoryBuffer);
 }
 
 // Things to do:
@@ -319,8 +364,8 @@ void createTextGraphicsPipeline(VkDevice device,
     vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
     vertexInputInfo.vertexAttributeDescriptionCount = 0;
     vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
-    auto bindingDescription = BufferGlyph::getBindingDescription();
-    auto attributeDescriptions = BufferGlyph::getAttributeDescriptions();
+    auto bindingDescription = GlyphBuffer::getBindingDescription();
+    auto attributeDescriptions = GlyphBuffer::getAttributeDescriptions();
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.vertexAttributeDescriptionCount =
         static_cast<uint32_t>(attributeDescriptions.size());
