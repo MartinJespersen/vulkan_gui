@@ -25,6 +25,8 @@
 #include "vulkan_helpers.hpp"
 #include "vertex.hpp"
 #include "shader.hpp"
+#include "rectangle.hpp"
+#include "rectangle.cpp"
 
 VkResult CreateDebugUtilsMessengerEXT(
     VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
@@ -93,10 +95,9 @@ private:
   VkFormat swapChainImageFormat;
   VkExtent2D swapChainExtent;
   std::vector<VkImageView> swapChainImageViews;
-  VkRenderPass renderPass;
+
   VkDescriptorSetLayout descriptorSetLayout;
-  VkPipelineLayout pipelineLayout;
-  VkPipeline graphicsPipeline;
+
   std::vector<VkFramebuffer> swapChainFramebuffers;
   VkCommandPool commandPool;
   std::vector<VkCommandBuffer> commandBuffers;
@@ -105,11 +106,6 @@ private:
   std::vector<VkSemaphore> renderFinishedSemaphores;
   std::vector<VkFence> inFlightFences;
   uint32_t currentFrame = 0;
-
-  VkBuffer boxInstBuffer;
-  VkDeviceMemory boxMemoryBuffer;
-  VkBuffer boxIndexBuffer;
-  VkDeviceMemory boxIndexMemoryBuffer;
 
   std::vector<VkBuffer> uniformBuffers;
   std::vector<VkDeviceMemory> uniformBuffersMemory;
@@ -173,8 +169,8 @@ private:
     createCommandPool();
     colorImageView = createColorResources(physicalDevice, device, swapChainImageFormat, swapChainExtent, msaaSamples, colorImage, colorImageMemory);
     createFramebuffers(colorImageView);
-    createBoxInstBuffer();
-    createBoxIndexBuffer();
+    createBoxInstBuffer(physicalDevice, device, commandPool, graphicsQueue, boxInstances);
+    createBoxIndexBuffer(physicalDevice, device, commandPool, graphicsQueue, indices);
 
     createGlyphAtlasImage(physicalDevice, device, commandPool, graphicsQueue);
     createGlyphAtlasImageView(device);
@@ -184,7 +180,7 @@ private:
     createGlyphIndexBuffer(physicalDevice, device, commandPool, graphicsQueue);
     createUniformBuffers();
     createDescriptorPool();
-    createDescriptorSets();
+    createDescriptorSets(vulkanGlyphAtlas.textureImageView, vulkanGlyphAtlas.textureSampler);
     createCommandBuffers();
     createSyncObjects();
   }
@@ -208,20 +204,15 @@ private:
     }
     cleanupSwapChain();
 
-    vkDestroyBuffer(device, boxIndexBuffer, nullptr);
-    vkFreeMemory(device, boxIndexMemoryBuffer, nullptr);
-
-    vkDestroyBuffer(device, boxInstBuffer, nullptr);
-    vkFreeMemory(device, boxMemoryBuffer, nullptr);
-
     cleanupFontResources(device);
+    cleanupRectangle(device);
 
     vkDestroyCommandPool(device, commandPool, nullptr);
 
-    vkDestroyPipeline(device, graphicsPipeline, nullptr);
+    vkDestroyPipeline(device, vulkanRectangle.graphicsPipeline, nullptr);
 
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-    vkDestroyRenderPass(device, renderPass, nullptr);
+    vkDestroyPipelineLayout(device, vulkanRectangle.pipelineLayout, nullptr);
+    vkDestroyRenderPass(device, vulkanRectangle.renderPass, nullptr);
 
     vkDestroySurfaceKHR(instance, surface, nullptr);
 
@@ -259,7 +250,7 @@ private:
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
   }
 
-  void createDescriptorSets()
+  void createDescriptorSets(VkImageView imageView, VkSampler sampler)
   {
 
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
@@ -285,8 +276,8 @@ private:
 
       VkDescriptorImageInfo imageInfo{};
       imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-      imageInfo.imageView = textureImageView;
-      imageInfo.sampler = textureSampler;
+      imageInfo.imageView = imageView;
+      imageInfo.sampler = sampler;
 
       std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
@@ -418,68 +409,6 @@ private:
     auto app = reinterpret_cast<HelloTriangleApplication *>(
         glfwGetWindowUserPointer(window));
     app->framebufferResized = true;
-  }
-
-  void createBoxIndexBuffer()
-  {
-    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    createBuffer(physicalDevice,
-                 device,
-                 bufferSize,
-                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                 stagingBuffer, stagingBufferMemory);
-
-    void *data;
-    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, indices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device, stagingBufferMemory);
-
-    createBuffer(
-        physicalDevice,
-        device,
-        bufferSize,
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, boxIndexBuffer, boxIndexMemoryBuffer);
-
-    copyBuffer(device, commandPool, graphicsQueue, stagingBuffer, boxIndexBuffer, bufferSize);
-
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
-  }
-
-  void createBoxInstBuffer()
-  {
-
-    VkDeviceSize bufferSize = sizeof(boxInstances[0]) * boxInstances.size();
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    createBuffer(physicalDevice, device, bufferSize,
-
-                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                 stagingBuffer, stagingBufferMemory);
-
-    void *data;
-    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, boxInstances.data(), (size_t)bufferSize);
-    vkUnmapMemory(device, stagingBufferMemory);
-    createBuffer(
-        physicalDevice,
-        device,
-        bufferSize,
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, boxInstBuffer, boxMemoryBuffer);
-
-    copyBuffer(device, commandPool, graphicsQueue, stagingBuffer, boxInstBuffer, bufferSize);
-
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
   }
 
   void cleanupColorResources(VkDevice device)
@@ -644,7 +573,7 @@ private:
     }
 
     Text texts[] = {{"testing", 300, 300}, {"more testing", 300, 400}};
-    BoxRenderPass(commandBuffer, imageIndex);
+    BoxRenderPass(commandBuffer, imageIndex, swapChainFramebuffers[imageIndex], swapChainExtent, descriptorSets[currentFrame], boxInstances);
     addTexts(texts, sizeof(texts) / sizeof(texts[0]));
     mapGlyphInstancesToBuffer(physicalDevice, device, commandPool, graphicsQueue);
     TextRenderPass(commandBuffer, swapChainFramebuffers[imageIndex], swapChainExtent, descriptorSets[currentFrame]);
@@ -653,54 +582,6 @@ private:
     {
       throw std::runtime_error("failed to record command buffer!");
     }
-  }
-
-  void BoxRenderPass(VkCommandBuffer commandBuffer, uint32_t imageIndex)
-  {
-
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = renderPass;
-    renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
-    renderPassInfo.renderArea.offset = {0, 0};
-    renderPassInfo.renderArea.extent = swapChainExtent;
-
-    VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
-
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo,
-                         VK_SUBPASS_CONTENTS_INLINE);
-
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      graphicsPipeline);
-
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(swapChainExtent.width);
-    viewport.height = static_cast<float>(swapChainExtent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = swapChainExtent;
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-    // TODO: bind instance buffers
-    VkBuffer vertexBuffers[] = {boxInstBuffer};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-
-    vkCmdBindIndexBuffer(commandBuffer, boxIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
-
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-
-    vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(boxInstances.size()), 0, 0, 0);
-
-    vkCmdEndRenderPass(commandBuffer);
   }
 
   void createCommandBuffers()
@@ -744,7 +625,7 @@ private:
 
       VkFramebufferCreateInfo framebufferInfo{};
       framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-      framebufferInfo.renderPass = renderPass;
+      framebufferInfo.renderPass = vulkanRectangle.renderPass;
       framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
       framebufferInfo.pAttachments = attachments.data();
       framebufferInfo.width = swapChainExtent.width;
@@ -891,7 +772,7 @@ private:
     pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr,
-                               &pipelineLayout) != VK_SUCCESS)
+                               &vulkanRectangle.pipelineLayout) != VK_SUCCESS)
     {
       throw std::runtime_error("failed to create pipeline layout!");
     }
@@ -908,15 +789,15 @@ private:
     pipelineInfo.pDepthStencilState = nullptr; // Optional
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState; // Optional
-    pipelineInfo.layout = pipelineLayout;
-    pipelineInfo.renderPass = renderPass;
+    pipelineInfo.layout = vulkanRectangle.pipelineLayout;
+    pipelineInfo.renderPass = vulkanRectangle.renderPass;
     pipelineInfo.subpass = 0;
 
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
     pipelineInfo.basePipelineIndex = -1;              // Optional
 
     if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo,
-                                  nullptr, &graphicsPipeline) != VK_SUCCESS)
+                                  nullptr, &vulkanRectangle.graphicsPipeline) != VK_SUCCESS)
     {
       throw std::runtime_error("failed to create graphics pipeline!");
     }
@@ -1472,7 +1353,7 @@ private:
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies = &dependency;
 
-    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) !=
+    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &vulkanRectangle.renderPass) !=
         VK_SUCCESS)
     {
       throw std::runtime_error("failed to create render pass!");

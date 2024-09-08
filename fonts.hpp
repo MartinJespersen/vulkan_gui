@@ -97,22 +97,34 @@ struct Text
     float y;
 };
 
-VkBuffer glyphInstBuffer;
-VkDeviceMemory glyphMemoryBuffer;
-VkDeviceSize glyphInstBufferSize;
-VkBuffer glyphIndexBuffer;
-VkDeviceMemory glyphIndexMemoryBuffer;
-std::map<char, Character> characters;
-ArrayGlyphInstance glyphInstances;
-VkPipeline graphicsPipeline;
-VkPipelineLayout pipelineLayout;
-VkRenderPass renderPass;
-const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
+struct GlyphAtlas
+{
+    std::map<char, Character> characters;
+    ArrayGlyphInstance glyphInstances;
+    const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
+};
 
-VkImage textureImage;
-VkDeviceMemory textureImageMemory;
-VkImageView textureImageView;
-VkSampler textureSampler;
+struct Vulkan_GlyphAtlas
+{
+    VkBuffer glyphInstBuffer;
+    VkDeviceMemory glyphMemoryBuffer;
+    VkDeviceSize glyphInstBufferSize;
+    VkBuffer glyphIndexBuffer;
+    VkDeviceMemory glyphIndexMemoryBuffer;
+
+    VkPipeline graphicsPipeline;
+    VkPipelineLayout pipelineLayout;
+
+    VkRenderPass renderPass;
+
+    VkImage textureImage;
+    VkDeviceMemory textureImageMemory;
+    VkImageView textureImageView;
+    VkSampler textureSampler;
+};
+
+Vulkan_GlyphAtlas vulkanGlyphAtlas;
+GlyphAtlas glyphAtlas;
 
 void cleanupFontResources(VkDevice device);
 void createTextRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFlagBits msaaSamples);

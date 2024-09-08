@@ -9,7 +9,7 @@ void TextRenderPass(VkCommandBuffer commandBuffer,
 {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = renderPass;
+    renderPassInfo.renderPass = vulkanGlyphAtlas.renderPass;
     renderPassInfo.framebuffer = swapChainFramebuffer;
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = swapChainExtent;
@@ -22,7 +22,7 @@ void TextRenderPass(VkCommandBuffer commandBuffer,
                          VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      graphicsPipeline);
+                      vulkanGlyphAtlas.graphicsPipeline);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -38,15 +38,15 @@ void TextRenderPass(VkCommandBuffer commandBuffer,
     scissor.extent = swapChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    VkBuffer vertexBuffers[] = {glyphInstBuffer};
+    VkBuffer vertexBuffers[] = {vulkanGlyphAtlas.glyphInstBuffer};
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-    vkCmdBindIndexBuffer(commandBuffer, glyphIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffer, vulkanGlyphAtlas.glyphIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanGlyphAtlas.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
-    vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(glyphInstances.size), 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(glyphAtlas.glyphInstances.size), 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 }
@@ -59,17 +59,17 @@ void addText(std::string text, float x, float y)
         {
             throw std::runtime_error("Character not supported!");
         }
-        if (characters.find(text[i]) == characters.end())
+        if (glyphAtlas.characters.find(text[i]) == glyphAtlas.characters.end())
         {
             throw std::runtime_error("Character not supported!");
         }
-        Character &ch = characters.at(text[i]);
+        Character &ch = glyphAtlas.characters.at(text[i]);
         float xpos = x + ch.bearingX;
         float ypos = y - ch.bearingY;
 
         GlyphBuffer tempGlyph = {{xpos, ypos}, {ch.width + xpos, ch.height + ypos}, ch.glyphOffset};
 
-        if (glyphInstances.pushBack(tempGlyph))
+        if (glyphAtlas.glyphInstances.pushBack(tempGlyph))
         {
             throw std::runtime_error("Failed to add glyph to buffer!");
         }
@@ -87,7 +87,7 @@ void addTexts(Text *texts, size_t len)
         bufferSize += texts[i].text.size();
     }
 
-    glyphInstances.reset(bufferSize);
+    glyphAtlas.glyphInstances.reset(bufferSize);
 
     for (size_t i = 0; i < len; i++)
     {
@@ -98,34 +98,34 @@ void addTexts(Text *texts, size_t len)
 void mapGlyphInstancesToBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue queue)
 {
     // Create the buffer for the text instances
-    VkDeviceSize bufferSize = sizeof(GlyphBuffer) * glyphInstances.size;
-    if (bufferSize > glyphInstBufferSize)
+    VkDeviceSize bufferSize = sizeof(GlyphBuffer) * glyphAtlas.glyphInstances.size;
+    if (bufferSize > vulkanGlyphAtlas.glyphInstBufferSize)
     {
 
-        vkDestroyBuffer(device, glyphInstBuffer, nullptr);
-        vkFreeMemory(device, glyphMemoryBuffer, nullptr);
+        vkDestroyBuffer(device, vulkanGlyphAtlas.glyphInstBuffer, nullptr);
+        vkFreeMemory(device, vulkanGlyphAtlas.glyphMemoryBuffer, nullptr);
 
         createBuffer(
             physicalDevice,
             device,
             bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            glyphInstBuffer, glyphMemoryBuffer);
+            vulkanGlyphAtlas.glyphInstBuffer, vulkanGlyphAtlas.glyphMemoryBuffer);
     }
 
     // TODO: Consider using vkFlushMappedMemoryRanges and vkInvalidateMappedMemoryRanges instead of VK_MEMORY_PROPERTY_HOST_COHERENT_BIT for performance.
 
     void *data;
-    vkMapMemory(device, glyphMemoryBuffer, 0, bufferSize, 0, &data);
-    memcpy(data, glyphInstances.data, (size_t)bufferSize);
-    vkUnmapMemory(device, glyphMemoryBuffer);
+    vkMapMemory(device, vulkanGlyphAtlas.glyphMemoryBuffer, 0, bufferSize, 0, &data);
+    memcpy(data, glyphAtlas.glyphInstances.data, (size_t)bufferSize);
+    vkUnmapMemory(device, vulkanGlyphAtlas.glyphMemoryBuffer);
 
-    glyphInstBufferSize = bufferSize;
+    vulkanGlyphAtlas.glyphInstBufferSize = bufferSize;
 }
 
 void createGlyphIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue)
 {
-    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+    VkDeviceSize bufferSize = sizeof(glyphAtlas.indices[0]) * glyphAtlas.indices.size();
 
     createBuffer(physicalDevice,
                  device,
@@ -133,13 +133,13 @@ void createGlyphIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, Vk
                  VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, // these are not the most performant flags
-                 glyphIndexBuffer, glyphIndexMemoryBuffer);
+                 vulkanGlyphAtlas.glyphIndexBuffer, vulkanGlyphAtlas.glyphIndexMemoryBuffer);
     // TODO: Consider using staging buffer that copies to the glyphIndexBuffer with VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 
     void *data;
-    vkMapMemory(device, glyphIndexMemoryBuffer, 0, bufferSize, 0, &data);
-    memcpy(data, indices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device, glyphIndexMemoryBuffer);
+    vkMapMemory(device, vulkanGlyphAtlas.glyphIndexMemoryBuffer, 0, bufferSize, 0, &data);
+    memcpy(data, glyphAtlas.indices.data(), (size_t)bufferSize);
+    vkUnmapMemory(device, vulkanGlyphAtlas.glyphIndexMemoryBuffer);
 }
 
 // Things to do:
@@ -181,9 +181,9 @@ unsigned char *initGlyphs(int *width, int *height)
         *width += face->glyph->bitmap.width;
         *height = std::max(*height, static_cast<int>(face->glyph->bitmap.rows));
 
-        characters[c] = {(float)face->glyph->bitmap.width, (float)face->glyph->bitmap.rows,
-                         (float)face->glyph->bitmap_left, (float)face->glyph->bitmap_top,
-                         static_cast<unsigned int>(face->glyph->advance.x)};
+        glyphAtlas.characters[c] = {(float)face->glyph->bitmap.width, (float)face->glyph->bitmap.rows,
+                                    (float)face->glyph->bitmap_left, (float)face->glyph->bitmap_top,
+                                    static_cast<unsigned int>(face->glyph->advance.x)};
     }
 
     glyphBuffer = new unsigned char[(*width) * (*height)];
@@ -202,7 +202,7 @@ unsigned char *initGlyphs(int *width, int *height)
                 glyphBuffer[j * (*width) + k + glyphOffset] = face->glyph->bitmap.buffer[k + j * face->glyph->bitmap.width];
             }
         }
-        characters.at(curChar).glyphOffset = glyphOffset;
+        glyphAtlas.characters.at(curChar).glyphOffset = glyphOffset;
         glyphOffset += face->glyph->bitmap.width;
     }
     FT_Done_FreeType(ft);
@@ -347,7 +347,7 @@ void createTextGraphicsPipeline(VkDevice device,
     pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr,
-                               &pipelineLayout) != VK_SUCCESS)
+                               &vulkanGlyphAtlas.pipelineLayout) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create pipeline layout!");
     }
@@ -364,15 +364,15 @@ void createTextGraphicsPipeline(VkDevice device,
     pipelineInfo.pDepthStencilState = nullptr; // Optional
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState; // Optional
-    pipelineInfo.layout = pipelineLayout;
-    pipelineInfo.renderPass = renderPass;
+    pipelineInfo.layout = vulkanGlyphAtlas.pipelineLayout;
+    pipelineInfo.renderPass = vulkanGlyphAtlas.renderPass;
     pipelineInfo.subpass = 0;
 
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
     pipelineInfo.basePipelineIndex = -1;              // Optional
 
     if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo,
-                                  nullptr, &graphicsPipeline) != VK_SUCCESS)
+                                  nullptr, &vulkanGlyphAtlas.graphicsPipeline) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
@@ -437,7 +437,7 @@ void createTextRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSamp
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies = &dependency;
 
-    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) !=
+    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &vulkanGlyphAtlas.renderPass) !=
         VK_SUCCESS)
     {
         throw std::runtime_error("failed to create render pass!");
@@ -446,19 +446,19 @@ void createTextRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSamp
 
 void cleanupFontResources(VkDevice device)
 {
-    vkFreeMemory(device, textureImageMemory, nullptr);
-    vkDestroyImage(device, textureImage, nullptr);
-    vkDestroyImageView(device, textureImageView, nullptr);
-    vkDestroySampler(device, textureSampler, nullptr);
+    vkFreeMemory(device, vulkanGlyphAtlas.textureImageMemory, nullptr);
+    vkDestroyImage(device, vulkanGlyphAtlas.textureImage, nullptr);
+    vkDestroyImageView(device, vulkanGlyphAtlas.textureImageView, nullptr);
+    vkDestroySampler(device, vulkanGlyphAtlas.textureSampler, nullptr);
 
-    vkDestroyPipeline(device, graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+    vkDestroyPipeline(device, vulkanGlyphAtlas.graphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(device, vulkanGlyphAtlas.pipelineLayout, nullptr);
 
-    vkDestroyBuffer(device, glyphInstBuffer, nullptr);
-    vkFreeMemory(device, glyphMemoryBuffer, nullptr);
-    vkDestroyBuffer(device, glyphIndexBuffer, nullptr);
-    vkFreeMemory(device, glyphIndexMemoryBuffer, nullptr);
-    vkDestroyRenderPass(device, renderPass, nullptr);
+    vkDestroyBuffer(device, vulkanGlyphAtlas.glyphInstBuffer, nullptr);
+    vkFreeMemory(device, vulkanGlyphAtlas.glyphMemoryBuffer, nullptr);
+    vkDestroyBuffer(device, vulkanGlyphAtlas.glyphIndexBuffer, nullptr);
+    vkFreeMemory(device, vulkanGlyphAtlas.glyphIndexMemoryBuffer, nullptr);
+    vkDestroyRenderPass(device, vulkanGlyphAtlas.renderPass, nullptr);
 }
 
 void createGlyphAtlasImage(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue)
@@ -491,10 +491,20 @@ void createGlyphAtlasImage(VkPhysicalDevice physicalDevice, VkDevice device, VkC
 
     delete pixels;
 
-    createImage(physicalDevice, device, texWidth, texHeight, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
-    transitionImageLayout(commandPool, device, graphicsQueue, textureImage, VK_FORMAT_R8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    copyBufferToImage(commandPool, device, graphicsQueue, stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-    transitionImageLayout(commandPool, device, graphicsQueue, textureImage, VK_FORMAT_R8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    createImage(physicalDevice,
+                device,
+                texWidth,
+                texHeight,
+                VK_SAMPLE_COUNT_1_BIT,
+                VK_FORMAT_R8_UNORM,
+                VK_IMAGE_TILING_OPTIMAL,
+                VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                vulkanGlyphAtlas.textureImage,
+                vulkanGlyphAtlas.textureImageMemory);
+    transitionImageLayout(commandPool, device, graphicsQueue, vulkanGlyphAtlas.textureImage, VK_FORMAT_R8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    copyBufferToImage(commandPool, device, graphicsQueue, stagingBuffer, vulkanGlyphAtlas.textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+    transitionImageLayout(commandPool, device, graphicsQueue, vulkanGlyphAtlas.textureImage, VK_FORMAT_R8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
@@ -502,7 +512,7 @@ void createGlyphAtlasImage(VkPhysicalDevice physicalDevice, VkDevice device, VkC
 
 void createGlyphAtlasImageView(VkDevice device)
 {
-    textureImageView = createImageView(device, textureImage, VK_FORMAT_R8_UNORM);
+    vulkanGlyphAtlas.textureImageView = createImageView(device, vulkanGlyphAtlas.textureImage, VK_FORMAT_R8_UNORM);
 }
 
 void createGlyphAtlasTextureSampler(VkPhysicalDevice physicalDevice, VkDevice device)
@@ -532,7 +542,7 @@ void createGlyphAtlasTextureSampler(VkPhysicalDevice physicalDevice, VkDevice de
     samplerInfo.maxLod = 0.0f;
 
     // The sampler is not attached to a image so it can be applied to any image
-    if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
+    if (vkCreateSampler(device, &samplerInfo, nullptr, &vulkanGlyphAtlas.textureSampler) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create texture sampler!");
     }
