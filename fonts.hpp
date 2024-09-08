@@ -114,11 +114,6 @@ VkDeviceMemory textureImageMemory;
 VkImageView textureImageView;
 VkSampler textureSampler;
 
-VkImage glyphAtlasColorImage;
-VkDeviceMemory glyphAtlasColorImageMemory;
-VkImageView glyphAtlasColorImageView;
-VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
-
 void cleanupFontResources(VkDevice device);
 void createTextRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFlagBits msaaSamples);
 void createTextGraphicsPipeline(VkDevice device,
@@ -140,6 +135,4 @@ void TextRenderPass(VkCommandBuffer commandBuffer,
                     VkDescriptorSet descriptorSet);
 
 void createGlyphAtlasImage(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue);
-void createGlyphAtlasImage(VkPhysicalDevice physicalDevice, VkDevice device, uint32_t width, uint32_t height, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &imageMemory);
 void createGlyphAtlasImageView(VkDevice device);
-void cleanupGlyphAtlasSwapChain();

@@ -118,6 +118,11 @@ private:
   VkDescriptorPool descriptorPool;
   std::vector<VkDescriptorSet> descriptorSets;
 
+  VkImage colorImage;
+  VkDeviceMemory colorImageMemory;
+  VkImageView colorImageView;
+  VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+
   const std::vector<BoxInstance> boxInstances = {
       {{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
       {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
@@ -166,8 +171,8 @@ private:
     createDescriptorSetLayout();
     createGraphicsPipeline();
     createCommandPool();
-    createGlyphAtlasColorResources(physicalDevice, device, swapChainImageFormat, swapChainExtent); // TODO: refactor to be more general an return the color image view
-    createFramebuffers(glyphAtlasColorImageView);
+    colorImageView = createColorResources(physicalDevice, device, swapChainImageFormat, swapChainExtent, msaaSamples, colorImage, colorImageMemory);
+    createFramebuffers(colorImageView);
     createBoxInstBuffer();
     createBoxIndexBuffer();
 
@@ -477,10 +482,17 @@ private:
     vkFreeMemory(device, stagingBufferMemory, nullptr);
   }
 
+  void cleanupColorResources(VkDevice device)
+  {
+    vkDestroyImageView(device, colorImageView, nullptr);
+    vkDestroyImage(device, colorImage, nullptr);
+    vkFreeMemory(device, colorImageMemory, nullptr);
+  }
+
   void cleanupSwapChain()
   {
 
-    cleanupGlyphAtlasSwapChain(device);
+    cleanupColorResources(device);
 
     for (size_t i = 0; i < swapChainFramebuffers.size(); i++)
     {
@@ -510,8 +522,8 @@ private:
 
     createSwapChain();
     createImageViews();
-    createGlyphAtlasColorResources(physicalDevice, device, swapChainImageFormat, swapChainExtent);
-    createFramebuffers(glyphAtlasColorImageView);
+    colorImageView = createColorResources(physicalDevice, device, swapChainImageFormat, swapChainExtent, msaaSamples, colorImage, colorImageMemory);
+    createFramebuffers(colorImageView);
   }
 
   void createSyncObjects()
