@@ -24,10 +24,11 @@ struct GlyphBuffer
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
         return bindingDescription;
     }
-    static std::array<VkVertexInputAttributeDescription, 3>
+    static std::vector<VkVertexInputAttributeDescription>
     getAttributeDescriptions()
     {
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+        std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
+        attributeDescriptions.resize(3);
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
         attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
@@ -115,8 +116,6 @@ struct Vulkan_GlyphAtlas
     VkPipeline graphicsPipeline;
     VkPipelineLayout pipelineLayout;
 
-    VkRenderPass renderPass;
-
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
     VkImageView textureImageView;
@@ -127,24 +126,18 @@ Vulkan_GlyphAtlas vulkanGlyphAtlas;
 GlyphAtlas glyphAtlas;
 
 void cleanupFontResources(VkDevice device);
-void createTextRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFlagBits msaaSamples);
-void createTextGraphicsPipeline(VkDevice device,
-                                VkExtent2D swapChainExtent,
 
-                                VkDescriptorSetLayout descriptorSetLayout,
-                                VkSampleCountFlagBits msaaSamples,
-                                std::string vertShaderPath,
-                                std::string fragShaderPath);
 unsigned char *initGlyphs(int *width, int *height);
 void createGlyphIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue);
 void mapGlyphInstancesToBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue queue);
 
 void addTexts(Text *texts, size_t len);
 void addText(std::string text, float x, float y);
-void TextRenderPass(VkCommandBuffer commandBuffer,
-                    VkFramebuffer swapChainFramebuffer,
-                    VkExtent2D swapChainExtent,
-                    VkDescriptorSet descriptorSet);
+void beginGlyphAtlasRenderPass(VkCommandBuffer commandBuffer,
+                               VkFramebuffer swapChainFramebuffer,
+                               VkExtent2D swapChainExtent,
+                               VkDescriptorSet descriptorSet,
+                               VkRenderPass renderPass);
 
 void createGlyphAtlasImage(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue);
 void createGlyphAtlasImageView(VkDevice device);

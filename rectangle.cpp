@@ -1,6 +1,6 @@
 #include "rectangle.hpp"
 
-void createBoxIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<uint16_t> indices)
+void createRectangleIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<uint16_t> indices)
 {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
@@ -32,7 +32,7 @@ void createBoxIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCo
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
-void createBoxInstBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<BoxInstance> boxInstances)
+void createRectangleInstBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<RectangleInstance> boxInstances)
 {
 
     VkDeviceSize bufferSize = sizeof(boxInstances[0]) * boxInstances.size();
@@ -62,19 +62,22 @@ void createBoxInstBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCom
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
-void BoxRenderPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkFramebuffer swapchainFramebuffer, VkExtent2D swapChainExtent, VkDescriptorSet descriptorSet, std::vector<BoxInstance> boxInstances)
+void rectangleRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer swapchainFramebuffer, VkExtent2D swapChainExtent, VkDescriptorSet descriptorSet, std::vector<RectangleInstance> boxInstances)
 {
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = vulkanRectangle.renderPass;
+    renderPassInfo.renderPass = renderPass;
     renderPassInfo.framebuffer = swapchainFramebuffer;
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = swapChainExtent;
 
-    VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
+    std::array<VkClearValue, 2> clearValues{};
+    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    clearValues[1].depthStencil = {1.0f, 0};
+
+    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassInfo.pClearValues = clearValues.data();
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo,
                          VK_SUBPASS_CONTENTS_INLINE);
@@ -117,4 +120,7 @@ void cleanupRectangle(VkDevice device)
 
     vkDestroyBuffer(device, vulkanRectangle.boxInstBuffer, nullptr);
     vkFreeMemory(device, vulkanRectangle.boxMemoryBuffer, nullptr);
+
+    vkDestroyPipeline(device, vulkanRectangle.graphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(device, vulkanRectangle.pipelineLayout, nullptr);
 }

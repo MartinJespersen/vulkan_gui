@@ -13,12 +13,11 @@ struct Vulkan_Rectangle
     VkDeviceMemory boxIndexMemoryBuffer;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
-    VkRenderPass renderPass;
 };
 
 Vulkan_Rectangle vulkanRectangle;
 
-void createBoxIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<uint16_t> indices);
-void createBoxInstBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<BoxInstance> boxInstances);
-void BoxRenderPass(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkFramebuffer swapchainFramebuffer, VkExtent2D swapChainExtent, std::vector<BoxInstance> boxInstances, VkDescriptorSet descriptorSet);
+void createRectangleIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<uint16_t> indices);
+void createRectangleInstBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<RectangleInstance> boxInstances);
+void rectangleRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer swapchainFramebuffer, VkExtent2D swapChainExtent, std::vector<RectangleInstance> boxInstances, VkDescriptorSet descriptorSet);
 void cleanupRectangle(VkDevice device);
