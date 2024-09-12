@@ -1,13 +1,36 @@
 #pragma once
 #include <vulkan/vulkan.h>
 #include <stdexcept>
-
-#include <vulkan/vulkan_core.h>
-#define GLFW_INCLUDE_VULKAN
-#include <stdexcept>
 #include <tuple>
 
-VkCommandBuffer beginSingleTimeCommands(VkDevice device, VkCommandPool commandPool)
+struct Vulkan_PushConstantInfo
+{
+
+    uint32_t offset;
+    uint32_t size;
+};
+
+struct Vulkan_Resolution
+{
+    static const uint32_t SIZE = 2;
+    float data[SIZE];
+    Vulkan_PushConstantInfo bufferInfo;
+
+    Vulkan_Resolution(VkExtent2D extent, Vulkan_PushConstantInfo bufferInfo)
+    {
+        data[0] = extent.width;
+        data[1] = extent.height;
+        this->bufferInfo = bufferInfo;
+    }
+
+    inline uint32_t size()
+    {
+        return sizeof(data);
+    }
+};
+
+VkCommandBuffer
+beginSingleTimeCommands(VkDevice device, VkCommandPool commandPool)
 {
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -318,6 +341,7 @@ std::tuple<VkPipelineLayout, VkPipeline> createGraphicsPipeline(VkDevice device,
                                                                 VkSampleCountFlagBits msaaSamples,
                                                                 VkVertexInputBindingDescription bindingDescription,
                                                                 std::vector<VkVertexInputAttributeDescription> attributeDescriptions,
+                                                                Vulkan_PushConstantInfo pushConstInfo,
                                                                 std::string vertShaderPath,
                                                                 std::string fragShaderPath)
 {
@@ -442,12 +466,17 @@ std::tuple<VkPipelineLayout, VkPipeline> createGraphicsPipeline(VkDevice device,
     colorBlending.blendConstants[2] = 0.0f; // Optional
     colorBlending.blendConstants[3] = 0.0f; // Optional
 
+    VkPushConstantRange range = {};
+    range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    range.offset = pushConstInfo.offset;
+    range.size = pushConstInfo.size;
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
-    pipelineLayoutInfo.pushConstantRangeCount = 0;    // Optional
-    pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
+    pipelineLayoutInfo.pushConstantRangeCount = 1;   // Optional
+    pipelineLayoutInfo.pPushConstantRanges = &range; // Optional
 
     VkPipelineLayout pipelineLayout;
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr,

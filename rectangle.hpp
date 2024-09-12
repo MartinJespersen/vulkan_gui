@@ -19,5 +19,5 @@ Vulkan_Rectangle vulkanRectangle;
 
 void createRectangleIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<uint16_t> indices);
 void createRectangleInstBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<RectangleInstance> boxInstances);
-void rectangleRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer swapchainFramebuffer, VkExtent2D swapChainExtent, std::vector<RectangleInstance> boxInstances, VkDescriptorSet descriptorSet);
+void beginRectangleRenderPass(VkCommandBuffer commandBuffer, VkFramebuffer swapchainFramebuffer, VkExtent2D swapChainExtent, std::vector<RectangleInstance> boxInstances, VkDescriptorSet descriptorSet, Vulkan_Resolution resolution);
 void cleanupRectangle(VkDevice device);

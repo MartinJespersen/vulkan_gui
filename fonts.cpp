@@ -6,7 +6,8 @@ void beginGlyphAtlasRenderPass(VkCommandBuffer commandBuffer,
                                VkFramebuffer swapChainFramebuffer,
                                VkExtent2D swapChainExtent,
                                VkDescriptorSet descriptorSet,
-                               VkRenderPass renderPass)
+                               VkRenderPass renderPass,
+                               Vulkan_Resolution resolution)
 {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -14,10 +15,6 @@ void beginGlyphAtlasRenderPass(VkCommandBuffer commandBuffer,
     renderPassInfo.framebuffer = swapChainFramebuffer;
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = swapChainExtent;
-
-    // VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-    // renderPassInfo.clearValueCount = 1;
-    // renderPassInfo.pClearValues = &clearColor;
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo,
                          VK_SUBPASS_CONTENTS_INLINE);
@@ -46,6 +43,8 @@ void beginGlyphAtlasRenderPass(VkCommandBuffer commandBuffer,
     vkCmdBindIndexBuffer(commandBuffer, vulkanGlyphAtlas.glyphIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanGlyphAtlas.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+
+    vkCmdPushConstants(commandBuffer, vulkanGlyphAtlas.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, resolution.bufferInfo.offset, resolution.size(), resolution.data);
 
     vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(glyphAtlas.glyphInstances.size), 0, 0, 0);
 

@@ -8,6 +8,7 @@
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include "shader.hpp"
+#include "vulkan_helpers.hpp"
 
 const int MAX_GLYPHS = 126;
 struct GlyphBuffer
@@ -137,7 +138,8 @@ void beginGlyphAtlasRenderPass(VkCommandBuffer commandBuffer,
                                VkFramebuffer swapChainFramebuffer,
                                VkExtent2D swapChainExtent,
                                VkDescriptorSet descriptorSet,
-                               VkRenderPass renderPass);
+                               VkRenderPass renderPass,
+                               Vulkan_Resolution resolution);
 
 void createGlyphAtlasImage(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue);
 void createGlyphAtlasImageView(VkDevice device);

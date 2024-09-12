@@ -62,7 +62,13 @@ void createRectangleInstBuffer(VkPhysicalDevice physicalDevice, VkDevice device,
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
-void rectangleRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer swapchainFramebuffer, VkExtent2D swapChainExtent, VkDescriptorSet descriptorSet, std::vector<RectangleInstance> boxInstances)
+void beginRectangleRenderPass(VkCommandBuffer commandBuffer,
+                              VkRenderPass renderPass,
+                              VkFramebuffer swapchainFramebuffer,
+                              VkExtent2D swapChainExtent,
+                              VkDescriptorSet descriptorSet,
+                              std::vector<RectangleInstance> boxInstances,
+                              Vulkan_Resolution resolution)
 {
 
     VkRenderPassBeginInfo renderPassInfo{};
@@ -107,6 +113,8 @@ void rectangleRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass,
     vkCmdBindIndexBuffer(commandBuffer, vulkanRectangle.boxIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanRectangle.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+
+    vkCmdPushConstants(commandBuffer, vulkanRectangle.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, resolution.bufferInfo.offset, resolution.size(), resolution.data);
 
     vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(boxInstances.size()), 0, 0, 0);
 

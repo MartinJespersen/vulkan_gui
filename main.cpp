@@ -122,6 +122,8 @@ private:
   VkRenderPass firstRenderPass;
   VkRenderPass renderPass;
 
+  Vulkan_PushConstantInfo pushConstantInfo;
+
   const std::vector<RectangleInstance> boxInstances = {
       {{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
       {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
@@ -171,6 +173,9 @@ private:
     createDescriptorSetLayout();
     createCommandPool();
 
+    pushConstantInfo.offset = 0;
+    pushConstantInfo.size = sizeof(float) * 2;
+
     auto rectangleObjects = createGraphicsPipeline(device,
                                                    swapChainExtent,
                                                    renderPass,
@@ -178,6 +183,7 @@ private:
                                                    msaaSamples,
                                                    RectangleInstance::getBindingDescription(),
                                                    RectangleInstance::getAttributeDescriptions(),
+                                                   pushConstantInfo,
                                                    "shaders/vert.spv",
                                                    "shaders/frag.spv");
 
@@ -200,6 +206,7 @@ private:
                                                             msaaSamples,
                                                             GlyphBuffer::getBindingDescription(),
                                                             GlyphBuffer::getAttributeDescriptions(),
+                                                            pushConstantInfo,
                                                             "shaders/text_vert.spv",
                                                             "shaders/text_frag.spv");
     vulkanGlyphAtlas.pipelineLayout = std::get<0>(glyphAtlasGraphicsObjects);
@@ -598,11 +605,23 @@ private:
       throw std::runtime_error("failed to begin recording command buffer!");
     }
 
+    Vulkan_Resolution resolution = Vulkan_Resolution(swapChainExtent, pushConstantInfo);
     Text texts[] = {{"testing", 300, 300}, {"more testing", 300, 400}};
-    rectangleRenderPass(commandBuffer, firstRenderPass, swapChainFramebuffers[imageIndex], swapChainExtent, descriptorSets[currentFrame], boxInstances);
+    beginRectangleRenderPass(commandBuffer,
+                             firstRenderPass,
+                             swapChainFramebuffers[imageIndex],
+                             swapChainExtent,
+                             descriptorSets[currentFrame],
+                             boxInstances,
+                             resolution);
     addTexts(texts, sizeof(texts) / sizeof(texts[0]));
     mapGlyphInstancesToBuffer(physicalDevice, device, commandPool, graphicsQueue);
-    beginGlyphAtlasRenderPass(commandBuffer, swapChainFramebuffers[imageIndex], swapChainExtent, descriptorSets[currentFrame], renderPass);
+    beginGlyphAtlasRenderPass(commandBuffer,
+                              swapChainFramebuffers[imageIndex],
+                              swapChainExtent,
+                              descriptorSets[currentFrame],
+                              renderPass,
+                              resolution);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
     {
