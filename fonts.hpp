@@ -55,6 +55,8 @@ struct ArrayGlyphInstance
     size_t size;
     size_t capacity;
 
+    ArrayGlyphInstance() : data(nullptr), size(0), capacity(0) {}
+
     inline int pushBack(GlyphBuffer glyph)
     {
         if (size >= capacity)
@@ -123,23 +125,22 @@ struct Vulkan_GlyphAtlas
     VkSampler textureSampler;
 };
 
-Vulkan_GlyphAtlas vulkanGlyphAtlas;
-GlyphAtlas glyphAtlas;
+void cleanupFontResources(Vulkan_GlyphAtlas &vulkanGlyphAtlas, VkDevice device);
 
-void cleanupFontResources(VkDevice device);
+unsigned char *initGlyphs(GlyphAtlas &glyphAtlas, int *width, int *height);
+void createGlyphIndexBuffer(Vulkan_GlyphAtlas &vulkanGlyphAtlas, GlyphAtlas &glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue);
+void mapGlyphInstancesToBuffer(Vulkan_GlyphAtlas &vulkanGlyphAtlas, GlyphAtlas &glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue queue);
 
-unsigned char *initGlyphs(int *width, int *height);
-void createGlyphIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue);
-void mapGlyphInstancesToBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue queue);
-
-void addTexts(Text *texts, size_t len);
-void addText(std::string text, float x, float y);
-void beginGlyphAtlasRenderPass(VkCommandBuffer commandBuffer,
+void addTexts(GlyphAtlas &glyphAtlas, Text *texts, size_t len);
+void addText(GlyphAtlas &glyphAtlas, std::string text, float x, float y);
+void beginGlyphAtlasRenderPass(Vulkan_GlyphAtlas &vulkanGlyphAtlas,
+                               GlyphAtlas &glyphAtlas,
+                               VkCommandBuffer commandBuffer,
                                VkFramebuffer swapChainFramebuffer,
                                VkExtent2D swapChainExtent,
                                VkDescriptorSet descriptorSet,
                                VkRenderPass renderPass,
                                Vulkan_Resolution resolution);
 
-void createGlyphAtlasImage(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue);
-void createGlyphAtlasImageView(VkDevice device);
+void createGlyphAtlasImage(Vulkan_GlyphAtlas &vulkanGlyphAtlas, GlyphAtlas &glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue);
+void createGlyphAtlasImageView(Vulkan_GlyphAtlas &vulkanGlyphAtlas, VkDevice device);

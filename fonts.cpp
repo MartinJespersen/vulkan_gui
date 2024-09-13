@@ -2,7 +2,9 @@
 #include "vulkan_helpers.hpp"
 #include <iostream>
 
-void beginGlyphAtlasRenderPass(VkCommandBuffer commandBuffer,
+void beginGlyphAtlasRenderPass(Vulkan_GlyphAtlas &vulkanGlyphAtlas,
+                               GlyphAtlas &glyphAtlas,
+                               VkCommandBuffer commandBuffer,
                                VkFramebuffer swapChainFramebuffer,
                                VkExtent2D swapChainExtent,
                                VkDescriptorSet descriptorSet,
@@ -51,7 +53,7 @@ void beginGlyphAtlasRenderPass(VkCommandBuffer commandBuffer,
     vkCmdEndRenderPass(commandBuffer);
 }
 
-void addText(std::string text, float x, float y)
+void addText(GlyphAtlas &glyphAtlas, std::string text, float x, float y)
 {
     for (int i = 0; i < text.size(); i++)
     {
@@ -77,7 +79,7 @@ void addText(std::string text, float x, float y)
     }
 }
 
-void addTexts(Text *texts, size_t len)
+void addTexts(GlyphAtlas &glyphAtlas, Text *texts, size_t len)
 {
 
     size_t bufferSize = 0;
@@ -91,11 +93,11 @@ void addTexts(Text *texts, size_t len)
 
     for (size_t i = 0; i < len; i++)
     {
-        addText(texts[i].text, texts[i].x, texts[i].y);
+        addText(glyphAtlas, texts[i].text, texts[i].x, texts[i].y);
     }
 }
 
-void mapGlyphInstancesToBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue queue)
+void mapGlyphInstancesToBuffer(Vulkan_GlyphAtlas &vulkanGlyphAtlas, GlyphAtlas &glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue queue)
 {
     // Create the buffer for the text instances
     VkDeviceSize bufferSize = sizeof(GlyphBuffer) * glyphAtlas.glyphInstances.size;
@@ -123,7 +125,7 @@ void mapGlyphInstancesToBuffer(VkPhysicalDevice physicalDevice, VkDevice device,
     vulkanGlyphAtlas.glyphInstBufferSize = bufferSize;
 }
 
-void createGlyphIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue)
+void createGlyphIndexBuffer(Vulkan_GlyphAtlas &vulkanGlyphAtlas, GlyphAtlas &glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue)
 {
     VkDeviceSize bufferSize = sizeof(glyphAtlas.indices[0]) * glyphAtlas.indices.size();
 
@@ -144,7 +146,7 @@ void createGlyphIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, Vk
 
 // Things to do:
 // 1. create the buffer in 2D (so the with and height should be found ) this is to use the buffer as a texture
-unsigned char *initGlyphs(int *width, int *height)
+unsigned char *initGlyphs(GlyphAtlas &glyphAtlas, int *width, int *height)
 {
     FT_Library ft;
     FT_Face face;
@@ -209,7 +211,7 @@ unsigned char *initGlyphs(int *width, int *height)
     return glyphBuffer;
 }
 
-void cleanupFontResources(VkDevice device)
+void cleanupFontResources(Vulkan_GlyphAtlas &vulkanGlyphAtlas, VkDevice device)
 {
     vkFreeMemory(device, vulkanGlyphAtlas.textureImageMemory, nullptr);
     vkDestroyImage(device, vulkanGlyphAtlas.textureImage, nullptr);
@@ -225,10 +227,10 @@ void cleanupFontResources(VkDevice device)
     vkFreeMemory(device, vulkanGlyphAtlas.glyphIndexMemoryBuffer, nullptr);
 }
 
-void createGlyphAtlasImage(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue)
+void createGlyphAtlasImage(Vulkan_GlyphAtlas &vulkanGlyphAtlas, GlyphAtlas &glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue)
 {
     int texWidth, texHeight;
-    unsigned char *pixels = initGlyphs(&texWidth, &texHeight);
+    unsigned char *pixels = initGlyphs(glyphAtlas, &texWidth, &texHeight);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
     if (!pixels)
@@ -274,12 +276,12 @@ void createGlyphAtlasImage(VkPhysicalDevice physicalDevice, VkDevice device, VkC
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
-void createGlyphAtlasImageView(VkDevice device)
+void createGlyphAtlasImageView(Vulkan_GlyphAtlas &vulkanGlyphAtlas, VkDevice device)
 {
     vulkanGlyphAtlas.textureImageView = createImageView(device, vulkanGlyphAtlas.textureImage, VK_FORMAT_R8_UNORM);
 }
 
-void createGlyphAtlasTextureSampler(VkPhysicalDevice physicalDevice, VkDevice device)
+void createGlyphAtlasTextureSampler(Vulkan_GlyphAtlas &vulkanGlyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device)
 {
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;

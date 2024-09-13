@@ -124,6 +124,17 @@ private:
 
   Vulkan_PushConstantInfo pushConstantInfo;
 
+  struct Vulkan_Context
+  {
+    Vulkan_Rectangle vulkanRectangle;
+    Vulkan_GlyphAtlas vulkanGlyphAtlas;
+  } vulkanContext = {};
+
+  struct Context
+  {
+    GlyphAtlas glyphAtlas;
+  } context = {};
+
   const std::vector<RectangleInstance> boxInstances = {
       {{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
       {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
@@ -187,17 +198,17 @@ private:
                                                    "shaders/vert.spv",
                                                    "shaders/frag.spv");
 
-    vulkanRectangle.pipelineLayout = std::get<0>(rectangleObjects);
-    vulkanRectangle.graphicsPipeline = std::get<1>(rectangleObjects);
+    vulkanContext.vulkanRectangle.pipelineLayout = std::get<0>(rectangleObjects);
+    vulkanContext.vulkanRectangle.graphicsPipeline = std::get<1>(rectangleObjects);
 
     colorImageView = createColorResources(physicalDevice, device, swapChainImageFormat, swapChainExtent, msaaSamples, colorImage, colorImageMemory);
     swapChainFramebuffers = createFramebuffers(device, colorImageView, renderPass, swapChainExtent, swapChainImageViews);
-    createRectangleInstBuffer(physicalDevice, device, commandPool, graphicsQueue, boxInstances);
-    createRectangleIndexBuffer(physicalDevice, device, commandPool, graphicsQueue, indices);
+    createRectangleInstBuffer(vulkanContext.vulkanRectangle, physicalDevice, device, commandPool, graphicsQueue, boxInstances);
+    createRectangleIndexBuffer(vulkanContext.vulkanRectangle, physicalDevice, device, commandPool, graphicsQueue, indices);
 
-    createGlyphAtlasImage(physicalDevice, device, commandPool, graphicsQueue);
-    createGlyphAtlasImageView(device);
-    createGlyphAtlasTextureSampler(physicalDevice, device);
+    createGlyphAtlasImage(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas, physicalDevice, device, commandPool, graphicsQueue);
+    createGlyphAtlasImageView(vulkanContext.vulkanGlyphAtlas, device);
+    createGlyphAtlasTextureSampler(vulkanContext.vulkanGlyphAtlas, physicalDevice, device);
 
     auto glyphAtlasGraphicsObjects = createGraphicsPipeline(device,
                                                             swapChainExtent,
@@ -209,13 +220,13 @@ private:
                                                             pushConstantInfo,
                                                             "shaders/text_vert.spv",
                                                             "shaders/text_frag.spv");
-    vulkanGlyphAtlas.pipelineLayout = std::get<0>(glyphAtlasGraphicsObjects);
-    vulkanGlyphAtlas.graphicsPipeline = std::get<1>(glyphAtlasGraphicsObjects);
+    vulkanContext.vulkanGlyphAtlas.pipelineLayout = std::get<0>(glyphAtlasGraphicsObjects);
+    vulkanContext.vulkanGlyphAtlas.graphicsPipeline = std::get<1>(glyphAtlasGraphicsObjects);
 
-    createGlyphIndexBuffer(physicalDevice, device, commandPool, graphicsQueue);
+    createGlyphIndexBuffer(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas, physicalDevice, device, commandPool, graphicsQueue);
     createUniformBuffers();
     createDescriptorPool();
-    createDescriptorSets(vulkanGlyphAtlas.textureImageView, vulkanGlyphAtlas.textureSampler);
+    createDescriptorSets(vulkanContext.vulkanGlyphAtlas.textureImageView, vulkanContext.vulkanGlyphAtlas.textureSampler);
     createCommandBuffers();
     createSyncObjects();
   }
@@ -239,8 +250,8 @@ private:
     }
     cleanupSwapChain();
 
-    cleanupFontResources(device);
-    cleanupRectangle(device);
+    cleanupFontResources(vulkanContext.vulkanGlyphAtlas, device);
+    cleanupRectangle(vulkanContext.vulkanRectangle, device);
 
     vkDestroyRenderPass(device, firstRenderPass, nullptr);
     vkDestroyRenderPass(device, renderPass, nullptr);
@@ -607,16 +618,19 @@ private:
 
     Vulkan_Resolution resolution = Vulkan_Resolution(swapChainExtent, pushConstantInfo);
     Text texts[] = {{"testing", 300, 300}, {"more testing", 300, 400}};
-    beginRectangleRenderPass(commandBuffer,
+    beginRectangleRenderPass(vulkanContext.vulkanRectangle,
+                             commandBuffer,
                              firstRenderPass,
                              swapChainFramebuffers[imageIndex],
                              swapChainExtent,
                              descriptorSets[currentFrame],
                              boxInstances,
                              resolution);
-    addTexts(texts, sizeof(texts) / sizeof(texts[0]));
-    mapGlyphInstancesToBuffer(physicalDevice, device, commandPool, graphicsQueue);
-    beginGlyphAtlasRenderPass(commandBuffer,
+    addTexts(context.glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]));
+    mapGlyphInstancesToBuffer(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas, physicalDevice, device, commandPool, graphicsQueue);
+    beginGlyphAtlasRenderPass(vulkanContext.vulkanGlyphAtlas,
+                              context.glyphAtlas,
+                              commandBuffer,
                               swapChainFramebuffers[imageIndex],
                               swapChainExtent,
                               descriptorSets[currentFrame],

@@ -1,6 +1,6 @@
 #include "rectangle.hpp"
 
-void createRectangleIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<uint16_t> indices)
+void createRectangleIndexBuffer(Vulkan_Rectangle &vulkanRectangle, VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<uint16_t> indices)
 {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
@@ -32,7 +32,7 @@ void createRectangleIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice device
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
-void createRectangleInstBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<RectangleInstance> boxInstances)
+void createRectangleInstBuffer(Vulkan_Rectangle &vulkanRectangle, VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, std::vector<RectangleInstance> boxInstances)
 {
 
     VkDeviceSize bufferSize = sizeof(boxInstances[0]) * boxInstances.size();
@@ -62,7 +62,8 @@ void createRectangleInstBuffer(VkPhysicalDevice physicalDevice, VkDevice device,
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
-void beginRectangleRenderPass(VkCommandBuffer commandBuffer,
+void beginRectangleRenderPass(Vulkan_Rectangle &vulkanRectangle,
+                              VkCommandBuffer commandBuffer,
                               VkRenderPass renderPass,
                               VkFramebuffer swapchainFramebuffer,
                               VkExtent2D swapChainExtent,
@@ -105,7 +106,6 @@ void beginRectangleRenderPass(VkCommandBuffer commandBuffer,
     scissor.extent = swapChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    // TODO: bind instance buffers
     VkBuffer vertexBuffers[] = {vulkanRectangle.boxInstBuffer};
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
@@ -121,7 +121,7 @@ void beginRectangleRenderPass(VkCommandBuffer commandBuffer,
     vkCmdEndRenderPass(commandBuffer);
 }
 
-void cleanupRectangle(VkDevice device)
+void cleanupRectangle(Vulkan_Rectangle &vulkanRectangle, VkDevice device)
 {
     vkDestroyBuffer(device, vulkanRectangle.boxIndexBuffer, nullptr);
     vkFreeMemory(device, vulkanRectangle.boxIndexMemoryBuffer, nullptr);
