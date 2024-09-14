@@ -1,3 +1,4 @@
+#include "utils.hpp"
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -136,11 +137,6 @@ class HelloTriangleApplication
         GlyphAtlas glyphAtlas;
     } context = {};
 
-    const std::vector<RectangleInstance> boxInstances = {
-        {{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
-        {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
-        {{0.0f, 0.8f}, {0.2f, 1.0f}, {0.8f, 0.8f, 0.8f}},
-        {{0.8f, 0.8f}, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}}};
     const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
     struct UniformBufferObject
@@ -207,8 +203,6 @@ class HelloTriangleApplication
                                  msaaSamples, colorImage, colorImageMemory);
         swapChainFramebuffers = createFramebuffers(device, colorImageView, renderPass,
                                                    swapChainExtent, swapChainImageViews);
-        createRectangleInstBuffer(vulkanContext.vulkanRectangle, physicalDevice, device,
-                                  commandPool, graphicsQueue, boxInstances);
         createRectangleIndexBuffer(vulkanContext.vulkanRectangle, physicalDevice, device,
                                    commandPool, graphicsQueue, indices);
 
@@ -618,15 +612,32 @@ class HelloTriangleApplication
 
         Vulkan_Resolution resolution = Vulkan_Resolution(swapChainExtent, pushConstantInfo);
         Text texts[] = {{"testing", 300, 300}, {"more testing", 300, 400}};
-        beginRectangleRenderPass(vulkanContext.vulkanRectangle, commandBuffer, firstRenderPass,
-                                 swapChainFramebuffers[imageIndex], swapChainExtent,
-                                 descriptorSets[currentFrame], boxInstances, resolution);
-        addTexts(context.glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]));
-        mapGlyphInstancesToBuffer(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas,
-                                  physicalDevice, device, commandPool, graphicsQueue);
-        beginGlyphAtlasRenderPass(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas, commandBuffer,
-                                  swapChainFramebuffers[imageIndex], swapChainExtent,
-                                  descriptorSets[currentFrame], renderPass, resolution);
+        RectangleInstance boxInstances[] = {{{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
+                                            {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
+                                            {{0.0f, 0.8f}, {0.2f, 1.0f}, {0.8f, 0.8f, 0.8f}},
+                                            {{0.8f, 0.8f}, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}}};
+        // recording rectangles
+
+        GrowthVector<RectangleInstance> rectangleInstances(
+            &boxInstances[0], static_cast<u32>(sizeof(boxInstances) / sizeof(RectangleInstance)));
+        {
+            mapRectanglesToBuffer(vulkanContext.vulkanRectangle, rectangleInstances, physicalDevice,
+                                  device, commandPool, graphicsQueue);
+            beginRectangleRenderPass(vulkanContext.vulkanRectangle, commandBuffer, firstRenderPass,
+                                     swapChainFramebuffers[imageIndex], swapChainExtent,
+                                     descriptorSets[currentFrame], rectangleInstances.size,
+                                     resolution);
+        }
+        // recording text
+        {
+            addTexts(context.glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]));
+            mapGlyphInstancesToBuffer(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas,
+                                      physicalDevice, device, commandPool, graphicsQueue);
+            beginGlyphAtlasRenderPass(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas,
+                                      commandBuffer, swapChainFramebuffers[imageIndex],
+                                      swapChainExtent, descriptorSets[currentFrame], renderPass,
+                                      resolution);
+        }
 
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         {
