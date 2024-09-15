@@ -98,8 +98,6 @@ class HelloTriangleApplication
     VkExtent2D swapChainExtent;
     std::vector<VkImageView> swapChainImageViews;
 
-    VkDescriptorSetLayout descriptorSetLayout;
-
     std::vector<VkFramebuffer> swapChainFramebuffers;
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
@@ -109,8 +107,7 @@ class HelloTriangleApplication
     std::vector<VkFence> inFlightFences;
     uint32_t currentFrame = 0;
 
-    VkDescriptorPool descriptorPool;
-    std::vector<VkDescriptorSet> descriptorSets;
+    // TODO: add descriptor set layout and descriptor set to glyph atlas and rectangle
 
     VkImage colorImage;
     VkDeviceMemory colorImageMemory;
@@ -172,15 +169,14 @@ class HelloTriangleApplication
         renderPass =
             createRenderPass(device, swapChainImageFormat, msaaSamples, VK_ATTACHMENT_LOAD_OP_LOAD,
                              VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-        createDescriptorSetLayout();
         createCommandPool();
 
         pushConstantInfo.offset = 0;
         pushConstantInfo.size = sizeof(float) * 2;
 
         auto rectangleObjects =
-            createGraphicsPipeline(device, swapChainExtent, renderPass, descriptorSetLayout,
-                                   msaaSamples, RectangleInstance::getBindingDescription(),
+            createGraphicsPipeline(device, swapChainExtent, renderPass, VK_NULL_HANDLE, msaaSamples,
+                                   RectangleInstance::getBindingDescription(),
                                    RectangleInstance::getAttributeDescriptions(), pushConstantInfo,
                                    "shaders/vert.spv", "shaders/frag.spv");
 
@@ -195,23 +191,36 @@ class HelloTriangleApplication
         createRectangleIndexBuffer(vulkanContext.vulkanRectangle, physicalDevice, device,
                                    commandPool, graphicsQueue, indices);
 
-        createGlyphAtlasImage(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas, physicalDevice,
-                              device, commandPool, graphicsQueue);
-        createGlyphAtlasImageView(vulkanContext.vulkanGlyphAtlas, device);
-        createGlyphAtlasTextureSampler(vulkanContext.vulkanGlyphAtlas, physicalDevice, device);
+        {
+            createGlyphAtlasImage(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas,
+                                  physicalDevice, device, commandPool, graphicsQueue);
+            createGlyphAtlasImageView(vulkanContext.vulkanGlyphAtlas, device);
+            createGlyphAtlasTextureSampler(vulkanContext.vulkanGlyphAtlas, physicalDevice, device);
 
-        auto glyphAtlasGraphicsObjects = createGraphicsPipeline(
-            device, swapChainExtent, renderPass, descriptorSetLayout, msaaSamples,
-            GlyphBuffer::getBindingDescription(), GlyphBuffer::getAttributeDescriptions(),
-            pushConstantInfo, "shaders/text_vert.spv", "shaders/text_frag.spv");
-        vulkanContext.vulkanGlyphAtlas.pipelineLayout = std::get<0>(glyphAtlasGraphicsObjects);
-        vulkanContext.vulkanGlyphAtlas.graphicsPipeline = std::get<1>(glyphAtlasGraphicsObjects);
+            vulkanContext.vulkanGlyphAtlas.descriptorSets.setSize(MAX_FRAMES_IN_FLIGHT);
+            createFontDescriptorSetLayout(device,
+                                          vulkanContext.vulkanGlyphAtlas.descriptorSetLayout);
+            createFontDescriptorPool(device, MAX_FRAMES_IN_FLIGHT,
+                                     vulkanContext.vulkanGlyphAtlas.descriptorPool);
+            createFontDescriptorSets(vulkanContext.vulkanGlyphAtlas.textureImageView,
+                                     vulkanContext.vulkanGlyphAtlas.textureSampler,
+                                     vulkanContext.vulkanGlyphAtlas.descriptorPool,
+                                     vulkanContext.vulkanGlyphAtlas.descriptorSetLayout, device,
+                                     MAX_FRAMES_IN_FLIGHT,
+                                     vulkanContext.vulkanGlyphAtlas.descriptorSets);
+            auto glyphAtlasGraphicsObjects = createGraphicsPipeline(
+                device, swapChainExtent, renderPass,
+                vulkanContext.vulkanGlyphAtlas.descriptorSetLayout, msaaSamples,
+                GlyphBuffer::getBindingDescription(), GlyphBuffer::getAttributeDescriptions(),
+                pushConstantInfo, "shaders/text_vert.spv", "shaders/text_frag.spv");
+            vulkanContext.vulkanGlyphAtlas.pipelineLayout = std::get<0>(glyphAtlasGraphicsObjects);
+            vulkanContext.vulkanGlyphAtlas.graphicsPipeline =
+                std::get<1>(glyphAtlasGraphicsObjects);
 
-        createGlyphIndexBuffer(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas, physicalDevice,
-                               device, commandPool, graphicsQueue);
-        createDescriptorPool();
-        createDescriptorSets(vulkanContext.vulkanGlyphAtlas.textureImageView,
-                             vulkanContext.vulkanGlyphAtlas.textureSampler);
+            createGlyphIndexBuffer(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas,
+                                   physicalDevice, device, commandPool, graphicsQueue);
+        }
+
         createCommandBuffers();
         createSyncObjects();
     }
@@ -254,9 +263,6 @@ class HelloTriangleApplication
             vkDestroyFence(device, inFlightFences[i], nullptr);
         }
 
-        vkDestroyDescriptorPool(device, descriptorPool, nullptr);
-        vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-
         vkDestroyDevice(device, nullptr);
         vkDestroyInstance(instance, nullptr);
 
@@ -274,88 +280,6 @@ class HelloTriangleApplication
         window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
-    }
-
-    void
-    createDescriptorSets(VkImageView imageView, VkSampler sampler)
-    {
-        std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
-
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool = descriptorPool;
-        allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-        allocInfo.pSetLayouts = layouts.data();
-
-        descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-        if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS)
-        {
-            throw std::runtime_error("failed to allocate descriptor sets!");
-        }
-
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-        {
-            VkDescriptorImageInfo imageInfo{};
-            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfo.imageView = imageView;
-            imageInfo.sampler = sampler;
-
-            std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
-
-            descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[0].dstSet = descriptorSets[i];
-            descriptorWrites[0].dstBinding = 0;
-            descriptorWrites[0].dstArrayElement = 0;
-            descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            descriptorWrites[0].descriptorCount = 1;
-            descriptorWrites[0].pImageInfo = &imageInfo;
-
-            vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()),
-                                   descriptorWrites.data(), 0, nullptr);
-        }
-    }
-
-    void
-    createDescriptorPool()
-    {
-        std::array<VkDescriptorPoolSize, 1> poolSizes{};
-        poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
-        VkDescriptorPoolCreateInfo poolInfo{};
-        poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-        poolInfo.pPoolSizes = poolSizes.data();
-        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
-        if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
-        {
-            throw std::runtime_error("failed to create descriptor pool!");
-        }
-    }
-
-    void
-    createDescriptorSetLayout()
-    {
-        VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-        samplerLayoutBinding.binding = 0;
-        samplerLayoutBinding.descriptorCount = 1;
-        samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        samplerLayoutBinding.pImmutableSamplers = nullptr;
-        samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-        std::array<VkDescriptorSetLayoutBinding, 1> bindings = {samplerLayoutBinding};
-
-        VkDescriptorSetLayoutCreateInfo layoutInfo{};
-        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-        layoutInfo.pBindings = bindings.data();
-
-        if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) !=
-            VK_SUCCESS)
-        {
-            throw std::runtime_error("failed to create descriptor set layout!");
-        }
     }
 
     static void
@@ -542,8 +466,7 @@ class HelloTriangleApplication
                                   device, commandPool, graphicsQueue);
             beginRectangleRenderPass(vulkanContext.vulkanRectangle, commandBuffer, firstRenderPass,
                                      swapChainFramebuffers[imageIndex], swapChainExtent,
-                                     descriptorSets[currentFrame], rectangleInstances.size,
-                                     resolution);
+                                     rectangleInstances.size, resolution);
         }
         // recording text
         {
@@ -551,10 +474,11 @@ class HelloTriangleApplication
             addTexts(context.glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]));
             mapGlyphInstancesToBuffer(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas,
                                       physicalDevice, device, commandPool, graphicsQueue);
-            beginGlyphAtlasRenderPass(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas,
-                                      commandBuffer, swapChainFramebuffers[imageIndex],
-                                      swapChainExtent, descriptorSets[currentFrame], renderPass,
-                                      resolution);
+            beginGlyphAtlasRenderPass(
+                vulkanContext.vulkanGlyphAtlas, context.glyphAtlas, commandBuffer,
+                swapChainFramebuffers[imageIndex], swapChainExtent,
+                vulkanContext.vulkanGlyphAtlas.descriptorSets.data[currentFrame], renderPass,
+                resolution);
         }
 
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)

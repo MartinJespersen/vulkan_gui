@@ -1,5 +1,7 @@
 #pragma once
 #include "umbrella.hpp"
+#include <array>
+#include <stdexcept>
 
 struct Vector2
 {
@@ -53,5 +55,42 @@ template <typename T> struct GrowthVector
             data = new T[this->capacity];
         }
         size = 0;
+    }
+};
+
+template <typename T> struct StaticArray
+{
+    T* data;
+    u32 size;
+
+    StaticArray()
+    {
+        this->data = nullptr;
+        this->size = 0;
+    }
+
+    StaticArray(u32 size)
+    {
+        this->data = new T[size];
+        this->size = size;
+    }
+
+    inline void
+    setSize(u32 size)
+    {
+        if (data)
+        {
+            throw std::runtime_error("Cannot set size of StaticArray after initialization!");
+        }
+        this->data = new T[size];
+        this->size = size;
+    }
+
+    ~StaticArray()
+    {
+        if (data)
+        {
+            delete[] data;
+        }
     }
 };

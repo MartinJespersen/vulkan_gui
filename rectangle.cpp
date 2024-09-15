@@ -35,8 +35,8 @@ createRectangleIndexBuffer(Vulkan_Rectangle& vulkanRectangle, VkPhysicalDevice p
 void
 beginRectangleRenderPass(Vulkan_Rectangle& vulkanRectangle, VkCommandBuffer commandBuffer,
                          VkRenderPass renderPass, VkFramebuffer swapchainFramebuffer,
-                         VkExtent2D swapChainExtent, VkDescriptorSet descriptorSet,
-                         u32 rectangleArraySize, Vulkan_Resolution resolution)
+                         VkExtent2D swapChainExtent, u32 rectangleArraySize,
+                         Vulkan_Resolution resolution)
 {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -76,9 +76,6 @@ beginRectangleRenderPass(Vulkan_Rectangle& vulkanRectangle, VkCommandBuffer comm
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
     vkCmdBindIndexBuffer(commandBuffer, vulkanRectangle.indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            vulkanRectangle.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
     vkCmdPushConstants(commandBuffer, vulkanRectangle.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                        resolution.bufferInfo.offset, resolution.size(), resolution.data);

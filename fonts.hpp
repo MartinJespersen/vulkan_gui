@@ -1,13 +1,15 @@
 #pragma once
+#include "utils.hpp"
+#include <ft2build.h>
 #include <glm/glm.hpp>
 #include <map>
-#include <ft2build.h>
 #include FT_FREETYPE_H
-#include <stdexcept>
 #include <algorithm>
+#include <stdexcept>
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include "shader.hpp"
+#include "umbrella.hpp"
 #include "vulkan_helpers.hpp"
 
 const int MAX_GLYPHS = 126;
@@ -17,7 +19,8 @@ struct GlyphBuffer
     glm::vec2 size;
     glm::float32 glyphOffset;
 
-    static VkVertexInputBindingDescription getBindingDescription()
+    static VkVertexInputBindingDescription
+    getBindingDescription()
     {
         VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = 0;
@@ -51,13 +54,16 @@ struct GlyphBuffer
 
 struct ArrayGlyphInstance
 {
-    GlyphBuffer *data;
+    GlyphBuffer* data;
     size_t size;
     size_t capacity;
 
-    ArrayGlyphInstance() : data(nullptr), size(0), capacity(0) {}
+    ArrayGlyphInstance() : data(nullptr), size(0), capacity(0)
+    {
+    }
 
-    inline int pushBack(GlyphBuffer glyph)
+    inline int
+    pushBack(GlyphBuffer glyph)
     {
         if (size >= capacity)
         {
@@ -69,7 +75,8 @@ struct ArrayGlyphInstance
         return 0;
     }
 
-    inline void reset(size_t newSize)
+    inline void
+    reset(size_t newSize)
     {
         if (newSize > capacity)
         {
@@ -123,24 +130,52 @@ struct Vulkan_GlyphAtlas
     VkDeviceMemory textureImageMemory;
     VkImageView textureImageView;
     VkSampler textureSampler;
+
+    VkDescriptorPool descriptorPool;
+    StaticArray<VkDescriptorSet> descriptorSets;
+    VkDescriptorSetLayout descriptorSetLayout;
 };
 
-void cleanupFontResources(Vulkan_GlyphAtlas &vulkanGlyphAtlas, VkDevice device);
+void
+cleanupFontResources(Vulkan_GlyphAtlas& vulkanGlyphAtlas, VkDevice device);
 
-unsigned char *initGlyphs(GlyphAtlas &glyphAtlas, int *width, int *height);
-void createGlyphIndexBuffer(Vulkan_GlyphAtlas &vulkanGlyphAtlas, GlyphAtlas &glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue);
-void mapGlyphInstancesToBuffer(Vulkan_GlyphAtlas &vulkanGlyphAtlas, GlyphAtlas &glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue queue);
+unsigned char*
+initGlyphs(GlyphAtlas& glyphAtlas, int* width, int* height);
+void
+createGlyphIndexBuffer(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
+                       VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool,
+                       VkQueue graphicsQueue);
+void
+mapGlyphInstancesToBuffer(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
+                          VkPhysicalDevice physicalDevice, VkDevice device,
+                          VkCommandPool commandPool, VkQueue queue);
 
-void addTexts(GlyphAtlas &glyphAtlas, Text *texts, size_t len);
-void addText(GlyphAtlas &glyphAtlas, std::string text, float x, float y);
-void beginGlyphAtlasRenderPass(Vulkan_GlyphAtlas &vulkanGlyphAtlas,
-                               GlyphAtlas &glyphAtlas,
-                               VkCommandBuffer commandBuffer,
-                               VkFramebuffer swapChainFramebuffer,
-                               VkExtent2D swapChainExtent,
-                               VkDescriptorSet descriptorSet,
-                               VkRenderPass renderPass,
-                               Vulkan_Resolution resolution);
+void
+addTexts(GlyphAtlas& glyphAtlas, Text* texts, size_t len);
+void
+addText(GlyphAtlas& glyphAtlas, std::string text, float x, float y);
+void
+beginGlyphAtlasRenderPass(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
+                          VkCommandBuffer commandBuffer, VkFramebuffer swapChainFramebuffer,
+                          VkExtent2D swapChainExtent, VkDescriptorSet descriptorSet,
+                          VkRenderPass renderPass, Vulkan_Resolution resolution);
 
-void createGlyphAtlasImage(Vulkan_GlyphAtlas &vulkanGlyphAtlas, GlyphAtlas &glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue);
-void createGlyphAtlasImageView(Vulkan_GlyphAtlas &vulkanGlyphAtlas, VkDevice device);
+void
+createGlyphAtlasImage(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
+                      VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool,
+                      VkQueue graphicsQueue);
+void
+createGlyphAtlasImageView(Vulkan_GlyphAtlas& vulkanGlyphAtlas, VkDevice device);
+
+void
+createFontDescriptorSets(VkImageView imageView, VkSampler sampler, VkDescriptorPool descriptorPool,
+                         VkDescriptorSetLayout descriptorSetLayout, VkDevice device,
+                         const u32 MAX_FRAMES_IN_FLIGHT,
+                         StaticArray<VkDescriptorSet>& descriptorSets);
+
+void
+createFontDescriptorPool(VkDevice device, const u32 MAX_FRAMES_IN_FLIGHT,
+                         VkDescriptorPool& descriptorPool);
+
+void
+createFontDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout& descriptorSetLayout);

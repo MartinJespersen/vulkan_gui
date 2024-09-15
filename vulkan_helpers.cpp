@@ -415,7 +415,7 @@ createGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.setLayoutCount = descriptorSetLayout ? 1 : 0;
     pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
     pipelineLayoutInfo.pushConstantRangeCount = 1;   // Optional
     pipelineLayoutInfo.pPushConstantRanges = &range; // Optional
