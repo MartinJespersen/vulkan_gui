@@ -2,7 +2,7 @@
 
 layout(location = 0) in vec2 fragCoord; // Input texture coordinates
 layout(location = 0) out vec4 outColor;    // Output color
-layout(binding = 1) uniform sampler2D tex; // Input texture
+layout(binding = 0) uniform sampler2D tex; // Input texture
 
 vec3 color = vec3(1.0, 0.0, 0.0);
 void main() {

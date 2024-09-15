@@ -8,7 +8,7 @@ layout(location = 4) in vec2 inPos;
 
 layout(location = 0) out vec4 outColor;    // Output color
 
-layout(binding = 1) uniform sampler2D tex; // Input texture
+layout(binding = 0) uniform sampler2D tex; // Input texture
 
 const float softness = 3.0;
 const float borderThickness = 10.0;

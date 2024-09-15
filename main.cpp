@@ -109,10 +109,6 @@ class HelloTriangleApplication
     std::vector<VkFence> inFlightFences;
     uint32_t currentFrame = 0;
 
-    std::vector<VkBuffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
-    std::vector<void*> uniformBuffersMapped;
-
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
 
@@ -138,13 +134,6 @@ class HelloTriangleApplication
     } context = {};
 
     const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
-
-    struct UniformBufferObject
-    {
-        alignas(16) glm::mat4 model;
-        alignas(16) glm::mat4 view;
-        alignas(16) glm::mat4 proj;
-    };
 
     struct QueueFamilyIndices
     {
@@ -220,7 +209,6 @@ class HelloTriangleApplication
 
         createGlyphIndexBuffer(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas, physicalDevice,
                                device, commandPool, graphicsQueue);
-        createUniformBuffers();
         createDescriptorPool();
         createDescriptorSets(vulkanContext.vulkanGlyphAtlas.textureImageView,
                              vulkanContext.vulkanGlyphAtlas.textureSampler);
@@ -266,12 +254,6 @@ class HelloTriangleApplication
             vkDestroyFence(device, inFlightFences[i], nullptr);
         }
 
-        for (size_t i = 0; i < swapChainImages.size(); i++)
-        {
-            vkDestroyBuffer(device, uniformBuffers[i], nullptr);
-            vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
-        }
-
         vkDestroyDescriptorPool(device, descriptorPool, nullptr);
         vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
@@ -313,33 +295,20 @@ class HelloTriangleApplication
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
         {
-            VkDescriptorBufferInfo bufferInfo{};
-            bufferInfo.buffer = uniformBuffers[i];
-            bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(UniformBufferObject);
-
             VkDescriptorImageInfo imageInfo{};
             imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             imageInfo.imageView = imageView;
             imageInfo.sampler = sampler;
 
-            std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+            std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
 
             descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrites[0].dstSet = descriptorSets[i];
             descriptorWrites[0].dstBinding = 0;
             descriptorWrites[0].dstArrayElement = 0;
-            descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             descriptorWrites[0].descriptorCount = 1;
-            descriptorWrites[0].pBufferInfo = &bufferInfo;
-
-            descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[1].dstSet = descriptorSets[i];
-            descriptorWrites[1].dstBinding = 1;
-            descriptorWrites[1].dstArrayElement = 0;
-            descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            descriptorWrites[1].descriptorCount = 1;
-            descriptorWrites[1].pImageInfo = &imageInfo;
+            descriptorWrites[0].pImageInfo = &imageInfo;
 
             vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()),
                                    descriptorWrites.data(), 0, nullptr);
@@ -349,11 +318,9 @@ class HelloTriangleApplication
     void
     createDescriptorPool()
     {
-        std::array<VkDescriptorPoolSize, 2> poolSizes{};
-        poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        std::array<VkDescriptorPoolSize, 1> poolSizes{};
+        poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-        poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -368,66 +335,16 @@ class HelloTriangleApplication
     }
 
     void
-    updateUniformBuffer(uint32_t currentImage)
-    {
-        static auto startTime = std::chrono::high_resolution_clock::now();
-
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float time =
-            std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime)
-                .count();
-
-        UniformBufferObject ubo{};
-        ubo.model =
-            glm::rotate(glm::mat4(1.0f), time * glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-                               glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.proj =
-            glm::perspective(glm::radians(30.0f),
-                             swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
-        ubo.proj[1][1] *= -1;
-
-        memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
-    }
-
-    void
-    createUniformBuffers()
-    {
-        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
-        uniformBuffers.resize(swapChainImages.size());
-        uniformBuffersMemory.resize(swapChainImages.size());
-        uniformBuffersMapped.resize(swapChainImages.size());
-
-        for (size_t i = 0; i < swapChainImages.size(); i++)
-        {
-            createBuffer(physicalDevice, device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                         uniformBuffers[i], uniformBuffersMemory[i]);
-            vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0,
-                        &uniformBuffersMapped[i]);
-        }
-    }
-
-    void
     createDescriptorSetLayout()
     {
-        VkDescriptorSetLayoutBinding uboLayoutBinding{};
-        uboLayoutBinding.binding = 0;
-        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uboLayoutBinding.descriptorCount = 1;
-        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-        uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
-
         VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-        samplerLayoutBinding.binding = 1;
+        samplerLayoutBinding.binding = 0;
         samplerLayoutBinding.descriptorCount = 1;
         samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         samplerLayoutBinding.pImmutableSamplers = nullptr;
         samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-        std::array<VkDescriptorSetLayoutBinding, 2> bindings{uboLayoutBinding,
-                                                             samplerLayoutBinding};
+        std::array<VkDescriptorSetLayoutBinding, 1> bindings = {samplerLayoutBinding};
 
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -548,7 +465,6 @@ class HelloTriangleApplication
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
         vkResetCommandBuffer(commandBuffers[currentFrame], 0);
         recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
-        // updateUniformBuffer(currentFrame);
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -611,16 +527,17 @@ class HelloTriangleApplication
         }
 
         Vulkan_Resolution resolution = Vulkan_Resolution(swapChainExtent, pushConstantInfo);
-        Text texts[] = {{"testing", 300, 300}, {"more testing", 300, 400}};
-        RectangleInstance boxInstances[] = {{{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
-                                            {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
-                                            {{0.0f, 0.8f}, {0.2f, 1.0f}, {0.8f, 0.8f, 0.8f}},
-                                            {{0.8f, 0.8f}, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}}};
-        // recording rectangles
 
-        GrowthVector<RectangleInstance> rectangleInstances(
-            &boxInstances[0], static_cast<u32>(sizeof(boxInstances) / sizeof(RectangleInstance)));
+        // recording rectangles
         {
+            RectangleInstance boxInstances[] = {{{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
+                                                {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
+                                                {{0.0f, 0.8f}, {0.2f, 1.0f}, {0.8f, 0.8f, 0.8f}},
+                                                {{0.8f, 0.8f}, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}}};
+
+            GrowthVector<RectangleInstance> rectangleInstances(
+                &boxInstances[0],
+                static_cast<u32>(sizeof(boxInstances) / sizeof(RectangleInstance)));
             mapRectanglesToBuffer(vulkanContext.vulkanRectangle, rectangleInstances, physicalDevice,
                                   device, commandPool, graphicsQueue);
             beginRectangleRenderPass(vulkanContext.vulkanRectangle, commandBuffer, firstRenderPass,
@@ -630,6 +547,7 @@ class HelloTriangleApplication
         }
         // recording text
         {
+            Text texts[] = {{"testing", 300, 300}, {"more testing", 300, 400}};
             addTexts(context.glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]));
             mapGlyphInstancesToBuffer(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas,
                                       physicalDevice, device, commandPool, graphicsQueue);
