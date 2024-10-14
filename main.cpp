@@ -3,6 +3,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <algorithm> // Necessary for std::clamp
+#include <array>
 #include <chrono>
 #include <cstdint> // Necessary for uint32_t
 #include <cstdlib>
@@ -15,6 +16,10 @@
 #include <set>
 #include <stdexcept>
 #include <vector>
+
+// profiler
+#include "profiler/tracy/Tracy.hpp"
+#include "profiler/tracy/TracyVulkan.hpp"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -118,6 +123,9 @@ class HelloTriangleApplication
     VkRenderPass renderPass;
 
     Vulkan_PushConstantInfo pushConstantInfo;
+
+    // tracy profiling context
+    std::vector<TracyVkCtx> tracyContexts;
 
     struct Vulkan_Context
     {
@@ -228,8 +236,10 @@ class HelloTriangleApplication
     void
     mainLoop()
     {
+        ZoneScoped;
         while (!glfwWindowShouldClose(window))
         {
+            ZoneScoped;
             glfwPollEvents();
             drawFrame();
         }
@@ -252,6 +262,10 @@ class HelloTriangleApplication
         vkDestroyRenderPass(device, firstRenderPass, nullptr);
         vkDestroyRenderPass(device, renderPass, nullptr);
 
+        for (u32 i = 0; i < tracyContexts.size(); i++)
+        {
+            TracyVkDestroy(tracyContexts[i]);
+        }
         vkDestroyCommandPool(device, commandPool, nullptr);
 
         vkDestroySurfaceKHR(instance, surface, nullptr);
@@ -368,8 +382,9 @@ class HelloTriangleApplication
     void
     drawFrame()
     {
-        vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+        ZoneScoped;
 
+        vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
         uint32_t imageIndex;
         VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX,
                                                 imageAvailableSemaphores[currentFrame],
@@ -388,7 +403,8 @@ class HelloTriangleApplication
 
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
         vkResetCommandBuffer(commandBuffers[currentFrame], 0);
-        recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
+
+        recordCommandBuffer(imageIndex, currentFrame);
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -424,6 +440,8 @@ class HelloTriangleApplication
         presentInfo.pResults = nullptr; // Optional
 
         result = vkQueuePresentKHR(presentQueue, &presentInfo);
+        // TracyVkCollect(tracyContexts[currentFrame], commandBuffers[currentFrame]);
+        FrameMark; // end of frame is assumed to be here as the
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
         {
             framebufferResized = false;
@@ -438,22 +456,27 @@ class HelloTriangleApplication
     }
 
     void
-    recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+    recordCommandBuffer(u32 imageIndex, u32 currentFrame)
     {
+        ZoneScoped;
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = 0;                  // Optional
         beginInfo.pInheritanceInfo = nullptr; // Optional
 
-        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
+        if (vkBeginCommandBuffer(commandBuffers[currentFrame], &beginInfo) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
+        TracyVkCollect(tracyContexts[currentFrame], commandBuffers[currentFrame]);
 
         Vulkan_Resolution resolution = Vulkan_Resolution(swapChainExtent, pushConstantInfo);
 
         // recording rectangles
         {
+            ZoneScopedN("Rectangle CPU");
+            TracyVkZoneC(tracyContexts[currentFrame], commandBuffers[currentFrame],
+                         "Rectangles GPU", 0xff0000);
             RectangleInstance boxInstances[] = {{{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
                                                 {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
                                                 {{0.0f, 0.8f}, {0.2f, 1.0f}, {0.8f, 0.8f, 0.8f}},
@@ -464,24 +487,27 @@ class HelloTriangleApplication
                 static_cast<u32>(sizeof(boxInstances) / sizeof(RectangleInstance)));
             mapRectanglesToBuffer(vulkanContext.vulkanRectangle, rectangleInstances, physicalDevice,
                                   device, commandPool, graphicsQueue);
-            beginRectangleRenderPass(vulkanContext.vulkanRectangle, commandBuffer, firstRenderPass,
-                                     swapChainFramebuffers[imageIndex], swapChainExtent,
-                                     rectangleInstances.size, resolution);
+            beginRectangleRenderPass(vulkanContext.vulkanRectangle, commandBuffers[currentFrame],
+                                     firstRenderPass, swapChainFramebuffers[imageIndex],
+                                     swapChainExtent, rectangleInstances.size, resolution);
         }
         // recording text
         {
+            ZoneScopedN("Text CPU");
+            TracyVkZoneC(tracyContexts[currentFrame], commandBuffers[currentFrame], "Text GPU",
+                         0x00FF00);
             Text texts[] = {{"testing", 300, 300}, {"more testing", 300, 400}};
             addTexts(context.glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]));
             mapGlyphInstancesToBuffer(vulkanContext.vulkanGlyphAtlas, context.glyphAtlas,
                                       physicalDevice, device, commandPool, graphicsQueue);
             beginGlyphAtlasRenderPass(
-                vulkanContext.vulkanGlyphAtlas, context.glyphAtlas, commandBuffer,
+                vulkanContext.vulkanGlyphAtlas, context.glyphAtlas, commandBuffers[currentFrame],
                 swapChainFramebuffers[imageIndex], swapChainExtent,
                 vulkanContext.vulkanGlyphAtlas.descriptorSets.data[currentFrame], renderPass,
                 resolution);
         }
 
-        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
+        if (vkEndCommandBuffer(commandBuffers[currentFrame]) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to record command buffer!");
         }
@@ -500,6 +526,13 @@ class HelloTriangleApplication
         if (vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to allocate command buffers!");
+        }
+
+        tracyContexts.resize(swapChainFramebuffers.size());
+        for (u32 i = 0; i < commandBuffers.size(); i++)
+        {
+            tracyContexts[i] =
+                TracyVkContext(physicalDevice, device, graphicsQueue, commandBuffers[i]);
         }
     }
 
@@ -1038,6 +1071,7 @@ class HelloTriangleApplication
 int
 main()
 {
+    TracyMessageL("Client started");
     HelloTriangleApplication app;
 
     try

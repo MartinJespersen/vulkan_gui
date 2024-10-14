@@ -1,6 +1,4 @@
 #pragma once
-#include "umbrella.hpp"
-#include <array>
 #include <stdexcept>
 
 struct Vector2
