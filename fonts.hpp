@@ -4,11 +4,8 @@
 #include <glm/glm.hpp>
 #include <map>
 #include FT_FREETYPE_H
-#include <algorithm>
-#include <stdexcept>
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
-#include "shader.hpp"
 #include "vulkan_helpers.hpp"
 
 const int MAX_GLYPHS = 126;

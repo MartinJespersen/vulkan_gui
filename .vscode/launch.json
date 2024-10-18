@@ -12,7 +12,12 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [],
+            "environment": [
+                // {
+                //     // "name": "LD_DEBUG",
+                //     // "value": "all"
+                // }
+            ],
             "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [
@@ -23,7 +28,12 @@
                 }
             ],
             "preLaunchTask": "build project",
-            "miDebuggerPath": "/usr/bin/gdb"
+            "miDebuggerPath": "/usr/bin/gdb",
+            "sourceFileMap": {
+                ".": "/usr/src/glibc/glibc-2.35",
+                "./dlfcn/": "/usr/src/glibc/glibc-2.35",
+                "./elf/": "/usr/src/glibc/glibc-2.35"
+            }
         }
     ]
 }
