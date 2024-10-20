@@ -1,4 +1,5 @@
 #include "vulkan_helpers.hpp"
+#include "shader.hpp"
 
 VkCommandBuffer
 beginSingleTimeCommands(VkDevice device, VkCommandPool commandPool)
@@ -356,6 +357,7 @@ createGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.viewportCount = 1;
     viewportState.scissorCount = 1;
+    viewportState.pViewports = &viewport;
 
     VkPipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;

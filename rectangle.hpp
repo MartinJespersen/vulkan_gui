@@ -1,21 +1,9 @@
 #pragma once
-#include "string.h"
-#include "utils.hpp"
+#include "entrypoint.hpp"
 #include "vertex.hpp"
 #include "vulkan_helpers.hpp"
 #include <vector>
 #include <vulkan/vulkan.h>
-
-struct Vulkan_Rectangle
-{
-    VkBuffer instBuffer;
-    VkDeviceMemory instMemoryBuffer;
-    VkDeviceSize instBufferSize;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexMemoryBuffer;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline;
-};
 
 void
 createRectangleIndexBuffer(Vulkan_Rectangle& vulkanRectangle, VkPhysicalDevice physicalDevice,

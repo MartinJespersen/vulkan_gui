@@ -1,5 +1,17 @@
+// #include <set>
+// #include <vulkan/vulkan_core.h>
+#include "entrypoint.hpp"
+#include <GL/gl.h>
 #include <set>
-#include <vulkan/vulkan_core.h>
+extern "C"
+{
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+}
+
+#include <cstdio>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <algorithm> // Necessary for std::clamp
@@ -18,11 +30,6 @@
 #include "profiler/tracy/Tracy.hpp"
 #include "profiler/tracy/TracyVulkan.hpp"
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
 #include "fonts.cpp"
 #include "fonts.hpp"
 #include "rectangle.cpp"
@@ -31,12 +38,31 @@
 #include "vulkan_helpers.cpp"
 #include "vulkan_helpers.hpp"
 
-#include "entrypoint.hpp"
+// #include "entrypoint.hpp"
 
 __attribute__((constructor(101))) void
 before_main()
 {
-    printf("Before main\n");
+    printf("\nentrypoint constructor called\n");
+}
+
+__attribute__((destructor(101))) void
+after_main()
+{
+    printf("\nentrpoint destructor called\n");
+}
+
+extern "C" void
+initWindow(Context* context)
+{
+    VulkanContext* vulkanContext = context->vulkanContext;
+
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+    vulkanContext->window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
+    glfwSetWindowUserPointer(vulkanContext->window, &context);
+    glfwSetFramebufferSizeCallback(vulkanContext->window, framebufferResizeCallback);
 }
 
 VkResult
@@ -72,6 +98,11 @@ DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debu
 void
 initVulkan(Context* context)
 {
+    VulkanContext* vulkanContext = context->vulkanContext;
+    Vulkan_GlyphAtlas* vulkanGlyphAtlas = context->vulkanGlyphAtlas;
+    Vulkan_Rectangle* vulkanRectangle = context->vulkanRectangle;
+    GlyphAtlas* glyphAtlas = context->glyphAtlas;
+
     createInstance(*context);
     setupDebugMessenger(*context);
     createSurface(*context);
@@ -79,66 +110,66 @@ initVulkan(Context* context)
     createLogicalDevice(*context);
     createSwapChain(*context);
     createImageViews(*context);
-    context->firstRenderPass = createRenderPass(
-        context->device, context->swapChainImageFormat, context->msaaSamples,
+    vulkanContext->firstRenderPass = createRenderPass(
+        vulkanContext->device, vulkanContext->swapChainImageFormat, vulkanContext->msaaSamples,
         VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-    context->renderPass =
-        createRenderPass(context->device, context->swapChainImageFormat, context->msaaSamples,
-                         VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    vulkanContext->renderPass =
+        createRenderPass(vulkanContext->device, vulkanContext->swapChainImageFormat,
+                         vulkanContext->msaaSamples, VK_ATTACHMENT_LOAD_OP_LOAD,
+                         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
     createCommandPool(*context);
 
-    context->pushConstantInfo.offset = 0;
-    context->pushConstantInfo.size = sizeof(float) * 2;
+    vulkanContext->pushConstantInfo.offset = 0;
+    vulkanContext->pushConstantInfo.size = sizeof(float) * 2;
 
     auto rectangleObjects = createGraphicsPipeline(
-        context->device, context->swapChainExtent, context->renderPass, VK_NULL_HANDLE,
-        context->msaaSamples, RectangleInstance::getBindingDescription(),
-        RectangleInstance::getAttributeDescriptions(), context->pushConstantInfo,
+        vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->renderPass,
+        VK_NULL_HANDLE, vulkanContext->msaaSamples, RectangleInstance::getBindingDescription(),
+        RectangleInstance::getAttributeDescriptions(), vulkanContext->pushConstantInfo,
         "shaders/vert.spv", "shaders/frag.spv");
 
-    context->vulkanRectangle.pipelineLayout = std::get<0>(rectangleObjects);
-    context->vulkanRectangle.graphicsPipeline = std::get<1>(rectangleObjects);
+    vulkanRectangle->pipelineLayout = std::get<0>(rectangleObjects);
+    vulkanRectangle->graphicsPipeline = std::get<1>(rectangleObjects);
 
-    context->colorImageView =
-        createColorResources(context->physicalDevice, context->device,
-                             context->swapChainImageFormat, context->swapChainExtent,
-                             context->msaaSamples, context->colorImage, context->colorImageMemory);
-    context->swapChainFramebuffers =
-        createFramebuffers(context->device, context->colorImageView, context->renderPass,
-                           context->swapChainExtent, context->swapChainImageViews);
-    createRectangleIndexBuffer(context->vulkanRectangle, context->physicalDevice, context->device,
-                               context->commandPool, context->graphicsQueue, context->indices);
+    vulkanContext->colorImageView = createColorResources(
+        vulkanContext->physicalDevice, vulkanContext->device, vulkanContext->swapChainImageFormat,
+        vulkanContext->swapChainExtent, vulkanContext->msaaSamples, vulkanContext->colorImage,
+        vulkanContext->colorImageMemory);
+    vulkanContext->swapChainFramebuffers = createFramebuffers(
+        vulkanContext->device, vulkanContext->colorImageView, vulkanContext->renderPass,
+        vulkanContext->swapChainExtent, vulkanContext->swapChainImageViews);
+    createRectangleIndexBuffer(*context->vulkanRectangle, vulkanContext->physicalDevice,
+                               vulkanContext->device, vulkanContext->commandPool,
+                               vulkanContext->graphicsQueue, vulkanContext->indices);
 
     {
-        createGlyphAtlasImage(context->vulkanGlyphAtlas, context->glyphAtlas,
-                              context->physicalDevice, context->device, context->commandPool,
-                              context->graphicsQueue);
-        createGlyphAtlasImageView(context->vulkanGlyphAtlas, context->device);
-        createGlyphAtlasTextureSampler(context->vulkanGlyphAtlas, context->physicalDevice,
-                                       context->device);
+        createGlyphAtlasImage(*vulkanGlyphAtlas, *glyphAtlas, vulkanContext->physicalDevice,
+                              vulkanContext->device, vulkanContext->commandPool,
+                              vulkanContext->graphicsQueue);
+        createGlyphAtlasImageView(*vulkanGlyphAtlas, vulkanContext->device);
+        createGlyphAtlasTextureSampler(*vulkanGlyphAtlas, vulkanContext->physicalDevice,
+                                       vulkanContext->device);
 
-        context->vulkanGlyphAtlas.descriptorSets.setSize(context->MAX_FRAMES_IN_FLIGHT);
-        createFontDescriptorSetLayout(context->device,
-                                      context->vulkanGlyphAtlas.descriptorSetLayout);
-        createFontDescriptorPool(context->device, context->MAX_FRAMES_IN_FLIGHT,
-                                 context->vulkanGlyphAtlas.descriptorPool);
-        createFontDescriptorSets(
-            context->vulkanGlyphAtlas.textureImageView, context->vulkanGlyphAtlas.textureSampler,
-            context->vulkanGlyphAtlas.descriptorPool, context->vulkanGlyphAtlas.descriptorSetLayout,
-            context->device, context->MAX_FRAMES_IN_FLIGHT,
-            context->vulkanGlyphAtlas.descriptorSets);
+        vulkanGlyphAtlas->descriptorSets.setSize(vulkanContext->MAX_FRAMES_IN_FLIGHT);
+        createFontDescriptorSetLayout(vulkanContext->device, vulkanGlyphAtlas->descriptorSetLayout);
+        createFontDescriptorPool(vulkanContext->device, vulkanContext->MAX_FRAMES_IN_FLIGHT,
+                                 vulkanGlyphAtlas->descriptorPool);
+        createFontDescriptorSets(vulkanGlyphAtlas->textureImageView,
+                                 vulkanGlyphAtlas->textureSampler, vulkanGlyphAtlas->descriptorPool,
+                                 vulkanGlyphAtlas->descriptorSetLayout, vulkanContext->device,
+                                 vulkanContext->MAX_FRAMES_IN_FLIGHT,
+                                 vulkanGlyphAtlas->descriptorSets);
         auto glyphAtlasGraphicsObjects = createGraphicsPipeline(
-            context->device, context->swapChainExtent, context->renderPass,
-            context->vulkanGlyphAtlas.descriptorSetLayout, context->msaaSamples,
+            vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->renderPass,
+            vulkanGlyphAtlas->descriptorSetLayout, vulkanContext->msaaSamples,
             GlyphBuffer::getBindingDescription(), GlyphBuffer::getAttributeDescriptions(),
-            context->pushConstantInfo, "shaders/text_vert.spv", "shaders/text_frag.spv");
-        context->vulkanGlyphAtlas.pipelineLayout = std::get<0>(glyphAtlasGraphicsObjects);
-        context->vulkanGlyphAtlas.graphicsPipeline = std::get<1>(glyphAtlasGraphicsObjects);
+            vulkanContext->pushConstantInfo, "shaders/text_vert.spv", "shaders/text_frag.spv");
+        vulkanGlyphAtlas->pipelineLayout = std::get<0>(glyphAtlasGraphicsObjects);
+        vulkanGlyphAtlas->graphicsPipeline = std::get<1>(glyphAtlasGraphicsObjects);
 
-        createGlyphIndexBuffer(context->vulkanGlyphAtlas, context->glyphAtlas,
-                               context->physicalDevice, context->device, context->commandPool,
-                               context->graphicsQueue);
+        createGlyphIndexBuffer(*context->vulkanGlyphAtlas, *context->glyphAtlas,
+                               vulkanContext->physicalDevice, vulkanContext->device,
+                               vulkanContext->commandPool, vulkanContext->graphicsQueue);
     }
 
     createCommandBuffers(*context);
@@ -148,91 +179,96 @@ initVulkan(Context* context)
 void
 cleanup(Context* context)
 {
-    if (context->enableValidationLayers)
+    VulkanContext* vulkanContext = context->vulkanContext;
+    ProfilingContext* profilingContext = context->profilingContext;
+    Vulkan_GlyphAtlas* vulkanGlyphAtlas = context->vulkanGlyphAtlas;
+    Vulkan_Rectangle* vulkanRectangle = context->vulkanRectangle;
+
+    vkDeviceWaitIdle(vulkanContext->device);
+
+    if (vulkanContext->enableValidationLayers)
     {
-        DestroyDebugUtilsMessengerEXT(context->instance, context->debugMessenger, nullptr);
+        DestroyDebugUtilsMessengerEXT(vulkanContext->instance, vulkanContext->debugMessenger,
+                                      nullptr);
     }
     cleanupSwapChain(*context);
 
-    cleanupFontResources(context->vulkanGlyphAtlas, context->device);
-    cleanupRectangle(context->vulkanRectangle, context->device);
+    cleanupFontResources(*vulkanGlyphAtlas, vulkanContext->device);
+    cleanupRectangle(*vulkanRectangle, vulkanContext->device);
 
-    vkDestroyRenderPass(context->device, context->firstRenderPass, nullptr);
-    vkDestroyRenderPass(context->device, context->renderPass, nullptr);
+    vkDestroyRenderPass(vulkanContext->device, vulkanContext->firstRenderPass, nullptr);
+    vkDestroyRenderPass(vulkanContext->device, vulkanContext->renderPass, nullptr);
 
-    for (u32 i = 0; i < context->tracyContexts.size(); i++)
+    for (u32 i = 0; i < profilingContext->tracyContexts.size(); i++)
     {
-        TracyVkDestroy(context->tracyContexts[i]);
+        TracyVkDestroy(profilingContext->tracyContexts[i]);
     }
-    vkDestroyCommandPool(context->device, context->commandPool, nullptr);
+    vkDestroyCommandPool(vulkanContext->device, vulkanContext->commandPool, nullptr);
 
-    vkDestroySurfaceKHR(context->instance, context->surface, nullptr);
+    vkDestroySurfaceKHR(vulkanContext->instance, vulkanContext->surface, nullptr);
 
-    for (size_t i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++)
+    for (u32 i = 0; i < (u32)vulkanContext->MAX_FRAMES_IN_FLIGHT; i++)
     {
-        vkDestroySemaphore(context->device, context->renderFinishedSemaphores[i], nullptr);
-        vkDestroySemaphore(context->device, context->imageAvailableSemaphores[i], nullptr);
-        vkDestroyFence(context->device, context->inFlightFences[i], nullptr);
+        vkDestroySemaphore(vulkanContext->device, vulkanContext->renderFinishedSemaphores[i],
+                           nullptr);
+        vkDestroySemaphore(vulkanContext->device, vulkanContext->imageAvailableSemaphores[i],
+                           nullptr);
+        vkDestroyFence(vulkanContext->device, vulkanContext->inFlightFences[i], nullptr);
     }
 
-    vkDestroyDevice(context->device, nullptr);
-    vkDestroyInstance(context->instance, nullptr);
+    vkDestroyDevice(vulkanContext->device, nullptr);
+    vkDestroyInstance(vulkanContext->instance, nullptr);
 
-    glfwDestroyWindow(context->window);
+    glfwDestroyWindow(vulkanContext->window);
 
     glfwTerminate();
 }
 
 void
-initWindow(Context* context)
-{
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-    context->window = glfwCreateWindow(context->WIDTH, context->HEIGHT, "Vulkan", nullptr, nullptr);
-    glfwSetWindowUserPointer(context->window, &context);
-    glfwSetFramebufferSizeCallback(context->window, framebufferResizeCallback);
-}
-
-static void
 framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
     auto context = reinterpret_cast<Context*>(glfwGetWindowUserPointer(window));
-    context->framebufferResized = true;
+    context->vulkanContext->framebufferResized = true;
 }
 
 void
 cleanupColorResources(Context& context)
 {
-    vkDestroyImageView(context.device, context.colorImageView, nullptr);
-    vkDestroyImage(context.device, context.colorImage, nullptr);
-    vkFreeMemory(context.device, context.colorImageMemory, nullptr);
+    VulkanContext* vulkanContext = context.vulkanContext;
+
+    vkDestroyImageView(vulkanContext->device, vulkanContext->colorImageView, nullptr);
+    vkDestroyImage(vulkanContext->device, vulkanContext->colorImage, nullptr);
+    vkFreeMemory(vulkanContext->device, vulkanContext->colorImageMemory, nullptr);
 }
 
 void
 cleanupSwapChain(Context& context)
 {
+    VulkanContext* vulkanContext = context.vulkanContext;
+
     cleanupColorResources(context);
 
-    for (size_t i = 0; i < context.swapChainFramebuffers.size(); i++)
+    for (size_t i = 0; i < vulkanContext->swapChainFramebuffers.size(); i++)
     {
-        vkDestroyFramebuffer(context.device, context.swapChainFramebuffers[i], nullptr);
+        vkDestroyFramebuffer(vulkanContext->device, vulkanContext->swapChainFramebuffers[i],
+                             nullptr);
     }
 
-    for (size_t i = 0; i < context.swapChainImageViews.size(); i++)
+    for (size_t i = 0; i < vulkanContext->swapChainImageViews.size(); i++)
     {
-        vkDestroyImageView(context.device, context.swapChainImageViews[i], nullptr);
+        vkDestroyImageView(vulkanContext->device, vulkanContext->swapChainImageViews[i], nullptr);
     }
 
-    vkDestroySwapchainKHR(context.device, context.swapChain, nullptr);
+    vkDestroySwapchainKHR(vulkanContext->device, vulkanContext->swapChain, nullptr);
 }
 
 void
 createSyncObjects(Context& context)
 {
-    context.imageAvailableSemaphores.resize(context.MAX_FRAMES_IN_FLIGHT);
-    context.renderFinishedSemaphores.resize(context.MAX_FRAMES_IN_FLIGHT);
-    context.inFlightFences.resize(context.MAX_FRAMES_IN_FLIGHT);
+    VulkanContext* vulkanContext = context.vulkanContext;
+    vulkanContext->imageAvailableSemaphores.resize(vulkanContext->MAX_FRAMES_IN_FLIGHT);
+    vulkanContext->renderFinishedSemaphores.resize(vulkanContext->MAX_FRAMES_IN_FLIGHT);
+    vulkanContext->inFlightFences.resize(vulkanContext->MAX_FRAMES_IN_FLIGHT);
 
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -241,14 +277,14 @@ createSyncObjects(Context& context)
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    for (size_t i = 0; i < context.MAX_FRAMES_IN_FLIGHT; i++)
+    for (u32 i = 0; i < (u32)vulkanContext->MAX_FRAMES_IN_FLIGHT; i++)
     {
-        if (vkCreateSemaphore(context.device, &semaphoreInfo, nullptr,
-                              &context.imageAvailableSemaphores[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(context.device, &semaphoreInfo, nullptr,
-                              &context.renderFinishedSemaphores[i]) != VK_SUCCESS ||
-            vkCreateFence(context.device, &fenceInfo, nullptr, &context.inFlightFences[i]) !=
-                VK_SUCCESS)
+        if (vkCreateSemaphore(vulkanContext->device, &semaphoreInfo, nullptr,
+                              &vulkanContext->imageAvailableSemaphores[i]) != VK_SUCCESS ||
+            vkCreateSemaphore(vulkanContext->device, &semaphoreInfo, nullptr,
+                              &vulkanContext->renderFinishedSemaphores[i]) != VK_SUCCESS ||
+            vkCreateFence(vulkanContext->device, &fenceInfo, nullptr,
+                          &vulkanContext->inFlightFences[i]) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create synchronization objects for a frame!");
         }
@@ -258,38 +294,45 @@ createSyncObjects(Context& context)
 void
 createCommandBuffers(Context& context)
 {
-    context.commandBuffers.resize(context.swapChainFramebuffers.size());
+    VulkanContext* vulkanContext = context.vulkanContext;
+    ProfilingContext* profilingContext = context.profilingContext;
+
+    vulkanContext->commandBuffers.resize(vulkanContext->swapChainFramebuffers.size());
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = context.commandPool;
+    allocInfo.commandPool = vulkanContext->commandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = (uint32_t)context.commandBuffers.size();
+    allocInfo.commandBufferCount = (uint32_t)vulkanContext->commandBuffers.size();
 
-    if (vkAllocateCommandBuffers(context.device, &allocInfo, context.commandBuffers.data()) !=
-        VK_SUCCESS)
+    if (vkAllocateCommandBuffers(vulkanContext->device, &allocInfo,
+                                 vulkanContext->commandBuffers.data()) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to allocate command buffers!");
     }
 
-    context.tracyContexts.resize(context.swapChainFramebuffers.size());
-    for (u32 i = 0; i < context.commandBuffers.size(); i++)
+    profilingContext->tracyContexts.resize(vulkanContext->swapChainFramebuffers.size());
+    for (u32 i = 0; i < vulkanContext->commandBuffers.size(); i++)
     {
-        context.tracyContexts[i] = TracyVkContext(context.physicalDevice, context.device,
-                                                  context.graphicsQueue, context.commandBuffers[i]);
+        profilingContext->tracyContexts[i] =
+            TracyVkContext(vulkanContext->physicalDevice, vulkanContext->device,
+                           vulkanContext->graphicsQueue, vulkanContext->commandBuffers[i]);
     }
 }
 
 void
 createCommandPool(Context& context)
 {
-    QueueFamilyIndices queueFamilyIndices = findQueueFamilies(context, context.physicalDevice);
+    VulkanContext* vulkanContext = context.vulkanContext;
+    QueueFamilyIndices queueFamilyIndices =
+        findQueueFamilies(context, vulkanContext->physicalDevice);
 
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
 
-    if (vkCreateCommandPool(context.device, &poolInfo, nullptr, &context.commandPool) != VK_SUCCESS)
+    if (vkCreateCommandPool(vulkanContext->device, &poolInfo, nullptr,
+                            &vulkanContext->commandPool) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create command pool!");
     }
@@ -298,20 +341,25 @@ createCommandPool(Context& context)
 void
 createImageViews(Context& context)
 {
-    context.swapChainImageViews.resize(context.swapChainImages.size());
+    VulkanContext* vulkanContext = context.vulkanContext;
 
-    for (uint32_t i = 0; i < context.swapChainImages.size(); i++)
+    vulkanContext->swapChainImageViews.resize(vulkanContext->swapChainImages.size());
+
+    for (uint32_t i = 0; i < vulkanContext->swapChainImages.size(); i++)
     {
-        context.swapChainImageViews[i] = createImageView(context.device, context.swapChainImages[i],
-                                                         context.swapChainImageFormat);
+        vulkanContext->swapChainImageViews[i] =
+            createImageView(vulkanContext->device, vulkanContext->swapChainImages[i],
+                            vulkanContext->swapChainImageFormat);
     }
 }
 
 void
 createSwapChain(Context& context)
 {
+    VulkanContext* vulkanContext = context.vulkanContext;
+
     SwapChainSupportDetails swapChainSupport =
-        querySwapChainSupport(context, context.physicalDevice);
+        querySwapChainSupport(context, vulkanContext->physicalDevice);
 
     VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
     VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
@@ -327,7 +375,7 @@ createSwapChain(Context& context)
 
     VkSwapchainCreateInfoKHR createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    createInfo.surface = context.surface;
+    createInfo.surface = vulkanContext->surface;
 
     createInfo.minImageCount = imageCount;
     createInfo.imageFormat = surfaceFormat.format;
@@ -336,7 +384,7 @@ createSwapChain(Context& context)
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    QueueFamilyIndices indices = findQueueFamilies(context, context.physicalDevice);
+    QueueFamilyIndices indices = findQueueFamilies(context, vulkanContext->physicalDevice);
     uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
     if (indices.graphicsFamily != indices.presentFamily)
@@ -359,26 +407,28 @@ createSwapChain(Context& context)
     // It is possible to specify the old swap chain to be replaced by a new one
     createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-    if (vkCreateSwapchainKHR(context.device, &createInfo, nullptr, &context.swapChain) !=
-        VK_SUCCESS)
+    if (vkCreateSwapchainKHR(vulkanContext->device, &createInfo, nullptr,
+                             &vulkanContext->swapChain) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create swap chain!");
     }
 
-    vkGetSwapchainImagesKHR(context.device, context.swapChain, &imageCount, nullptr);
-    context.swapChainImages.resize(imageCount);
-    vkGetSwapchainImagesKHR(context.device, context.swapChain, &imageCount,
-                            context.swapChainImages.data());
+    vkGetSwapchainImagesKHR(vulkanContext->device, vulkanContext->swapChain, &imageCount, nullptr);
+    vulkanContext->swapChainImages.resize(imageCount);
+    vkGetSwapchainImagesKHR(vulkanContext->device, vulkanContext->swapChain, &imageCount,
+                            vulkanContext->swapChainImages.data());
 
-    context.swapChainImageFormat = surfaceFormat.format;
-    context.swapChainExtent = extent;
+    vulkanContext->swapChainImageFormat = surfaceFormat.format;
+    vulkanContext->swapChainExtent = extent;
 }
 
 void
 createSurface(Context& context)
 {
-    if (glfwCreateWindowSurface(context.instance, context.window, nullptr, &context.surface) !=
-        VK_SUCCESS)
+    VulkanContext* vulkanContext = context.vulkanContext;
+
+    if (glfwCreateWindowSurface(vulkanContext->instance, vulkanContext->window, nullptr,
+                                &vulkanContext->surface) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create window surface!");
     }
@@ -387,7 +437,9 @@ createSurface(Context& context)
 void
 createInstance(Context& context)
 {
-    if (context.enableValidationLayers && !checkValidationLayerSupport(context))
+    VulkanContext* vulkanContext = context.vulkanContext;
+
+    if (vulkanContext->enableValidationLayers && !checkValidationLayerSupport(context))
     {
         throw std::runtime_error("validation layers requested, but not available!");
     }
@@ -404,20 +456,16 @@ createInstance(Context& context)
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
 
-    uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions;
-
-    glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
     auto extensions = getRequiredExtensions(context);
 
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
 
-    if (context.enableValidationLayers)
+    if (vulkanContext->enableValidationLayers)
     {
-        createInfo.enabledLayerCount = static_cast<uint32_t>(context.validationLayers.size());
-        createInfo.ppEnabledLayerNames = context.validationLayers.data();
+        createInfo.enabledLayerCount =
+            static_cast<uint32_t>(vulkanContext->validationLayers.size());
+        createInfo.ppEnabledLayerNames = vulkanContext->validationLayers.data();
     }
     else
     {
@@ -425,10 +473,11 @@ createInstance(Context& context)
     }
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-    if (context.enableValidationLayers)
+    if (vulkanContext->enableValidationLayers)
     {
-        createInfo.enabledLayerCount = static_cast<uint32_t>(context.validationLayers.size());
-        createInfo.ppEnabledLayerNames = context.validationLayers.data();
+        createInfo.enabledLayerCount =
+            static_cast<uint32_t>(vulkanContext->validationLayers.size());
+        createInfo.ppEnabledLayerNames = vulkanContext->validationLayers.data();
 
         populateDebugMessengerCreateInfo(debugCreateInfo);
         createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
@@ -440,7 +489,7 @@ createInstance(Context& context)
         createInfo.pNext = nullptr;
     }
 
-    if (vkCreateInstance(&createInfo, nullptr, &context.instance) != VK_SUCCESS)
+    if (vkCreateInstance(&createInfo, nullptr, &vulkanContext->instance) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create instance!");
     }
@@ -449,7 +498,9 @@ createInstance(Context& context)
 void
 createLogicalDevice(Context& context)
 {
-    QueueFamilyIndices indices = findQueueFamilies(context, context.physicalDevice);
+    VulkanContext* vulkanContext = context.vulkanContext;
+
+    QueueFamilyIndices indices = findQueueFamilies(context, vulkanContext->physicalDevice);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(),
@@ -479,36 +530,43 @@ createLogicalDevice(Context& context)
 
     createInfo.pEnabledFeatures = &deviceFeatures;
 
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(context.deviceExtensions.size());
-    createInfo.ppEnabledExtensionNames = context.deviceExtensions.data();
+    createInfo.enabledExtensionCount =
+        static_cast<uint32_t>(vulkanContext->deviceExtensions.size());
+    createInfo.ppEnabledExtensionNames = vulkanContext->deviceExtensions.data();
 
     // NOTE: This if statement is no longer necessary on newer versions
-    if (context.enableValidationLayers)
+    if (vulkanContext->enableValidationLayers)
     {
-        createInfo.enabledLayerCount = static_cast<uint32_t>(context.validationLayers.size());
-        createInfo.ppEnabledLayerNames = context.validationLayers.data();
+        createInfo.enabledLayerCount =
+            static_cast<uint32_t>(vulkanContext->validationLayers.size());
+        createInfo.ppEnabledLayerNames = vulkanContext->validationLayers.data();
     }
     else
     {
         createInfo.enabledLayerCount = 0;
     }
 
-    if (vkCreateDevice(context.physicalDevice, &createInfo, nullptr, &context.device) != VK_SUCCESS)
+    if (vkCreateDevice(vulkanContext->physicalDevice, &createInfo, nullptr,
+                       &vulkanContext->device) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create logical device!");
     }
 
-    vkGetDeviceQueue(context.device, indices.graphicsFamily.value(), 0, &context.graphicsQueue);
-    vkGetDeviceQueue(context.device, indices.presentFamily.value(), 0, &context.presentQueue);
+    vkGetDeviceQueue(vulkanContext->device, indices.graphicsFamily.value(), 0,
+                     &vulkanContext->graphicsQueue);
+    vkGetDeviceQueue(vulkanContext->device, indices.presentFamily.value(), 0,
+                     &vulkanContext->presentQueue);
 }
 
 void
 pickPhysicalDevice(Context& context)
 {
-    context.physicalDevice = VK_NULL_HANDLE;
+    VulkanContext* vulkanContext = context.vulkanContext;
+
+    vulkanContext->physicalDevice = VK_NULL_HANDLE;
 
     uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(context.instance, &deviceCount, nullptr);
+    vkEnumeratePhysicalDevices(vulkanContext->instance, &deviceCount, nullptr);
 
     if (deviceCount == 0)
     {
@@ -516,19 +574,19 @@ pickPhysicalDevice(Context& context)
     }
 
     std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(context.instance, &deviceCount, devices.data());
+    vkEnumeratePhysicalDevices(vulkanContext->instance, &deviceCount, devices.data());
 
     for (const auto& device : devices)
     {
         if (isDeviceSuitable(context, device))
         {
-            context.physicalDevice = device;
-            context.msaaSamples = getMaxUsableSampleCount(device);
+            vulkanContext->physicalDevice = device;
+            vulkanContext->msaaSamples = getMaxUsableSampleCount(device);
             break;
         }
     }
 
-    if (context.physicalDevice == VK_NULL_HANDLE)
+    if (vulkanContext->physicalDevice == VK_NULL_HANDLE)
     {
         throw std::runtime_error("failed to find a suitable GPU!");
     }
@@ -560,13 +618,15 @@ isDeviceSuitable(Context& context, VkPhysicalDevice device)
 bool
 checkValidationLayerSupport(Context& context)
 {
+    VulkanContext* vulkanContext = context.vulkanContext;
+
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
     std::vector<VkLayerProperties> availableLayers(layerCount);
     vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-    for (const char* layerName : context.validationLayers)
+    for (const char* layerName : vulkanContext->validationLayers)
     {
         bool layerFound = false;
 
@@ -591,13 +651,15 @@ checkValidationLayerSupport(Context& context)
 std::vector<const char*>
 getRequiredExtensions(Context& context)
 {
+    VulkanContext* vulkanContext = context.vulkanContext;
+
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions;
     glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
     std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
-    if (context.enableValidationLayers)
+    if (vulkanContext->enableValidationLayers)
     {
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
@@ -618,13 +680,13 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 void
 setupDebugMessenger(Context& context)
 {
-    if (!context.enableValidationLayers)
+    VulkanContext* vulkanContext = context.vulkanContext;
+    if (!vulkanContext->enableValidationLayers)
         return;
     VkDebugUtilsMessengerCreateInfoEXT createInfo;
     populateDebugMessengerCreateInfo(createInfo);
-
-    if (CreateDebugUtilsMessengerEXT(context.instance, &createInfo, nullptr,
-                                     &context.debugMessenger) != VK_SUCCESS)
+    if (CreateDebugUtilsMessengerEXT(vulkanContext->instance, &createInfo, nullptr,
+                                     &vulkanContext->debugMessenger) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to set up debug messenger!");
     }
@@ -644,12 +706,14 @@ populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
     createInfo.pfnUserCallback = debugCallback;
 }
 
-// NOTE: you could add logic to explicitly prefer a physical device that
-// supports drawing and presentation in the same queue for improved
-// performance.
+// // NOTE: you could add logic to explicitly prefer a physical device that
+// // supports drawing and presentation in the same queue for improved
+// // performance.
 QueueFamilyIndices
 findQueueFamilies(Context& context, VkPhysicalDevice device)
 {
+    VulkanContext* vulkanContext = context.vulkanContext;
+
     QueueFamilyIndices indices;
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
@@ -666,7 +730,7 @@ findQueueFamilies(Context& context, VkPhysicalDevice device)
         }
 
         VkBool32 presentSupport = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, context.surface, &presentSupport);
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, vulkanContext->surface, &presentSupport);
         if (presentSupport)
         {
             indices.presentFamily = i;
@@ -679,6 +743,8 @@ findQueueFamilies(Context& context, VkPhysicalDevice device)
 bool
 checkDeviceExtensionSupport(Context& context, VkPhysicalDevice device)
 {
+    VulkanContext* vulkanContext = context.vulkanContext;
+
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
@@ -686,8 +752,8 @@ checkDeviceExtensionSupport(Context& context, VkPhysicalDevice device)
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
                                          availableExtensions.data());
 
-    std::set<std::string> requiredExtensions(context.deviceExtensions.begin(),
-                                             context.deviceExtensions.end());
+    std::set<std::string> requiredExtensions(vulkanContext->deviceExtensions.begin(),
+                                             vulkanContext->deviceExtensions.end());
 
     for (const auto& extension : availableExtensions)
     {
@@ -700,27 +766,31 @@ checkDeviceExtensionSupport(Context& context, VkPhysicalDevice device)
 SwapChainSupportDetails
 querySwapChainSupport(Context& context, VkPhysicalDevice device)
 {
+    VulkanContext* vulkanContext = context.vulkanContext;
+
     SwapChainSupportDetails details;
 
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, context.surface, &details.capabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, vulkanContext->surface,
+                                              &details.capabilities);
 
     uint32_t formatCount;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, context.surface, &formatCount, nullptr);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, vulkanContext->surface, &formatCount, nullptr);
 
     if (formatCount != 0)
     {
         details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, context.surface, &formatCount,
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, vulkanContext->surface, &formatCount,
                                              details.formats.data());
     }
 
     uint32_t presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, context.surface, &presentModeCount, nullptr);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, vulkanContext->surface, &presentModeCount,
+                                              nullptr);
 
     if (presentModeCount != 0)
     {
         details.presentModes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, context.surface, &presentModeCount,
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, vulkanContext->surface, &presentModeCount,
                                                   details.presentModes.data());
     }
 
@@ -757,6 +827,8 @@ chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes
 VkExtent2D
 chooseSwapExtent(Context& context, const VkSurfaceCapabilitiesKHR& capabilities)
 {
+    VulkanContext* vulkanContext = context.vulkanContext;
+
     if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
     {
         return capabilities.currentExtent;
@@ -764,7 +836,7 @@ chooseSwapExtent(Context& context, const VkSurfaceCapabilitiesKHR& capabilities)
     else
     {
         int width, height;
-        glfwGetFramebufferSize(context.window, &width, &height);
+        glfwGetFramebufferSize(vulkanContext->window, &width, &height);
 
         VkExtent2D actualExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 
@@ -817,25 +889,34 @@ void
 recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
 {
     ZoneScoped;
+
+    VulkanContext* vulkanContext = context.vulkanContext;
+    Vulkan_Rectangle* vulkanRectangle = context.vulkanRectangle;
+    Vulkan_GlyphAtlas* vulkanGlyphAtlas = context.vulkanGlyphAtlas;
+    GlyphAtlas* glyphAtlas = context.glyphAtlas;
+    ProfilingContext* profilingContext = context.profilingContext;
+    (void)profilingContext;
+
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = 0;                  // Optional
     beginInfo.pInheritanceInfo = nullptr; // Optional
 
-    if (vkBeginCommandBuffer(context.commandBuffers[currentFrame], &beginInfo) != VK_SUCCESS)
+    if (vkBeginCommandBuffer(vulkanContext->commandBuffers[currentFrame], &beginInfo) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to begin recording command buffer!");
     }
-    TracyVkCollect(context.tracyContexts[currentFrame], context.commandBuffers[currentFrame]);
+    TracyVkCollect(profilingContext->tracyContexts[currentFrame],
+                   vulkanContext->commandBuffers[currentFrame]);
 
     Vulkan_Resolution resolution =
-        Vulkan_Resolution(context.swapChainExtent, context.pushConstantInfo);
+        Vulkan_Resolution(vulkanContext->swapChainExtent, vulkanContext->pushConstantInfo);
 
     // recording rectangles
     {
         ZoneScopedN("Rectangle CPU");
-        TracyVkZoneC(context.tracyContexts[currentFrame], context.commandBuffers[currentFrame],
-                     "Rectangles GPU", 0xff0000);
+        TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
+                     vulkanContext->commandBuffers[currentFrame], "Rectangles GPU", 0xff0000);
         RectangleInstance boxInstances[] = {{{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
                                             {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
                                             {{0.0f, 0.8f}, {0.2f, 1.0f}, {0.8f, 0.8f, 0.8f}},
@@ -843,30 +924,33 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
 
         GrowthVector<RectangleInstance> rectangleInstances(
             &boxInstances[0], static_cast<u32>(sizeof(boxInstances) / sizeof(RectangleInstance)));
-        mapRectanglesToBuffer(context.vulkanRectangle, rectangleInstances, context.physicalDevice,
-                              context.device, context.commandPool, context.graphicsQueue);
-        beginRectangleRenderPass(context.vulkanRectangle, context.commandBuffers[currentFrame],
-                                 context.firstRenderPass, context.swapChainFramebuffers[imageIndex],
-                                 context.swapChainExtent, rectangleInstances.size, resolution);
+        mapRectanglesToBuffer(*vulkanRectangle, rectangleInstances, vulkanContext->physicalDevice,
+                              vulkanContext->device, vulkanContext->commandPool,
+                              vulkanContext->graphicsQueue);
+        beginRectangleRenderPass(
+            *context.vulkanRectangle, vulkanContext->commandBuffers[currentFrame],
+            vulkanContext->firstRenderPass, vulkanContext->swapChainFramebuffers[imageIndex],
+            vulkanContext->swapChainExtent, rectangleInstances.size, resolution);
     }
     // recording text
     {
         ZoneScopedN("Text CPU");
-        TracyVkZoneC(context.tracyContexts[currentFrame], context.commandBuffers[currentFrame],
-                     "Text GPU", 0x00FF00);
+        TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
+                     vulkanContext->commandBuffers[currentFrame], "Text GPU", 0x00FF00);
         Text texts[] = {{"testing", 300, 300}, {"more testing", 300, 400}};
-        addTexts(context.glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]));
-        mapGlyphInstancesToBuffer(context.vulkanGlyphAtlas, context.glyphAtlas,
-                                  context.physicalDevice, context.device, context.commandPool,
-                                  context.graphicsQueue);
-        beginGlyphAtlasRenderPass(
-            context.vulkanGlyphAtlas, context.glyphAtlas, context.commandBuffers[currentFrame],
-            context.swapChainFramebuffers[imageIndex], context.swapChainExtent,
-            context.vulkanGlyphAtlas.descriptorSets.data[currentFrame], context.renderPass,
-            resolution);
+        addTexts(*glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]));
+        mapGlyphInstancesToBuffer(*context.vulkanGlyphAtlas, *context.glyphAtlas,
+                                  vulkanContext->physicalDevice, vulkanContext->device,
+                                  vulkanContext->commandPool, vulkanContext->graphicsQueue);
+        beginGlyphAtlasRenderPass(*context.vulkanGlyphAtlas, *context.glyphAtlas,
+                                  vulkanContext->commandBuffers[currentFrame],
+                                  vulkanContext->swapChainFramebuffers[imageIndex],
+                                  vulkanContext->swapChainExtent,
+                                  vulkanGlyphAtlas->descriptorSets.data[currentFrame],
+                                  vulkanContext->renderPass, resolution);
     }
 
-    if (vkEndCommandBuffer(context.commandBuffers[currentFrame]) != VK_SUCCESS)
+    if (vkEndCommandBuffer(vulkanContext->commandBuffers[currentFrame]) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to record command buffer!");
     }
@@ -875,21 +959,24 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
 void
 drawFrame(Context* context)
 {
+    VulkanContext* vulkanContext = context->vulkanContext;
     ZoneScoped;
     {
         ZoneScopedN("Wait for frame");
-        vkWaitForFences(context->device, 1, &context->inFlightFences[context->currentFrame],
-                        VK_TRUE, UINT64_MAX);
+        vkWaitForFences(vulkanContext->device, 1,
+                        &vulkanContext->inFlightFences[vulkanContext->currentFrame], VK_TRUE,
+                        UINT64_MAX);
     }
     uint32_t imageIndex;
-    VkResult result = vkAcquireNextImageKHR(
-        context->device, context->swapChain, UINT64_MAX,
-        context->imageAvailableSemaphores[context->currentFrame], VK_NULL_HANDLE, &imageIndex);
+    VkResult result =
+        vkAcquireNextImageKHR(vulkanContext->device, vulkanContext->swapChain, UINT64_MAX,
+                              vulkanContext->imageAvailableSemaphores[vulkanContext->currentFrame],
+                              VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
-        context->framebufferResized)
+        vulkanContext->framebufferResized)
     {
-        context->framebufferResized = false;
+        vulkanContext->framebufferResized = false;
         recreateSwapChain(*context);
         return;
     }
@@ -898,27 +985,30 @@ drawFrame(Context* context)
         throw std::runtime_error("failed to acquire swap chain image!");
     }
 
-    vkResetFences(context->device, 1, &context->inFlightFences[context->currentFrame]);
-    vkResetCommandBuffer(context->commandBuffers[context->currentFrame], 0);
+    vkResetFences(vulkanContext->device, 1,
+                  &vulkanContext->inFlightFences[vulkanContext->currentFrame]);
+    vkResetCommandBuffer(vulkanContext->commandBuffers[vulkanContext->currentFrame], 0);
 
-    recordCommandBuffer(*context, imageIndex, context->currentFrame);
+    recordCommandBuffer(*context, imageIndex, vulkanContext->currentFrame);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    VkSemaphore waitSemaphores[] = {context->imageAvailableSemaphores[context->currentFrame]};
+    VkSemaphore waitSemaphores[] = {
+        vulkanContext->imageAvailableSemaphores[vulkanContext->currentFrame]};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &context->commandBuffers[context->currentFrame];
+    submitInfo.pCommandBuffers = &vulkanContext->commandBuffers[vulkanContext->currentFrame];
 
-    VkSemaphore signalSemaphores[] = {context->renderFinishedSemaphores[context->currentFrame]};
+    VkSemaphore signalSemaphores[] = {
+        vulkanContext->renderFinishedSemaphores[vulkanContext->currentFrame]};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(context->graphicsQueue, 1, &submitInfo,
-                      context->inFlightFences[context->currentFrame]) != VK_SUCCESS)
+    if (vkQueueSubmit(vulkanContext->graphicsQueue, 1, &submitInfo,
+                      vulkanContext->inFlightFences[vulkanContext->currentFrame]) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
@@ -929,20 +1019,20 @@ drawFrame(Context* context)
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = signalSemaphores;
 
-    VkSwapchainKHR swapChains[] = {context->swapChain};
+    VkSwapchainKHR swapChains[] = {vulkanContext->swapChain};
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = swapChains;
     presentInfo.pImageIndices = &imageIndex;
 
     presentInfo.pResults = nullptr; // Optional
 
-    result = vkQueuePresentKHR(context->presentQueue, &presentInfo);
+    result = vkQueuePresentKHR(vulkanContext->presentQueue, &presentInfo);
     // TracyVkCollect(tracyContexts[currentFrame], commandBuffers[currentFrame]);
     FrameMark; // end of frame is assumed to be here as the
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
-        context->framebufferResized)
+        vulkanContext->framebufferResized)
     {
-        context->framebufferResized = false;
+        vulkanContext->framebufferResized = false;
         recreateSwapChain(*context);
     }
     else if (result != VK_SUCCESS)
@@ -950,29 +1040,33 @@ drawFrame(Context* context)
         throw std::runtime_error("failed to present swap chain image!");
     }
 
-    context->currentFrame = (context->currentFrame + 1) % context->MAX_FRAMES_IN_FLIGHT;
+    vulkanContext->currentFrame =
+        (vulkanContext->currentFrame + 1) % vulkanContext->MAX_FRAMES_IN_FLIGHT;
 }
 
 void
 recreateSwapChain(Context& context)
 {
+    VulkanContext* vulkanContext = context.vulkanContext;
+
     int width = 0, height = 0;
-    glfwGetFramebufferSize(context.window, &width, &height);
+    glfwGetFramebufferSize(vulkanContext->window, &width, &height);
     while (width == 0 || height == 0)
     {
-        glfwGetFramebufferSize(context.window, &width, &height);
+        glfwGetFramebufferSize(vulkanContext->window, &width, &height);
         glfwWaitEvents();
     }
-    vkDeviceWaitIdle(context.device);
+    vkDeviceWaitIdle(vulkanContext->device);
 
     cleanupSwapChain(context);
 
     createSwapChain(context);
     createImageViews(context);
-    context.colorImageView = createColorResources(
-        context.physicalDevice, context.device, context.swapChainImageFormat,
-        context.swapChainExtent, context.msaaSamples, context.colorImage, context.colorImageMemory);
-    context.swapChainFramebuffers =
-        createFramebuffers(context.device, context.colorImageView, context.renderPass,
-                           context.swapChainExtent, context.swapChainImageViews);
+    vulkanContext->colorImageView = createColorResources(
+        vulkanContext->physicalDevice, vulkanContext->device, vulkanContext->swapChainImageFormat,
+        vulkanContext->swapChainExtent, vulkanContext->msaaSamples, vulkanContext->colorImage,
+        vulkanContext->colorImageMemory);
+    vulkanContext->swapChainFramebuffers = createFramebuffers(
+        vulkanContext->device, vulkanContext->colorImageView, vulkanContext->renderPass,
+        vulkanContext->swapChainExtent, vulkanContext->swapChainImageViews);
 }

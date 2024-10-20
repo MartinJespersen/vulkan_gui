@@ -1,14 +1,12 @@
+#include "entrypoint.hpp"
 #include <cstdlib>
-#include <stdexcept>
+#include <unistd.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <vulkan/vulkan_core.h>
 
-#include <iostream>
-
-#include "entrypoint.hpp"
 #include <dlfcn.h>
-
-Context context;
+#include <iostream>
 
 void (*drawFrameLib)(Context*);
 void (*initWindowLib)(Context*);
@@ -18,19 +16,7 @@ void (*initVulkanLib)(Context*);
 void*
 loadLibrary()
 {
-    void* entryHandle = NULL;
-    if (entryHandle != nullptr)
-    {
-        if (dlclose(entryHandle))
-        {
-            printf("Failed to close entrypoint.so: %s", dlerror());
-            exit(EXIT_FAILURE);
-        };
-
-        entryHandle = nullptr;
-        initWindowLib(&context);
-    }
-    entryHandle = dlopen("./entrypoint.so", RTLD_NOW | RTLD_LOCAL);
+    void* entryHandle = dlopen("./entrypoint.so", RTLD_NOW | RTLD_LOCAL);
     if (!entryHandle)
     {
         printf("Failed to load entrypoint.so: %s", dlerror());
@@ -44,26 +30,26 @@ loadLibrary()
         exit(EXIT_FAILURE);
     }
 
-    // initVulkanLib = (void (*)(Context*))dlsym(entryHandle, "initVulkan");
-    // if (!initVulkanLib)
-    // {
-    //     printf("Failed to load initVulkan: %s", dlerror());
-    //     exit(EXIT_FAILURE);
-    // }
+    initVulkanLib = (void (*)(Context*))dlsym(entryHandle, "initVulkan");
+    if (!initVulkanLib)
+    {
+        printf("Failed to load initVulkan: %s", dlerror());
+        exit(EXIT_FAILURE);
+    }
 
-    // drawFrameLib = (void (*)(Context*))dlsym(entryHandle, "drawFrame");
-    // if (!drawFrameLib)
-    // {
-    //     printf("Failed to load drawFrame: %s", dlerror());
-    //     exit(EXIT_FAILURE);
-    // }
+    drawFrameLib = (void (*)(Context*))dlsym(entryHandle, "drawFrame");
+    if (!drawFrameLib)
+    {
+        printf("Failed to load drawFrame: %s", dlerror());
+        exit(EXIT_FAILURE);
+    }
 
-    // cleanupLib = (void (*)(Context*))dlsym(entryHandle, "cleanup");
-    // if (!cleanupLib)
-    // {
-    //     printf("Failed to load cleanup: %s", dlerror());
-    //     exit(EXIT_FAILURE);
-    // }
+    cleanupLib = (void (*)(Context*))dlsym(entryHandle, "cleanup");
+    if (!cleanupLib)
+    {
+        printf("Failed to load cleanup: %s", dlerror());
+        exit(EXIT_FAILURE);
+    }
 
     char* err = dlerror();
     if (err != NULL)
@@ -78,35 +64,54 @@ loadLibrary()
 void
 run()
 {
-    void* entryHandle = loadLibrary();
+    VulkanContext vulkanContext = {};
+    ProfilingContext profilingContext = {};
+    GlyphAtlas glyphAtlas = {};
+    Vulkan_Rectangle vulkanRectangle = {};
+    Vulkan_GlyphAtlas vulkanGlyphAtlas = {};
+    Context context = {&vulkanContext, &profilingContext, &glyphAtlas, &vulkanRectangle,
+                       &vulkanGlyphAtlas};
 
+#ifndef PROFILING_ENABLE
+    void* entryHandle = loadLibrary();
+#else
+    initWindowLib = initWindow;
+    initVulkanLib = initVulkan;
+    drawFrameLib = drawFrame;
+    cleanupLib = cleanup;
+#endif
     initWindowLib(&context);
-    // initVulkanLib(&context);
-    while (!glfwWindowShouldClose(context.window))
+    initVulkanLib(&context);
+    while (!glfwWindowShouldClose(vulkanContext.window))
     {
         glfwPollEvents();
-        if (GLFW_PRESS == glfwGetKey(context.window, GLFW_KEY_S) &&
-            GLFW_PRESS == glfwGetKey(context.window, GLFW_KEY_LEFT_CONTROL))
+#ifndef PROFILING_ENABLE
+        if (GLFW_PRESS == glfwGetKey(vulkanContext.window, GLFW_KEY_S) &&
+            GLFW_PRESS == glfwGetKey(vulkanContext.window, GLFW_KEY_LEFT_CONTROL))
         {
-            initWindowLib(&context);
             if (dlclose(entryHandle))
             {
                 printf("Failed to close entrypoint.so: %s", dlerror());
                 exit(EXIT_FAILURE);
             };
-
+            // window = initWindowLib();
             entryHandle = nullptr;
 
             entryHandle = loadLibrary();
         }
 
-        // drawFrameLib(&context);
+#endif
+        drawFrameLib(&context);
     }
 
-    // vkDeviceWaitIdle(context.device);
-    // cleanupLib(&context);
+    cleanupLib(&context);
 }
 
+// NOTE: Tracydebugger has a dlclose function and it takes precedence over the one in the standard
+// library
+//  This is only the case when -DTRACY_ENABLE is defined
+// NOTE: For some reason dlclose is also not called when using std::map. If this is directly related
+// to std::map I do not know
 int
 main()
 {

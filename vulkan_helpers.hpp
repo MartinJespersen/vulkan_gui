@@ -1,35 +1,10 @@
 #pragma once
-#include "shader.hpp"
-#include <stdexcept>
+
+#include "entrypoint.hpp"
+#include <string>
 #include <tuple>
 #include <vector>
 #include <vulkan/vulkan.h>
-
-struct Vulkan_PushConstantInfo
-{
-    uint32_t offset;
-    uint32_t size;
-};
-
-struct Vulkan_Resolution
-{
-    static const uint32_t SIZE = 2;
-    float data[SIZE];
-    Vulkan_PushConstantInfo bufferInfo;
-
-    Vulkan_Resolution(VkExtent2D extent, Vulkan_PushConstantInfo bufferInfo)
-    {
-        data[0] = extent.width;
-        data[1] = extent.height;
-        this->bufferInfo = bufferInfo;
-    }
-
-    inline uint32_t
-    size()
-    {
-        return sizeof(data);
-    }
-};
 
 VkCommandBuffer
 beginSingleTimeCommands(VkDevice device, VkCommandPool commandPool);

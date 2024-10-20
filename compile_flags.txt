@@ -2,4 +2,3 @@
 /home/martin/libraries/stb
 -include 
 types.hpp
--DTRACY_ENABLE

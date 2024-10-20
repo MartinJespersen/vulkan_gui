@@ -1,6 +1,6 @@
 #include "rectangle.hpp"
-#include "utils.hpp"
 #include "vertex.hpp"
+#include <cstring>
 
 void
 createRectangleIndexBuffer(Vulkan_Rectangle& vulkanRectangle, VkPhysicalDevice physicalDevice,

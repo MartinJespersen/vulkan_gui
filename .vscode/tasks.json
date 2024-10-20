@@ -13,6 +13,19 @@
                 "$gcc"
             ],
             "detail": "Generated task for building the project"
+        },
+        {
+            "label": "build for profiling",
+            "type": "shell",
+            "command": "make profiler",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "Generated task for building the project"
         }
     ]
 }

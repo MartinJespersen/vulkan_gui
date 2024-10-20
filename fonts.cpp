@@ -1,8 +1,7 @@
+
 #include "fonts.hpp"
-#include "utils.hpp"
 #include "vulkan_helpers.hpp"
 #include <iostream>
-#include <vulkan/vulkan_core.h>
 
 void
 beginGlyphAtlasRenderPass(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
@@ -57,16 +56,13 @@ beginGlyphAtlasRenderPass(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyph
 void
 addText(GlyphAtlas& glyphAtlas, std::string text, float x, float y)
 {
-    for (int i = 0; i < text.size(); i++)
+    for (u32 i = 0; i < text.size(); i++)
     {
         if (text[i] >= MAX_GLYPHS)
         {
             throw std::runtime_error("Character not supported!");
         }
-        if (glyphAtlas.characters.find(text[i]) == glyphAtlas.characters.end())
-        {
-            throw std::runtime_error("Character not supported!");
-        }
+
         Character& ch = glyphAtlas.characters.at(text[i]);
         float xpos = x + ch.bearingX;
         float ypos = y - ch.bearingY;
@@ -116,7 +112,7 @@ mapGlyphInstancesToBuffer(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyph
                      vulkanGlyphAtlas.glyphInstBuffer, vulkanGlyphAtlas.glyphMemoryBuffer);
     }
 
-    // TODO: Consider using vkFlushMappedMemoryRanges and vkInvalidateMappedMemoryRanges instead of
+    // TODO: Consider using vkFlushMappedMemoryRanges and vkInvalidateMappedMemoryRanges instead
     // VK_MEMORY_PROPERTY_HOST_COHERENT_BIT for performance.
 
     void* data;
@@ -148,9 +144,10 @@ createGlyphIndexBuffer(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtl
     vkUnmapMemory(device, vulkanGlyphAtlas.glyphIndexMemoryBuffer);
 }
 
-// Things to do:
-// 1. create the buffer in 2D (so the with and height should be found ) this is to use the buffer as
-// a texture
+// // Things to do:
+// // 1. create the buffer in 2D (so the with and height should be found ) this is to use the buffer
+// as
+// // a texture
 unsigned char*
 initGlyphs(GlyphAtlas& glyphAtlas, int* width, int* height)
 {
@@ -174,9 +171,11 @@ initGlyphs(GlyphAtlas& glyphAtlas, int* width, int* height)
 
     FT_Set_Pixel_Sizes(face, 0, 40);
 
+    unsigned char* glyphBuffer;
+
     *width = 0;
     *height = 0;
-    unsigned char* glyphBuffer;
+
     for (int i = 0; i < MAX_GLYPHS; i++)
     {
         char c = static_cast<char>(i);
@@ -189,10 +188,11 @@ initGlyphs(GlyphAtlas& glyphAtlas, int* width, int* height)
         *width += face->glyph->bitmap.width;
         *height = std::max(*height, static_cast<int>(face->glyph->bitmap.rows));
 
-        glyphAtlas.characters[c] = {(float)face->glyph->bitmap.width,
-                                    (float)face->glyph->bitmap.rows,
-                                    (float)face->glyph->bitmap_left, (float)face->glyph->bitmap_top,
-                                    static_cast<unsigned int>(face->glyph->advance.x)};
+        glyphAtlas.characters[(u32)c].width = static_cast<float>(face->glyph->bitmap.width);
+        glyphAtlas.characters[(u32)c].height = static_cast<float>(face->glyph->bitmap.rows);
+        glyphAtlas.characters[(u32)c].bearingX = static_cast<float>(face->glyph->bitmap_left);
+        glyphAtlas.characters[(u32)c].bearingY = static_cast<float>(face->glyph->bitmap_top);
+        glyphAtlas.characters[(u32)c].advance = static_cast<unsigned int>(face->glyph->advance.x);
     }
 
     glyphBuffer = new unsigned char[(*width) * (*height)];
@@ -204,17 +204,19 @@ initGlyphs(GlyphAtlas& glyphAtlas, int* width, int* height)
         {
             throw std::runtime_error("failed to load glyph!");
         }
-        for (int j = 0; j < face->glyph->bitmap.rows; j++)
+        for (unsigned int j = 0; j < face->glyph->bitmap.rows; j++)
         {
-            for (int k = 0; k < face->glyph->bitmap.width; k++)
+            for (unsigned int k = 0; k < face->glyph->bitmap.width; k++)
             {
                 glyphBuffer[j * (*width) + k + glyphOffset] =
                     face->glyph->bitmap.buffer[k + j * face->glyph->bitmap.width];
             }
         }
-        glyphAtlas.characters.at(curChar).glyphOffset = glyphOffset;
+        glyphAtlas.characters[(u32)curChar].glyphOffset = glyphOffset;
         glyphOffset += face->glyph->bitmap.width;
     }
+
+    FT_Done_Face(face);
     FT_Done_FreeType(ft);
     return glyphBuffer;
 }
@@ -256,25 +258,18 @@ createGlyphAtlasImage(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtla
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
 
-    createBuffer(
-        physicalDevice, device, imageSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,   // buffer should be used as source in a memory transfer
-                                            // operation
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT // making visible to host
-            | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, // coherent between the host (CPU) and the
-                                                    // device (GPU). This means that after the host
-                                                    // writes data to this memory, the device will
-                                                    // see the updated data without needing an
-                                                    // explicit flush of the memory
-        stagingBuffer, stagingBufferMemory);
+    createBuffer(physicalDevice, device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                 stagingBuffer, stagingBufferMemory);
 
     void* data;
     vkMapMemory(
         device, stagingBufferMemory, 0, imageSize, 0,
-        &data); // maps the buffer memory into the application address space, so cpu can access it
+        &data); // maps the buffer memory into the application address space, so cpu can access
     memcpy(data, pixels, static_cast<size_t>(imageSize)); // copy the pixel data to the buffer
     vkUnmapMemory(device,
-                  stagingBufferMemory); // unmap the buffer memory so cpu no longer has access to it
+                  stagingBufferMemory); // unmap the buffer memory so cpu no longer has access to
 
     delete pixels;
 
@@ -324,8 +319,9 @@ createGlyphAtlasTextureSampler(Vulkan_GlyphAtlas& vulkanGlyphAtlas, VkPhysicalDe
     // anisotropic filtering is a optional feature and has to be enabled in the device features
     samplerInfo.maxAnisotropy =
         properties.limits
-            .maxSamplerAnisotropy; // this is the maximum amount of texel samples that can be used
-                                   // to calculate the final color of a texture
+            .maxSamplerAnisotropy; // this is the maximum amount of texel samples that can be
+
+    // to calculate the final color of a texture
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     samplerInfo.compareEnable =
         VK_FALSE; // if true texels will be compared to a value and result used in filtering
