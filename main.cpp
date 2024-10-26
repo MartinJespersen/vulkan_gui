@@ -1,4 +1,5 @@
 #include "entrypoint.hpp"
+#include <complex.h>
 #include <cstdlib>
 #include <cstring>
 #include <sys/types.h>
@@ -24,9 +25,56 @@ void (*initVulkanLib)(Context*);
 #define MAIN_LIB_FILE "entrypoint.so"
 
 const char* mainLibFile = CONCAT(MAIN_LIB, MAIN_LIB_FILE);
+const char* sourceDir = "./";
+const char* buildScript = "./build.sh";
 int fd;
 bool libChanged = false;
 u8 notifyBuffer[BUF_LEN] __attribute__((aligned(__alignof__(struct inotify_event))));
+
+void
+listenForFileChanges(const char* srcDir)
+{
+    printf("Listening for file changes in %s\n", srcDir);
+    int srcDirFd = {0};
+    int srcDirWd = {0};
+    u8 buffer[BUF_LEN] __attribute__((aligned(__alignof__(struct inotify_event))));
+    ssize_t len;
+
+    srcDirFd = inotify_init();
+    if (srcDirFd < 0)
+    {
+        printf("Failed to initialize inotify: %s", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    srcDirWd = inotify_add_watch(srcDirFd, srcDir, IN_CLOSE_WRITE);
+    if (srcDirWd < 0)
+    {
+        printf("Failed to add watch to inotify: %s", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    while ((len = read(srcDirFd, buffer, BUF_LEN)) > 0)
+    {
+        u8* buf = &buffer[0];
+        struct inotify_event* event;
+        while (buf < buffer + sizeof(buffer))
+        {
+            event = (struct inotify_event*)buf;
+            if (event->mask & IN_CLOSE_WRITE)
+            {
+                int procRes = system(buildScript);
+                printf("Process id is: %d", getpid());
+                if (procRes == EXIT_FAILURE)
+                {
+                    printf("Failed to run build script: %s", strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
+            }
+            buf += sizeof(struct inotify_event) + event->len;
+        }
+    }
+}
 
 void*
 loadLibrary()
@@ -151,6 +199,17 @@ run()
     {
         printf("Failed to add watch to inotify: %s", strerror(errno));
         exit(EXIT_FAILURE);
+    }
+
+    switch (fork())
+    {
+    case -1:
+        perror("fork");
+        exit(EXIT_FAILURE);
+    case 0:
+        listenForFileChanges(sourceDir);
+    default:
+        break;
     }
 
 #else
