@@ -2,3 +2,4 @@ VulkanTest
 **.spv
 .vscode
 profiler
+build

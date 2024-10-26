@@ -1,22 +1,37 @@
 #include "entrypoint.hpp"
 #include <cstdlib>
+#include <cstring>
+#include <sys/types.h>
 #include <unistd.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <iostream>
+#include <sys/inotify.h>
+#include <sys/signal.h>
 
 void (*drawFrameLib)(Context*);
 void (*initWindowLib)(Context*);
 void (*cleanupLib)(Context*);
 void (*initVulkanLib)(Context*);
 
+#define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
+#define CONCAT(a, b) a b
+#define MAIN_LIB "./build/debug/"
+#define MAIN_LIB_FILE "entrypoint.so"
+
+const char* mainLibFile = CONCAT(MAIN_LIB, MAIN_LIB_FILE);
+int fd;
+bool libChanged = false;
+u8 notifyBuffer[BUF_LEN] __attribute__((aligned(__alignof__(struct inotify_event))));
+
 void*
 loadLibrary()
 {
-    void* entryHandle = dlopen("./entrypoint.so", RTLD_NOW | RTLD_LOCAL);
+    void* entryHandle = dlopen(mainLibFile, RTLD_NOW | RTLD_LOCAL);
     if (!entryHandle)
     {
         printf("Failed to load entrypoint.so: %s", dlerror());
@@ -61,6 +76,31 @@ loadLibrary()
     return entryHandle;
 }
 
+// NOTE: This handler cannot be debugged with gdb when
+void
+signal_handler(int signo, siginfo_t* info, void* context)
+{
+    ssize_t len;
+    while ((len = read(fd, notifyBuffer, BUF_LEN)) > 0)
+    {
+        u8* ptr = notifyBuffer;
+        while (ptr < notifyBuffer + len)
+        {
+            struct inotify_event* event = (struct inotify_event*)ptr;
+            if (event->len > 0)
+            {
+                if (event->mask & IN_CLOSE_WRITE)
+                {
+                    libChanged = true;
+                }
+
+                fflush(stdout);
+            }
+            ptr += sizeof(struct inotify_event) + event->len;
+        }
+    }
+}
+
 void
 run()
 {
@@ -73,28 +113,70 @@ run()
                        &vulkanGlyphAtlas};
 
 #ifndef PROFILING_ENABLE
+
     void* entryHandle = loadLibrary();
+    struct sigaction sa;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_SIGINFO;
+    sa.sa_sigaction = signal_handler;
+
+    if (sigaction(SIGIO, &sa, NULL) == -1)
+    {
+        perror("sigaction SIGIO");
+        exit(EXIT_FAILURE);
+    }
+
+    fd = inotify_init1(IN_NONBLOCK);
+    if (fd < 0)
+    {
+        printf("Failed to initialize inotify: %s", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    if (fcntl(fd, F_SETOWN, getpid()) == -1)
+    {
+        perror("fcntl F_SETOWN");
+        exit(EXIT_FAILURE);
+    }
+
+    if (fcntl(fd, F_SETFL, O_ASYNC | O_NONBLOCK) == -1)
+    {
+        perror("fcntl F_SETFL");
+        exit(EXIT_FAILURE);
+    }
+    int wd = inotify_add_watch(fd, MAIN_LIB,
+                               IN_CLOSE_WRITE); // IN_CLOSE_WRITE instead of IN_MODIFY or IN_CREATE
+                                                // as the file might not be fully written to disk
+    if (wd < 0)
+    {
+        printf("Failed to add watch to inotify: %s", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
 #else
     initWindowLib = initWindow;
     initVulkanLib = initVulkan;
     drawFrameLib = drawFrame;
     cleanupLib = cleanup;
+
 #endif
+
     initWindowLib(&context);
     initVulkanLib(&context);
     while (!glfwWindowShouldClose(vulkanContext.window))
     {
         glfwPollEvents();
 #ifndef PROFILING_ENABLE
-        if (GLFW_PRESS == glfwGetKey(vulkanContext.window, GLFW_KEY_S) &&
-            GLFW_PRESS == glfwGetKey(vulkanContext.window, GLFW_KEY_LEFT_CONTROL))
+
+        if (libChanged)
         {
+            libChanged = false;
             if (dlclose(entryHandle))
             {
                 printf("Failed to close entrypoint.so: %s", dlerror());
                 exit(EXIT_FAILURE);
             };
-            // window = initWindowLib();
+
             entryHandle = nullptr;
 
             entryHandle = loadLibrary();
@@ -103,7 +185,9 @@ run()
 #endif
         drawFrameLib(&context);
     }
-
+#ifndef PROFILING_ENABLE
+    inotify_rm_watch(fd, wd);
+#endif
     cleanupLib(&context);
 }
 

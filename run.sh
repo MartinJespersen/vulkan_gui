@@ -6,4 +6,4 @@ pushd ./shaders
 popd
 make clean
 make
-./VulkanTest
+./build/debug/VulkanTest

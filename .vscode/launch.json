@@ -8,7 +8,7 @@
             "name": "g++ debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/VulkanTest",
+            "program": "${workspaceFolder}/build/debug/VulkanTest",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

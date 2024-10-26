@@ -920,7 +920,7 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
         RectangleInstance boxInstances[] = {{{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
                                             {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
                                             {{0.0f, 0.8f}, {0.2f, 1.0f}, {0.8f, 0.8f, 0.8f}},
-                                            {{0.8f, 0.8f}, {1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}}};
+                                            {{0.8f, 0.8f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}}};
 
         GrowthVector<RectangleInstance> rectangleInstances(
             &boxInstances[0], static_cast<u32>(sizeof(boxInstances) / sizeof(RectangleInstance)));
