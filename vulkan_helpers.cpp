@@ -129,8 +129,7 @@ createImageView(VkDevice device, VkImage image, VkFormat format)
 
 void
 transitionImageLayout(VkCommandPool commandPool, VkDevice device, VkQueue graphicsQueue,
-                      VkImage image, VkFormat format, VkImageLayout oldLayout,
-                      VkImageLayout newLayout)
+                      VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout)
 {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands(device, commandPool);
 
@@ -203,7 +202,7 @@ copyBufferToImage(VkCommandPool commandPool, VkDevice device, VkQueue queue, VkB
 }
 
 void
-createImage(VkPhysicalDevice physicalDevice, VkDevice device, uint32_t width, uint32_t height,
+createImage(VkPhysicalDevice physicalDevice, VkDevice device, u32 width, u32 height,
             VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling,
             VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
             VkDeviceMemory& imageMemory)

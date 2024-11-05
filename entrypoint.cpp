@@ -7,8 +7,7 @@ extern "C"
 {
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include "stb_image_wrapper.hpp"
 }
 
 #include <cstdio>
@@ -30,14 +29,18 @@ extern "C"
 #include "profiler/tracy/Tracy.hpp"
 #include "profiler/tracy/TracyVulkan.hpp"
 
+// domain files
 #include "fonts.cpp"
 #include "fonts.hpp"
+
 #include "rectangle.cpp"
 #include "rectangle.hpp"
 
 #include "vulkan_helpers.cpp"
 #include "vulkan_helpers.hpp"
 
+#include "button.cpp"
+#include "button.hpp"
 // #include "entrypoint.hpp"
 
 __attribute__((constructor(101))) void
@@ -52,6 +55,16 @@ after_main()
     printf("\nentrpoint destructor called\n");
 }
 
+static void
+framebufferResizeCallback(GLFWwindow* window, int width, int height)
+{
+    (void)width;
+    (void)height;
+
+    auto context = reinterpret_cast<Context*>(glfwGetWindowUserPointer(window));
+    context->vulkanContext->framebufferResized = 1;
+}
+
 extern "C" void
 initWindow(Context* context)
 {
@@ -61,7 +74,7 @@ initWindow(Context* context)
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     vulkanContext->window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
-    glfwSetWindowUserPointer(vulkanContext->window, &context);
+    glfwSetWindowUserPointer(vulkanContext->window, context);
     glfwSetFramebufferSizeCallback(vulkanContext->window, framebufferResizeCallback);
 }
 
@@ -168,8 +181,7 @@ initVulkan(Context* context)
         vulkanGlyphAtlas->graphicsPipeline = std::get<1>(glyphAtlasGraphicsObjects);
 
         createGlyphIndexBuffer(*context->vulkanGlyphAtlas, *context->glyphAtlas,
-                               vulkanContext->physicalDevice, vulkanContext->device,
-                               vulkanContext->commandPool, vulkanContext->graphicsQueue);
+                               vulkanContext->physicalDevice, vulkanContext->device);
     }
 
     createCommandBuffers(*context);
@@ -222,13 +234,6 @@ cleanup(Context* context)
     glfwDestroyWindow(vulkanContext->window);
 
     glfwTerminate();
-}
-
-void
-framebufferResizeCallback(GLFWwindow* window, int width, int height)
-{
-    auto context = reinterpret_cast<Context*>(glfwGetWindowUserPointer(window));
-    context->vulkanContext->framebufferResized = true;
 }
 
 void
@@ -672,6 +677,9 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
               VkDebugUtilsMessageTypeFlagsEXT messageType,
               const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 {
+    (void)pUserData;
+    (void)messageType;
+    (void)messageSeverity;
     std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 
     return VK_FALSE;
@@ -721,7 +729,7 @@ findQueueFamilies(Context& context, VkPhysicalDevice device)
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
     // Logic to find queue family indices to populate struct with
-    int i = 0;
+    u32 i = 0;
     for (const auto& queueFamily : queueFamilies)
     {
         if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
@@ -894,6 +902,7 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
     Vulkan_Rectangle* vulkanRectangle = context.vulkanRectangle;
     Vulkan_GlyphAtlas* vulkanGlyphAtlas = context.vulkanGlyphAtlas;
     GlyphAtlas* glyphAtlas = context.glyphAtlas;
+    GUI_Rectangle* rectangle = context.rect;
     ProfilingContext* profilingContext = context.profilingContext;
     (void)profilingContext;
 
@@ -902,53 +911,59 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
     beginInfo.flags = 0;                  // Optional
     beginInfo.pInheritanceInfo = nullptr; // Optional
 
-    if (vkBeginCommandBuffer(vulkanContext->commandBuffers[currentFrame], &beginInfo) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to begin recording command buffer!");
-    }
-    TracyVkCollect(profilingContext->tracyContexts[currentFrame],
-                   vulkanContext->commandBuffers[currentFrame]);
-
     Vulkan_Resolution resolution =
         Vulkan_Resolution(vulkanContext->swapChainExtent, vulkanContext->pushConstantInfo);
 
+    glyphAtlas->glyphInstances.reset();
+    rectangle->rectangleInstances.reset();
+    rectangle->rectangleInstances.add({{{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
+                                       {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
+                                       {{0.0f, 0.8f}, {0.2f, 1.0f}, {0.8f, 0.8f, 0.8f}},
+                                       {{0.8f, 0.8f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}}});
+
+    // add buttom that is only a rectangle and text at the moment
+    {
+        ZoneScopedN("Create Buttom");
+        AddButton(context, Vec2(0.35f, 0.35f), Vec2(0.3f, 0.3f), Vec3(0.8f, 0.8f, 0.8f),
+                  "testingerdb");
+    }
     // recording rectangles
     {
         ZoneScopedN("Rectangle CPU");
         TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
                      vulkanContext->commandBuffers[currentFrame], "Rectangles GPU", 0xff0000);
-        RectangleInstance boxInstances[] = {{{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
-                                            {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
-                                            {{0.0f, 0.8f}, {0.2f, 1.0f}, {0.8f, 0.8f, 0.8f}},
-                                            {{0.8f, 0.8f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}}};
 
-        GrowthVector<RectangleInstance> rectangleInstances(
-            &boxInstances[0], static_cast<u32>(sizeof(boxInstances) / sizeof(RectangleInstance)));
-        mapRectanglesToBuffer(*vulkanRectangle, rectangleInstances, vulkanContext->physicalDevice,
-                              vulkanContext->device, vulkanContext->commandPool,
-                              vulkanContext->graphicsQueue);
-        beginRectangleRenderPass(
-            *context.vulkanRectangle, vulkanContext->commandBuffers[currentFrame],
-            vulkanContext->firstRenderPass, vulkanContext->swapChainFramebuffers[imageIndex],
-            vulkanContext->swapChainExtent, rectangleInstances.size, resolution);
+        mapRectanglesToBuffer(*vulkanRectangle, rectangle->rectangleInstances,
+                              vulkanContext->physicalDevice, vulkanContext->device);
     }
     // recording text
     {
         ZoneScopedN("Text CPU");
         TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
                      vulkanContext->commandBuffers[currentFrame], "Text GPU", 0x00FF00);
-        Text texts[] = {{"testing", 300, 300}, {"more testing", 300, 400}};
+        Text texts[] = {{"testing", 0, 0}, {"more testing", 300, 400}};
         addTexts(*glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]));
         mapGlyphInstancesToBuffer(*context.vulkanGlyphAtlas, *context.glyphAtlas,
                                   vulkanContext->physicalDevice, vulkanContext->device,
-                                  vulkanContext->commandPool, vulkanContext->graphicsQueue);
-        beginGlyphAtlasRenderPass(*context.vulkanGlyphAtlas, *context.glyphAtlas,
-                                  vulkanContext->commandBuffers[currentFrame],
-                                  vulkanContext->swapChainFramebuffers[imageIndex],
-                                  vulkanContext->swapChainExtent,
-                                  vulkanGlyphAtlas->descriptorSets.data[currentFrame],
-                                  vulkanContext->renderPass, resolution);
+                                  vulkanContext->graphicsQueue);
     }
+
+    if (vkBeginCommandBuffer(vulkanContext->commandBuffers[currentFrame], &beginInfo) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to begin recording command buffer!");
+    }
+
+    TracyVkCollect(profilingContext->tracyContexts[currentFrame],
+                   vulkanContext->commandBuffers[currentFrame]);
+
+    beginRectangleRenderPass(
+        *context.vulkanRectangle, vulkanContext->commandBuffers[currentFrame],
+        vulkanContext->firstRenderPass, vulkanContext->swapChainFramebuffers[imageIndex],
+        vulkanContext->swapChainExtent, (u32)rectangle->rectangleInstances.size, resolution);
+    beginGlyphAtlasRenderPass(
+        *context.vulkanGlyphAtlas, *context.glyphAtlas, vulkanContext->commandBuffers[currentFrame],
+        vulkanContext->swapChainFramebuffers[imageIndex], vulkanContext->swapChainExtent,
+        vulkanGlyphAtlas->descriptorSets.data[currentFrame], vulkanContext->renderPass, resolution);
 
     if (vkEndCommandBuffer(vulkanContext->commandBuffers[currentFrame]) != VK_SUCCESS)
     {
@@ -976,7 +991,7 @@ drawFrame(Context* context)
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
         vulkanContext->framebufferResized)
     {
-        vulkanContext->framebufferResized = false;
+        vulkanContext->framebufferResized = 0;
         recreateSwapChain(*context);
         return;
     }
@@ -1032,7 +1047,7 @@ drawFrame(Context* context)
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
         vulkanContext->framebufferResized)
     {
-        vulkanContext->framebufferResized = false;
+        vulkanContext->framebufferResized = 0;
         recreateSwapChain(*context);
     }
     else if (result != VK_SUCCESS)

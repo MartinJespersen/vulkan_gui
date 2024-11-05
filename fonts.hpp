@@ -17,12 +17,10 @@ unsigned char*
 initGlyphs(GlyphAtlas* glyphAtlas, int* width, int* height);
 void
 createGlyphIndexBuffer(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
-                       VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool,
-                       VkQueue graphicsQueue);
+                       VkPhysicalDevice physicalDevice, VkDevice device);
 void
 mapGlyphInstancesToBuffer(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
-                          VkPhysicalDevice physicalDevice, VkDevice device,
-                          VkCommandPool commandPool, VkQueue queue);
+                          VkPhysicalDevice physicalDevice, VkDevice device, VkQueue queue);
 
 void
 addTexts(GlyphAtlas& glyphAtlas, Text* texts, size_t len);
@@ -53,3 +51,6 @@ createFontDescriptorPool(VkDevice device, const u32 MAX_FRAMES_IN_FLIGHT,
 
 void
 createFontDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout& descriptorSetLayout);
+
+Vec2<float>
+calculateTextDimensions(Context& context, std::string text);

@@ -20,5 +20,5 @@ cleanupRectangle(Vulkan_Rectangle& vulkanRectangle, VkDevice device);
 
 void
 mapRectanglesToBuffer(Vulkan_Rectangle& vulkanRectangle,
-                      GrowthVector<RectangleInstance>& rectangles, VkPhysicalDevice physicalDevice,
-                      VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue);
+                      InstanceArray<RectangleInstance>& rectangles, VkPhysicalDevice physicalDevice,
+                      VkDevice device);

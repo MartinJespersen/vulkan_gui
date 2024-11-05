@@ -5,12 +5,15 @@ STB_INCLUDE_PATH = /home/martin/libraries/stb
 PROFILE_DIR = build/profiler
 DEBUG_DIR = build/debug
 
+HELPER_HPP = -include constants.hpp -include types.hpp -include error.hpp
 PROFILER_EXEC = $(PROFILE_DIR)/profiler_exe
 PROFILER_LIB = $(PROFILE_DIR)/libprofiler.so
 LIB = $(DEBUG_DIR)/entrypoint.so
 EXEC = $(DEBUG_DIR)/VulkanTest
 ENTRYPOINT  = entrypoint.cpp
-CFLAGS = -std=c++17 -I$(STB_INCLUDE_PATH) -include types.hpp -Wall -Werror -Werror=unused-variable
+CXXFLAGS = -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion 
+# -Wshadow
+CFLAGS = -std=c++20 -I$(STB_INCLUDE_PATH) $(HELPER_HPP) $(CXXFLAGS)
 LDFLAGS = -lglfw -lvulkan -lpthread -lX11 -lXxf86vm -lXrandr -lXi -lfreetype
 
 all: debug

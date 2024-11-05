@@ -2,3 +2,7 @@
 /home/martin/libraries/stb
 -include 
 types.hpp
+-include
+error.hpp
+-include 
+constants.hpp

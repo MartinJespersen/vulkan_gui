@@ -23,8 +23,7 @@ copyBuffer(VkDevice device, VkCommandPool commandPool, VkQueue queue, VkBuffer s
 
 void
 transitionImageLayout(VkCommandPool commandPool, VkDevice device, VkQueue graphicsQueue,
-                      VkImage image, VkFormat format, VkImageLayout oldLayout,
-                      VkImageLayout newLayout);
+                      VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
 
 void
 copyBufferToImage(VkCommandPool commandPool, VkDevice device, VkQueue queue, VkBuffer buffer,

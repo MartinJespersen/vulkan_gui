@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include <sys/inotify.h>
+#include <sys/prctl.h>
 #include <sys/signal.h>
 
 void (*drawFrameLib)(Context*);
@@ -31,6 +32,24 @@ int fd;
 bool libChanged = false;
 u8 notifyBuffer[BUF_LEN] __attribute__((aligned(__alignof__(struct inotify_event))));
 
+void
+setupChildDeathSignal()
+{
+    if (prctl(PR_SET_PDEATHSIG, SIGTERM) == -1)
+    {
+        std::cerr << "prctl failed: " << strerror(errno) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    // Method 2: Check if parent died during prctl setup
+    if (getppid() == 1)
+    {
+        std::cerr << "Parent died before prctl setup" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+// NOTE: A bug in system might cause the read function to fail in debug mode for some reason
 void
 listenForFileChanges(const char* srcDir)
 {
@@ -58,7 +77,7 @@ listenForFileChanges(const char* srcDir)
     {
         u8* buf = &buffer[0];
         struct inotify_event* event;
-        while (buf < buffer + sizeof(buffer))
+        while (buf < buffer + len)
         {
             event = (struct inotify_event*)buf;
             if (event->mask & IN_CLOSE_WRITE)
@@ -128,6 +147,10 @@ loadLibrary()
 void
 signal_handler(int signo, siginfo_t* info, void* context)
 {
+    (void)signo;
+    (void)info;
+    (void)context;
+
     ssize_t len;
     while ((len = read(fd, notifyBuffer, BUF_LEN)) > 0)
     {
@@ -155,10 +178,11 @@ run()
     VulkanContext vulkanContext = {};
     ProfilingContext profilingContext = {};
     GlyphAtlas glyphAtlas = {};
+    GUI_Rectangle rect = {};
     Vulkan_Rectangle vulkanRectangle = {};
     Vulkan_GlyphAtlas vulkanGlyphAtlas = {};
-    Context context = {&vulkanContext, &profilingContext, &glyphAtlas, &vulkanRectangle,
-                       &vulkanGlyphAtlas};
+    Context context = {&vulkanContext, &profilingContext, &glyphAtlas,
+                       &rect,          &vulkanRectangle,  &vulkanGlyphAtlas};
 
 #ifndef PROFILING_ENABLE
 
@@ -201,14 +225,18 @@ run()
         exit(EXIT_FAILURE);
     }
 
-    switch (fork())
+    int childPid = fork();
+    switch (childPid)
     {
     case -1:
         perror("fork");
         exit(EXIT_FAILURE);
     case 0:
+        setupChildDeathSignal();
         listenForFileChanges(sourceDir);
+        break;
     default:
+        setpgid(childPid, childPid);
         break;
     }
 

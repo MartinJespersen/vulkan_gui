@@ -1,6 +1,8 @@
 #pragma once
 
+#include "vertex.hpp"
 #include <array>
+#include <initializer_list>
 #include <stdexcept>
 #include <string>
 extern "C"
@@ -17,55 +19,6 @@ extern "C"
 #include "profiler/tracy/TracyVulkan.hpp"
 
 const int MAX_GLYPHS = 126;
-
-template <typename T> struct GrowthVector
-{
-    T* data;
-    u32 size;
-    u32 capacity;
-
-    GrowthVector()
-    {
-        this->data = nullptr;
-        this->size = 0;
-        this->capacity = 0;
-    }
-
-    GrowthVector(T* data, u32 size)
-    {
-        this->data = data;
-        this->size = size;
-        this->capacity = this->size;
-    }
-
-    inline int
-    pushBack(T glyph)
-    {
-        if (size >= capacity)
-        {
-            return -1;
-        }
-        data[size] = glyph;
-        size++;
-
-        return 0;
-    }
-
-    inline void
-    reset(u32 newSize)
-    {
-        if (newSize > capacity)
-        {
-            if (data)
-            {
-                delete[] data;
-            }
-            this->capacity = newSize;
-            data = new T[this->capacity];
-        }
-        size = 0;
-    }
-};
 
 template <typename T> struct StaticArray
 {
@@ -103,6 +56,52 @@ template <typename T> struct StaticArray
         }
     }
 };
+
+template <typename T> struct InstanceArray
+{
+    T* data;
+    u64 size;
+    u64 capacity;
+
+    InstanceArray()
+    {
+        capacity = MB(1); // NOTE: This might not be enough at some point
+        data = new T[capacity];
+        size = 0;
+    }
+
+    void
+    add(std::initializer_list<T> list)
+    {
+        capacity = MB(1); // NOTE: This might not be enough at some point
+        data = new T[capacity];
+        size = 0;
+        for (auto& elem : list)
+        {
+            pushBack(elem);
+        }
+    }
+
+    inline int
+    pushBack(T glyph)
+    {
+        if (size >= capacity)
+        {
+            error("Not enough assigned memory for glyphs buffer");
+        }
+        data[size] = glyph;
+        size++;
+
+        return 0;
+    }
+
+    inline void
+    reset()
+    {
+        size = 0;
+    }
+};
+
 extern "C"
 {
     struct Vulkan_PushConstantInfo
@@ -114,13 +113,13 @@ extern "C"
     struct Vulkan_Resolution
     {
         static const uint32_t SIZE = 2;
-        float data[SIZE];
+        f32 data[SIZE];
         Vulkan_PushConstantInfo bufferInfo;
 
         Vulkan_Resolution(VkExtent2D extent, Vulkan_PushConstantInfo bufferInfo)
         {
-            data[0] = extent.width;
-            data[1] = extent.height;
+            data[0] = (f32)extent.width;
+            data[1] = (f32)extent.height;
             this->bufferInfo = bufferInfo;
         }
 
@@ -170,45 +169,6 @@ extern "C"
         }
     };
 
-    struct ArrayGlyphInstance
-    {
-        GlyphBuffer* data;
-        size_t size;
-        size_t capacity;
-
-        ArrayGlyphInstance() : data(nullptr), size(0), capacity(0)
-        {
-        }
-
-        inline int
-        pushBack(GlyphBuffer glyph)
-        {
-            if (size >= capacity)
-            {
-                return -1;
-            }
-            data[size] = glyph;
-            size++;
-
-            return 0;
-        }
-
-        inline void
-        reset(size_t newSize)
-        {
-            if (newSize > capacity)
-            {
-                if (data)
-                {
-                    delete[] data;
-                }
-                this->capacity = newSize;
-                data = new GlyphBuffer[this->capacity];
-            }
-            size = 0;
-        }
-    };
-
     struct Character
     {
         char character;
@@ -217,7 +177,7 @@ extern "C"
         float bearingX; // Offset from baseline to left/top of glyph
         float bearingY;
         unsigned int advance; // Offset to advance to next glyph
-        float glyphOffset;
+        u32 glyphOffset;
     };
 
     struct Text
@@ -253,19 +213,19 @@ extern "C"
 
     struct VulkanContext
     {
-        const uint32_t WIDTH = 800;
-        const uint32_t HEIGHT = 600;
-        const int MAX_FRAMES_IN_FLIGHT = 2;
+        const u32 WIDTH = 800;
+        const u32 HEIGHT = 600;
+        const u32 MAX_FRAMES_IN_FLIGHT = 2;
 
         const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
         const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 #ifdef NDEBUG
-        const bool enableValidationLayers = false;
+        const u8 enableValidationLayers = 0;
 #else
-        const bool enableValidationLayers = true;
+        const u8 enableValidationLayers = 1;
 #endif
-        bool framebufferResized = false;
+        u8 framebufferResized = 0;
 
         GLFWwindow* window;
         VkInstance instance;
@@ -324,8 +284,13 @@ extern "C"
     struct GlyphAtlas
     {
         std::array<Character, MAX_GLYPHS> characters;
-        ArrayGlyphInstance glyphInstances;
+        InstanceArray<GlyphBuffer> glyphInstances;
         const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
+    };
+
+    struct GUI_Rectangle
+    {
+        InstanceArray<RectangleInstance> rectangleInstances;
     };
 
     struct Vulkan_GlyphAtlas
@@ -354,10 +319,12 @@ extern "C"
         VulkanContext* vulkanContext;
         ProfilingContext* profilingContext;
         GlyphAtlas* glyphAtlas;
+        GUI_Rectangle* rect;
         Vulkan_Rectangle* vulkanRectangle;
         Vulkan_GlyphAtlas* vulkanGlyphAtlas;
     } Context;
 }
+
 extern "C"
 {
     void
@@ -386,9 +353,6 @@ void
 createImageViews(Context& context);
 void
 createCommandPool(Context& context);
-
-void
-framebufferResizeCallback(GLFWwindow* window, int width, int height);
 
 void
 cleanupColorResources(Context& context);

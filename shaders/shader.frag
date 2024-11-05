@@ -10,9 +10,9 @@ layout(location = 0) out vec4 outColor;    // Output color
 
 layout(binding = 0) uniform sampler2D tex; // Input texture
 
-const float softness = 3.0;
+const float softness = 10.0;
 const float borderThickness = 10.0;
-const float cornerRadius = 10.0;
+const float cornerRadius = 5.0;
 float borderFactor = 1.0;
 
 float RoundedRectSDF(
