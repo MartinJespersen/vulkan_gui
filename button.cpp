@@ -1,13 +1,12 @@
 #include "assert.h"
 #include "entrypoint.hpp"
 #include "fonts.hpp"
-#include "vertex.hpp"
 #include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_float3.hpp>
 
 void
 AddButton(Context& context, const Vec2<f32> pos, const Vec2<f32> dim, const Vec3 color,
-          const std::string text)
+          const std::string text, f32 softness, f32 borderThickness, f32 cornerRadius)
 {
     assert(dim > 0 && dim < 1);
     assert(pos > 0 && pos < 1);
@@ -35,5 +34,8 @@ AddButton(Context& context, const Vec2<f32> pos, const Vec2<f32> dim, const Vec3
     rect.rectangleInstances.pushBack(
         RectangleInstance{.pos1 = glm::vec2(pos.x, pos.y),
                           .pos2 = glm::vec2(bottomCorner.x, bottomCorner.y),
-                          .color = glm::vec3(color.x, color.y, color.z)});
+                          .color = glm::vec3(color.x, color.y, color.z),
+                          .softness = softness,
+                          .borderThickness = borderThickness,
+                          .cornerRadius = cornerRadius});
 }

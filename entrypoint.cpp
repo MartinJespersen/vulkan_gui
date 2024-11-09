@@ -1,5 +1,3 @@
-// #include <set>
-// #include <vulkan/vulkan_core.h>
 #include "entrypoint.hpp"
 #include <GL/gl.h>
 #include <set>
@@ -123,6 +121,7 @@ initVulkan(Context* context)
     createLogicalDevice(*context);
     createSwapChain(*context);
     createImageViews(*context);
+    createCommandPool(*context);
     vulkanContext->firstRenderPass = createRenderPass(
         vulkanContext->device, vulkanContext->swapChainImageFormat, vulkanContext->msaaSamples,
         VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -130,15 +129,14 @@ initVulkan(Context* context)
         createRenderPass(vulkanContext->device, vulkanContext->swapChainImageFormat,
                          vulkanContext->msaaSamples, VK_ATTACHMENT_LOAD_OP_LOAD,
                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-    createCommandPool(*context);
 
-    vulkanContext->pushConstantInfo.offset = 0;
-    vulkanContext->pushConstantInfo.size = sizeof(float) * 2;
+    vulkanContext->resolutionInfo.offset = 0;
+    vulkanContext->resolutionInfo.size = sizeof(float) * 2;
 
     auto rectangleObjects = createGraphicsPipeline(
         vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->renderPass,
         VK_NULL_HANDLE, vulkanContext->msaaSamples, RectangleInstance::getBindingDescription(),
-        RectangleInstance::getAttributeDescriptions(), vulkanContext->pushConstantInfo,
+        RectangleInstance::getAttributeDescriptions(), vulkanContext->resolutionInfo,
         "shaders/vert.spv", "shaders/frag.spv");
 
     vulkanRectangle->pipelineLayout = std::get<0>(rectangleObjects);
@@ -176,7 +174,7 @@ initVulkan(Context* context)
             vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->renderPass,
             vulkanGlyphAtlas->descriptorSetLayout, vulkanContext->msaaSamples,
             GlyphBuffer::getBindingDescription(), GlyphBuffer::getAttributeDescriptions(),
-            vulkanContext->pushConstantInfo, "shaders/text_vert.spv", "shaders/text_frag.spv");
+            vulkanContext->resolutionInfo, "shaders/text_vert.spv", "shaders/text_frag.spv");
         vulkanGlyphAtlas->pipelineLayout = std::get<0>(glyphAtlasGraphicsObjects);
         vulkanGlyphAtlas->graphicsPipeline = std::get<1>(glyphAtlasGraphicsObjects);
 
@@ -912,26 +910,25 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
     beginInfo.pInheritanceInfo = nullptr; // Optional
 
     Vulkan_Resolution resolution =
-        Vulkan_Resolution(vulkanContext->swapChainExtent, vulkanContext->pushConstantInfo);
+        Vulkan_Resolution(vulkanContext->swapChainExtent, vulkanContext->resolutionInfo);
 
     glyphAtlas->glyphInstances.reset();
     rectangle->rectangleInstances.reset();
-    rectangle->rectangleInstances.add({{{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}},
-                                       {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}},
-                                       {{0.0f, 0.8f}, {0.2f, 1.0f}, {0.8f, 0.8f, 0.8f}},
-                                       {{0.8f, 0.8f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}}});
+    rectangle->rectangleInstances.add(
+        {{{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}, 10.0f, 10.0f, 5.0f},
+         {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}, 10.0f, 10.0f, 5.0f},
+         {{0.0f, 0.8f}, {0.2f, 1.0f}, {0.8f, 0.8f, 0.8f}, 10.0f, 10.0f, 5.0f},
+         {{0.8f, 0.8f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, 10.0f, 10.0f, 5.0f}});
 
     // add buttom that is only a rectangle and text at the moment
     {
         ZoneScopedN("Create Buttom");
-        AddButton(context, Vec2(0.35f, 0.35f), Vec2(0.3f, 0.3f), Vec3(0.8f, 0.8f, 0.8f),
-                  "testingerdb");
+        AddButton(context, Vec2(0.45f, 0.45f), Vec2(0.3f, 0.3f), Vec3(0.8f, 0.8f, 0.8f),
+                  "testingerdb", 1.0f, 10.0f, 5.0f);
     }
     // recording rectangles
     {
         ZoneScopedN("Rectangle CPU");
-        TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
-                     vulkanContext->commandBuffers[currentFrame], "Rectangles GPU", 0xff0000);
 
         mapRectanglesToBuffer(*vulkanRectangle, rectangle->rectangleInstances,
                               vulkanContext->physicalDevice, vulkanContext->device);
@@ -939,8 +936,6 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
     // recording text
     {
         ZoneScopedN("Text CPU");
-        TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
-                     vulkanContext->commandBuffers[currentFrame], "Text GPU", 0x00FF00);
         Text texts[] = {{"testing", 0, 0}, {"more testing", 300, 400}};
         addTexts(*glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]));
         mapGlyphInstancesToBuffer(*context.vulkanGlyphAtlas, *context.glyphAtlas,
@@ -956,14 +951,24 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
     TracyVkCollect(profilingContext->tracyContexts[currentFrame],
                    vulkanContext->commandBuffers[currentFrame]);
 
-    beginRectangleRenderPass(
-        *context.vulkanRectangle, vulkanContext->commandBuffers[currentFrame],
-        vulkanContext->firstRenderPass, vulkanContext->swapChainFramebuffers[imageIndex],
-        vulkanContext->swapChainExtent, (u32)rectangle->rectangleInstances.size, resolution);
-    beginGlyphAtlasRenderPass(
-        *context.vulkanGlyphAtlas, *context.glyphAtlas, vulkanContext->commandBuffers[currentFrame],
-        vulkanContext->swapChainFramebuffers[imageIndex], vulkanContext->swapChainExtent,
-        vulkanGlyphAtlas->descriptorSets.data[currentFrame], vulkanContext->renderPass, resolution);
+    {
+        TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
+                     vulkanContext->commandBuffers[currentFrame], "Rectangles GPU", 0xff0000);
+        beginRectangleRenderPass(
+            *context.vulkanRectangle, vulkanContext->commandBuffers[currentFrame],
+            vulkanContext->firstRenderPass, vulkanContext->swapChainFramebuffers[imageIndex],
+            vulkanContext->swapChainExtent, (u32)rectangle->rectangleInstances.size, resolution);
+    }
+    {
+        TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
+                     vulkanContext->commandBuffers[currentFrame], "Text GPU", 0x00FF00);
+        beginGlyphAtlasRenderPass(*context.vulkanGlyphAtlas, *context.glyphAtlas,
+                                  vulkanContext->commandBuffers[currentFrame],
+                                  vulkanContext->swapChainFramebuffers[imageIndex],
+                                  vulkanContext->swapChainExtent,
+                                  vulkanGlyphAtlas->descriptorSets.data[currentFrame],
+                                  vulkanContext->renderPass, resolution);
+    }
 
     if (vkEndCommandBuffer(vulkanContext->commandBuffers[currentFrame]) != VK_SUCCESS)
     {

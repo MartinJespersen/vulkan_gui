@@ -1,18 +1,15 @@
 #version 450
 
 layout(location = 0) in vec3 fragColor; // Input texture coordinates
-layout(location = 1) in vec2 fragTexCoord; // Input texture coordinates
-layout(location = 2) in vec2 inCenter;
-layout(location = 3) in vec2 inHalfSize;
-layout(location = 4) in vec2 inPos;
+layout(location = 1) in vec2 inCenter;
+layout(location = 2) in vec2 inHalfSize;
+layout(location = 3) in vec2 inPos;
+layout(location = 4) in float softness;
+layout(location = 5) in float borderThickness;
+layout(location = 6) in float cornerRadius;
 
 layout(location = 0) out vec4 outColor;    // Output color
 
-layout(binding = 0) uniform sampler2D tex; // Input texture
-
-const float softness = 10.0;
-const float borderThickness = 10.0;
-const float cornerRadius = 5.0;
 float borderFactor = 1.0;
 
 float RoundedRectSDF(

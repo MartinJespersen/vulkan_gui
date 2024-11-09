@@ -1,5 +1,4 @@
 #include "rectangle.hpp"
-#include "vertex.hpp"
 #include <cstring>
 
 void

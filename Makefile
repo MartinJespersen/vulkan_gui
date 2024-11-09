@@ -5,30 +5,35 @@ STB_INCLUDE_PATH = /home/martin/libraries/stb
 PROFILE_DIR = build/profiler
 DEBUG_DIR = build/debug
 
-HELPER_HPP = -include constants.hpp -include types.hpp -include error.hpp
+TRACY = $(PROFILE_DIR)/tracy.o
+HELPER_HPP = -include types.hpp -include error.hpp
 PROFILER_EXEC = $(PROFILE_DIR)/profiler_exe
 PROFILER_LIB = $(PROFILE_DIR)/libprofiler.so
 LIB = $(DEBUG_DIR)/entrypoint.so
 EXEC = $(DEBUG_DIR)/VulkanTest
 ENTRYPOINT  = entrypoint.cpp
-CXXFLAGS = -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion 
-# -Wshadow
-CFLAGS = -std=c++20 -I$(STB_INCLUDE_PATH) $(HELPER_HPP) $(CXXFLAGS)
-LDFLAGS = -lglfw -lvulkan -lpthread -lX11 -lXxf86vm -lXrandr -lXi -lfreetype
+MAIN = main.cpp
+CXXFLAGS = -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion
+# -Wshadow -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion 
+CFLAGS = -std=c++20  $(HELPER_HPP) 
+LDFLAGS = -lglfw -lvulkan -lpthread -lX11 -lXxf86vm -lXrandr -lXi -lfreetype -I$(STB_INCLUDE_PATH)
 
 all: debug
 
-release: CFLAGS  += -O2 -DNDEBUG
+release: CFLAGS  += -O2 -DNDEBUG $(CXXFLAGS)
 release: $(EXEC)
 
-debug: CFLAGS += -g -O0
+debug: CFLAGS += -g -O0 $(CXXFLAGS)
 debug: $(EXEC)
 
-build: CFLAGS += -g -O0
+build: CFLAGS += -g -O0 $(CXXFLAGS)
 build: 
 	g++ $(CFLAGS) -shared -fPIC -o $(LIB) $(ENTRYPOINT) $(LDFLAGS)
 
-profiler: CFLAGS += -g -O0 
+${TRACY}: profiler_clean
+	mkdir -p $(PROFILE_DIR) && g++ -c -fPIC $(CFLAGS) -o $@ profiler/TracyClient.cpp -DTRACY_ENABLE 
+
+profiler: CFLAGS += -O2 
 profiler: $(PROFILER_EXEC)
 
 run_profiler: profiler
@@ -36,19 +41,20 @@ run_profiler: profiler
 
 profiler_clean: 
 	rm -f $(PROFILER_EXEC) || rm -f $(PROFILER_LIB)
+
  	
-$(PROFILER_LIB): profiler_clean
-	mkdir -p $(PROFILE_DIR) && g++ $(CFLAGS) -shared -fPIC -o $(PROFILER_LIB) $(ENTRYPOINT) profiler/TracyClient.cpp $(LDFLAGS) -DTRACY_ENABLE 
+$(PROFILER_LIB): $(TRACY)
+	mkdir -p $(PROFILE_DIR) && g++ $(CFLAGS) -shared -fPIC -o $@ $(ENTRYPOINT) $(TRACY) $(LDFLAGS) -DTRACY_ENABLE
 
 $(PROFILER_EXEC): $(PROFILER_LIB) 
-	mkdir -p $(PROFILE_DIR) && g++ -o $(PROFILER_EXEC) main.cpp profiler/TracyClient.cpp $(PROFILER_LIB) $(CFLAGS) $(LDFLAGS) -DPROFILING_ENABLE
+	mkdir -p $(PROFILE_DIR) && g++ -o $@ $(MAIN) $^ $(CFLAGS) $(LDFLAGS) -DPROFILING_ENABLE
 
 clean:
 	rm -f $(EXEC) || rm -f $(LIB)
 
 $(LIB): clean
-	mkdir -p $(DEBUG_DIR) && g++ $(CFLAGS) -shared -fPIC -o $(LIB) $(ENTRYPOINT) $(LDFLAGS)
+	mkdir -p $(DEBUG_DIR) && g++ $(CFLAGS) -shared -fPIC -o $@ $(ENTRYPOINT) $(LDFLAGS)
 
 $(EXEC): $(LIB)
-	mkdir -p $(DEBUG_DIR) && g++ -o $(EXEC) main.cpp $(CFLAGS) -lglfw -ldl
+	mkdir -p $(DEBUG_DIR) && g++ -o $@ $(MAIN) $(CFLAGS) -lglfw -ldl
 

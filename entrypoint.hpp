@@ -1,6 +1,5 @@
 #pragma once
 
-#include "vertex.hpp"
 #include <array>
 #include <initializer_list>
 #include <stdexcept>
@@ -65,7 +64,7 @@ template <typename T> struct InstanceArray
 
     InstanceArray()
     {
-        capacity = MB(1); // NOTE: This might not be enough at some point
+        capacity = 1024 * 1024; // NOTE: This might not be enough at some point
         data = new T[capacity];
         size = 0;
     }
@@ -73,8 +72,6 @@ template <typename T> struct InstanceArray
     void
     add(std::initializer_list<T> list)
     {
-        capacity = MB(1); // NOTE: This might not be enough at some point
-        data = new T[capacity];
         size = 0;
         for (auto& elem : list)
         {
@@ -99,6 +96,14 @@ template <typename T> struct InstanceArray
     reset()
     {
         size = 0;
+    }
+
+    ~InstanceArray()
+    {
+        if (data)
+        {
+            delete[] data;
+        }
     }
 };
 
@@ -164,6 +169,63 @@ extern "C"
             attributeDescriptions[2].location = 2;
             attributeDescriptions[2].format = VK_FORMAT_R32_SFLOAT;
             attributeDescriptions[2].offset = offsetof(GlyphBuffer, glyphOffset);
+
+            return attributeDescriptions;
+        }
+    };
+
+    struct RectangleInstance
+    {
+        glm::vec2 pos1;
+        glm::vec2 pos2;
+        glm::vec3 color;
+        glm::f32 softness;
+        glm::f32 borderThickness;
+        glm::f32 cornerRadius;
+
+        static VkVertexInputBindingDescription
+        getBindingDescription()
+        {
+            VkVertexInputBindingDescription bindingDescription{};
+            bindingDescription.binding = 0;
+            bindingDescription.stride = sizeof(RectangleInstance);
+            bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+            return bindingDescription;
+        }
+        static std::vector<VkVertexInputAttributeDescription>
+        getAttributeDescriptions()
+        {
+            std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
+            attributeDescriptions.resize(6);
+            attributeDescriptions[0].binding = 0;
+            attributeDescriptions[0].location = 0;
+            attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+            attributeDescriptions[0].offset = offsetof(RectangleInstance, pos1);
+
+            attributeDescriptions[1].binding = 0;
+            attributeDescriptions[1].location = 1;
+            attributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
+            attributeDescriptions[1].offset = offsetof(RectangleInstance, pos2);
+
+            attributeDescriptions[2].binding = 0;
+            attributeDescriptions[2].location = 2;
+            attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+            attributeDescriptions[2].offset = offsetof(RectangleInstance, color);
+
+            attributeDescriptions[3].binding = 0;
+            attributeDescriptions[3].location = 3;
+            attributeDescriptions[3].format = VK_FORMAT_R32_SFLOAT;
+            attributeDescriptions[3].offset = offsetof(RectangleInstance, softness);
+
+            attributeDescriptions[4].binding = 0;
+            attributeDescriptions[4].location = 4;
+            attributeDescriptions[4].format = VK_FORMAT_R32_SFLOAT;
+            attributeDescriptions[4].offset = offsetof(RectangleInstance, borderThickness);
+
+            attributeDescriptions[5].binding = 0;
+            attributeDescriptions[5].location = 5;
+            attributeDescriptions[5].format = VK_FORMAT_R32_SFLOAT;
+            attributeDescriptions[5].offset = offsetof(RectangleInstance, cornerRadius);
 
             return attributeDescriptions;
         }
@@ -260,7 +322,7 @@ extern "C"
         VkRenderPass firstRenderPass;
         VkRenderPass renderPass;
 
-        Vulkan_PushConstantInfo pushConstantInfo;
+        Vulkan_PushConstantInfo resolutionInfo;
         const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
     };
 

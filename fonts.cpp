@@ -2,7 +2,6 @@
 #include "fonts.hpp"
 #include "entrypoint.hpp"
 #include "vulkan_helpers.hpp"
-#include <alloca.h>
 #include <cstdlib>
 #include <iostream>
 #include <vulkan/vulkan_core.h>
@@ -229,7 +228,7 @@ initGlyphs(GlyphAtlas& glyphAtlas, u32* width, u32* height)
 
     glyphBuffer = new unsigned char[(*width) * (*height)];
     u32 glyphOffset = 0;
-    for (int i = 0; i < 126; i++)
+    for (int i = 0; i < MAX_GLYPHS; i++)
     {
         u64 curChar = static_cast<u64>(i);
         if (FT_Load_Char(face, curChar, FT_LOAD_RENDER))
@@ -303,7 +302,7 @@ createGlyphAtlasImage(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtla
     vkUnmapMemory(device,
                   stagingBufferMemory); // unmap the buffer memory so cpu no longer has access to
 
-    delete pixels;
+    delete[] pixels;
 
     createImage(physicalDevice, device, (u32)texWidth, (u32)texHeight, VK_SAMPLE_COUNT_1_BIT,
                 VK_FORMAT_R8_UNORM, VK_IMAGE_TILING_OPTIMAL,

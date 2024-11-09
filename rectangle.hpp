@@ -1,6 +1,5 @@
 #pragma once
 #include "entrypoint.hpp"
-#include "vertex.hpp"
 #include "vulkan_helpers.hpp"
 #include <vector>
 #include <vulkan/vulkan.h>

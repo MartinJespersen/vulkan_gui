@@ -49,7 +49,7 @@
             "name": "profiler debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/profiler_exe",
+            "program": "${workspaceFolder}/build/profiler/profiler_exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
