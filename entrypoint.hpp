@@ -319,8 +319,8 @@ extern "C"
         VkImageView colorImageView;
         VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
-        VkRenderPass firstRenderPass;
-        VkRenderPass renderPass;
+        VkRenderPass rectangleRenderPass;
+        VkRenderPass fontRenderPass;
 
         Vulkan_PushConstantInfo resolutionInfo;
         const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};

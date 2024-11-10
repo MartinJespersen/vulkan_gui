@@ -1,6 +1,7 @@
 #include "entrypoint.hpp"
 #include <GL/gl.h>
 #include <set>
+#include <vulkan/vulkan_core.h>
 extern "C"
 {
 #include <ft2build.h>
@@ -122,10 +123,11 @@ initVulkan(Context* context)
     createSwapChain(*context);
     createImageViews(*context);
     createCommandPool(*context);
-    vulkanContext->firstRenderPass = createRenderPass(
+
+    vulkanContext->rectangleRenderPass = createRenderPass(
         vulkanContext->device, vulkanContext->swapChainImageFormat, vulkanContext->msaaSamples,
         VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-    vulkanContext->renderPass =
+    vulkanContext->fontRenderPass =
         createRenderPass(vulkanContext->device, vulkanContext->swapChainImageFormat,
                          vulkanContext->msaaSamples, VK_ATTACHMENT_LOAD_OP_LOAD,
                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -134,7 +136,7 @@ initVulkan(Context* context)
     vulkanContext->resolutionInfo.size = sizeof(float) * 2;
 
     auto rectangleObjects = createGraphicsPipeline(
-        vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->renderPass,
+        vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->fontRenderPass,
         VK_NULL_HANDLE, vulkanContext->msaaSamples, RectangleInstance::getBindingDescription(),
         RectangleInstance::getAttributeDescriptions(), vulkanContext->resolutionInfo,
         "shaders/vert.spv", "shaders/frag.spv");
@@ -147,7 +149,7 @@ initVulkan(Context* context)
         vulkanContext->swapChainExtent, vulkanContext->msaaSamples, vulkanContext->colorImage,
         vulkanContext->colorImageMemory);
     vulkanContext->swapChainFramebuffers = createFramebuffers(
-        vulkanContext->device, vulkanContext->colorImageView, vulkanContext->renderPass,
+        vulkanContext->device, vulkanContext->colorImageView, vulkanContext->fontRenderPass,
         vulkanContext->swapChainExtent, vulkanContext->swapChainImageViews);
     createRectangleIndexBuffer(*context->vulkanRectangle, vulkanContext->physicalDevice,
                                vulkanContext->device, vulkanContext->commandPool,
@@ -171,7 +173,7 @@ initVulkan(Context* context)
                                  vulkanContext->MAX_FRAMES_IN_FLIGHT,
                                  vulkanGlyphAtlas->descriptorSets);
         auto glyphAtlasGraphicsObjects = createGraphicsPipeline(
-            vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->renderPass,
+            vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->fontRenderPass,
             vulkanGlyphAtlas->descriptorSetLayout, vulkanContext->msaaSamples,
             GlyphBuffer::getBindingDescription(), GlyphBuffer::getAttributeDescriptions(),
             vulkanContext->resolutionInfo, "shaders/text_vert.spv", "shaders/text_frag.spv");
@@ -206,8 +208,8 @@ cleanup(Context* context)
     cleanupFontResources(*vulkanGlyphAtlas, vulkanContext->device);
     cleanupRectangle(*vulkanRectangle, vulkanContext->device);
 
-    vkDestroyRenderPass(vulkanContext->device, vulkanContext->firstRenderPass, nullptr);
-    vkDestroyRenderPass(vulkanContext->device, vulkanContext->renderPass, nullptr);
+    vkDestroyRenderPass(vulkanContext->device, vulkanContext->rectangleRenderPass, nullptr);
+    vkDestroyRenderPass(vulkanContext->device, vulkanContext->fontRenderPass, nullptr);
 
     for (u32 i = 0; i < profilingContext->tracyContexts.size(); i++)
     {
@@ -956,7 +958,7 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
                      vulkanContext->commandBuffers[currentFrame], "Rectangles GPU", 0xff0000);
         beginRectangleRenderPass(
             *context.vulkanRectangle, vulkanContext->commandBuffers[currentFrame],
-            vulkanContext->firstRenderPass, vulkanContext->swapChainFramebuffers[imageIndex],
+            vulkanContext->rectangleRenderPass, vulkanContext->swapChainFramebuffers[imageIndex],
             vulkanContext->swapChainExtent, (u32)rectangle->rectangleInstances.size, resolution);
     }
     {
@@ -967,7 +969,7 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
                                   vulkanContext->swapChainFramebuffers[imageIndex],
                                   vulkanContext->swapChainExtent,
                                   vulkanGlyphAtlas->descriptorSets.data[currentFrame],
-                                  vulkanContext->renderPass, resolution);
+                                  vulkanContext->fontRenderPass, resolution);
     }
 
     if (vkEndCommandBuffer(vulkanContext->commandBuffers[currentFrame]) != VK_SUCCESS)
@@ -1087,6 +1089,6 @@ recreateSwapChain(Context& context)
         vulkanContext->swapChainExtent, vulkanContext->msaaSamples, vulkanContext->colorImage,
         vulkanContext->colorImageMemory);
     vulkanContext->swapChainFramebuffers = createFramebuffers(
-        vulkanContext->device, vulkanContext->colorImageView, vulkanContext->renderPass,
+        vulkanContext->device, vulkanContext->colorImageView, vulkanContext->fontRenderPass,
         vulkanContext->swapChainExtent, vulkanContext->swapChainImageViews);
 }
