@@ -16,7 +16,6 @@
 #include <sys/signal.h>
 
 void (*drawFrameLib)(Context*);
-void (*initWindowLib)(Context*);
 void (*cleanupLib)(Context*);
 void (*initVulkanLib)(Context*);
 
@@ -105,13 +104,6 @@ loadLibrary()
         exit(EXIT_FAILURE);
     }
 
-    initWindowLib = (void (*)(Context*))dlsym(entryHandle, "initWindow");
-    if (!initWindowLib)
-    {
-        printf("Failed to load initWindow: %s", dlerror());
-        exit(EXIT_FAILURE);
-    }
-
     initVulkanLib = (void (*)(Context*))dlsym(entryHandle, "initVulkan");
     if (!initVulkanLib)
     {
@@ -170,6 +162,29 @@ signal_handler(int signo, siginfo_t* info, void* context)
             ptr += sizeof(struct inotify_event) + event->len;
         }
     }
+}
+
+void
+framebufferResizeCallback(GLFWwindow* window, int width, int height)
+{
+    (void)width;
+    (void)height;
+
+    auto context = reinterpret_cast<Context*>(glfwGetWindowUserPointer(window));
+    context->vulkanContext->framebufferResized = 1;
+}
+
+void
+initWindow(Context* context)
+{
+    VulkanContext* vulkanContext = context->vulkanContext;
+
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+    vulkanContext->window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
+    glfwSetWindowUserPointer(vulkanContext->window, context);
+    glfwSetFramebufferSizeCallback(vulkanContext->window, framebufferResizeCallback);
 }
 
 void
@@ -241,14 +256,13 @@ run()
     }
 
 #else
-    initWindowLib = initWindow;
     initVulkanLib = initVulkan;
     drawFrameLib = drawFrame;
     cleanupLib = cleanup;
 
 #endif
 
-    initWindowLib(&context);
+    initWindow(&context);
     initVulkanLib(&context);
     while (!glfwWindowShouldClose(vulkanContext.window))
     {

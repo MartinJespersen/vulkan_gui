@@ -54,29 +54,6 @@ after_main()
     printf("\nentrpoint destructor called\n");
 }
 
-static void
-framebufferResizeCallback(GLFWwindow* window, int width, int height)
-{
-    (void)width;
-    (void)height;
-
-    auto context = reinterpret_cast<Context*>(glfwGetWindowUserPointer(window));
-    context->vulkanContext->framebufferResized = 1;
-}
-
-extern "C" void
-initWindow(Context* context)
-{
-    VulkanContext* vulkanContext = context->vulkanContext;
-
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-    vulkanContext->window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
-    glfwSetWindowUserPointer(vulkanContext->window, context);
-    glfwSetFramebufferSizeCallback(vulkanContext->window, framebufferResizeCallback);
-}
-
 VkResult
 CreateDebugUtilsMessengerEXT(VkInstance instance,
                              const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
