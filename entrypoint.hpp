@@ -17,7 +17,13 @@ extern "C"
 // profiler
 #include "profiler/tracy/TracyVulkan.hpp"
 
+// user defined: [hpp]
+#include "base/base.hpp"
+#include "ui/input.hpp"
+
 const int MAX_GLYPHS = 126;
+const u32 MAX_FONT_SIZE = 100;
+const u64 FONT_ARENA_SIZE = MEGABYTE(4);
 
 template <typename T> struct StaticArray
 {
@@ -41,7 +47,7 @@ template <typename T> struct StaticArray
     {
         if (data)
         {
-            throw std::runtime_error("Cannot set size of StaticArray after initialization!");
+            exitWithError("Cannot set size of StaticArray after initialization!");
         }
         this->data = new T[size];
         this->size = size;
@@ -84,7 +90,7 @@ template <typename T> struct InstanceArray
     {
         if (size >= capacity)
         {
-            error("Not enough assigned memory for glyphs buffer");
+            exitWithError("Not enough assigned memory for glyphs buffer");
         }
         data[size] = glyph;
         size++;
@@ -233,13 +239,13 @@ extern "C"
 
     struct Character
     {
-        char character;
         float width; // Size of glyph
         float height;
         float bearingX; // Offset from baseline to left/top of glyph
         float bearingY;
         unsigned int advance; // Offset to advance to next glyph
         u32 glyphOffset;
+        char character;
     };
 
     struct Text
@@ -265,12 +271,6 @@ extern "C"
         VkSurfaceCapabilitiesKHR capabilities;
         std::vector<VkSurfaceFormatKHR> formats;
         std::vector<VkPresentModeKHR> presentModes;
-    };
-
-    struct Input
-    {
-        i32 keyS;
-        i32 keyCtrl;
     };
 
     struct VulkanContext
@@ -345,7 +345,8 @@ extern "C"
 
     struct GlyphAtlas
     {
-        std::array<Character, MAX_GLYPHS> characters;
+        Arena* fontArena;
+        Array<Character*>* fontToGlyphAtlas;
         InstanceArray<GlyphBuffer> glyphInstances;
         const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
     };
@@ -384,11 +385,19 @@ extern "C"
         GUI_Rectangle* rect;
         Vulkan_Rectangle* vulkanRectangle;
         Vulkan_GlyphAtlas* vulkanGlyphAtlas;
+        UI_IO* input;
+
     } Context;
 }
 
 extern "C"
 {
+    ThreadCtx
+    InitContext(Context* context);
+    void
+    DeleteContext();
+    void
+    InitThreadContext(ThreadCtx*);
     void
     initWindow(Context* context);
     void

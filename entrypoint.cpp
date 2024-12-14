@@ -41,6 +41,11 @@ extern "C"
 #include "button.cpp"
 #include "button.hpp"
 // #include "entrypoint.hpp"
+#include "ui/input.hpp"
+#include "ui/widget.hpp"
+
+#include "base/base.cpp"
+#include "base/base.hpp"
 
 __attribute__((constructor(101))) void
 before_main()
@@ -82,6 +87,28 @@ DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debu
     {
         func(instance, debugMessenger, pAllocator);
     }
+}
+
+ThreadCtx
+InitContext(Context* context)
+{
+    GlyphAtlas* glyphAtlas = context->glyphAtlas;
+    glyphAtlas->fontArena = (Arena*)AllocArena(FONT_ARENA_SIZE);
+    glyphAtlas->fontToGlyphAtlas = AllocArray<Character*>(glyphAtlas->fontArena, MAX_FONT_SIZE);
+    ThreadCtx threadCtx = AllocThreadContext();
+    return threadCtx;
+}
+
+void
+DeleteContext()
+{
+    DeallocThreadContext();
+}
+
+void
+InitThreadContext(ThreadCtx* ctx)
+{
+    SetThreadContext(ctx);
 }
 
 void
@@ -135,7 +162,7 @@ initVulkan(Context* context)
     {
         createGlyphAtlasImage(*vulkanGlyphAtlas, *glyphAtlas, vulkanContext->physicalDevice,
                               vulkanContext->device, vulkanContext->commandPool,
-                              vulkanContext->graphicsQueue);
+                              vulkanContext->graphicsQueue, 30);
         createGlyphAtlasImageView(*vulkanGlyphAtlas, vulkanContext->device);
         createGlyphAtlasTextureSampler(*vulkanGlyphAtlas, vulkanContext->physicalDevice,
                                        vulkanContext->device);
@@ -903,7 +930,7 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
     {
         ZoneScopedN("Create Buttom");
         AddButton(context, Vec2(0.45f, 0.45f), Vec2(0.3f, 0.3f), Vec3(0.8f, 0.8f, 0.8f),
-                  "testingerdb", 1.0f, 10.0f, 5.0f);
+                  "testingerdb", 1.0f, 10.0f, 5.0f, 30);
     }
     // recording rectangles
     {
@@ -916,7 +943,7 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
     {
         ZoneScopedN("Text CPU");
         Text texts[] = {{"testing", 0, 0}, {"more testing", 300, 400}};
-        addTexts(*glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]));
+        addTexts(*glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]), 30);
         mapGlyphInstancesToBuffer(*context.vulkanGlyphAtlas, *context.glyphAtlas,
                                   vulkanContext->physicalDevice, vulkanContext->device,
                                   vulkanContext->graphicsQueue);

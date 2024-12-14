@@ -1,5 +1,5 @@
-
 #include "fonts.hpp"
+#include "base/thread.hpp"
 #include "entrypoint.hpp"
 #include "vulkan_helpers.hpp"
 #include <cstdlib>
@@ -57,9 +57,14 @@ beginGlyphAtlasRenderPass(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyph
 }
 
 Vec2<float>
-calculateTextDimensions(Context& context, std::string text)
+calculateTextDimensions(Context& context, std::string text, u32 fontSize)
 {
     GlyphAtlas& glyphAtlas = *context.glyphAtlas;
+    Character* charArr = (*glyphAtlas.fontToGlyphAtlas)[fontSize];
+    if (!charArr)
+    {
+        exitWithError("font Size has not been allocated");
+    }
 
     Vec2<float> dimensions = {0.0, 0.0};
     u64 len = (u64)text.size();
@@ -68,25 +73,40 @@ calculateTextDimensions(Context& context, std::string text)
     {
         if ((u32)text[i] >= MAX_GLYPHS)
         {
-            throw std::runtime_error("Character not supported!");
+            exitWithError("Character not supported!");
         }
 
-        Character& ch = glyphAtlas.characters.at((u64)text[i]);
-        dimensions.x += (f32)(ch.advance >> 6);
-        dimensions.y = std::max((float)dimensions.y, ch.height);
+        Character* ch = &charArr[(u64)text[i]];
+        dimensions.x += (f32)(ch->advance >> 6);
+        dimensions.y = std::max((float)dimensions.y, ch->height);
     }
 
     return dimensions;
 }
 
 void
-addText(GlyphAtlas& glyphAtlas, std::string text, float x, float y)
+addText(GlyphAtlas& glyphAtlas, std::string text, float x, float y, u32 fontSize)
 {
+    ArenaTemp tempArena = ScratchArenaBegin();
+    // use or create font atlas
+
+    Character* characterArr = (*glyphAtlas.fontToGlyphAtlas)[(u64)fontSize];
+    if (characterArr == nullptr)
+    {
+        exitWithError("character array was not created");
+        // u32 width, height;
+        // u8* pixels = initGlyphs(tempArena.arena, &glyphAtlas, &width, &height, fontSize);
+        // Character* character = (*glyphAtlas.fontToGlyphAtlas)[(u64)fontSize];
+        // if (character == nullptr)
+        // {
+        //     exitWithError("character array was not created");
+        // }
+    }
     // find largest bearing to find origin
     f32 largestBearingY = 0;
     for (u32 textIndex = 0; textIndex < text.size(); textIndex++)
     {
-        Character& ch = glyphAtlas.characters.at((u64)text[textIndex]);
+        Character& ch = characterArr[((u64)text[textIndex])];
         if (ch.bearingY > largestBearingY)
         {
             largestBearingY = ch.bearingY;
@@ -99,10 +119,10 @@ addText(GlyphAtlas& glyphAtlas, std::string text, float x, float y)
     {
         if ((u32)text[i] >= MAX_GLYPHS)
         {
-            throw std::runtime_error("Character not supported!");
+            exitWithError("Character not supported!");
         }
 
-        Character& ch = glyphAtlas.characters.at((u64)text[i]);
+        Character& ch = characterArr[((u64)text[i])];
         float xpos = xOrigin + ch.bearingX;
         float ypos = yOrigin - ch.bearingY;
 
@@ -111,19 +131,20 @@ addText(GlyphAtlas& glyphAtlas, std::string text, float x, float y)
 
         if (glyphAtlas.glyphInstances.pushBack(tempGlyph))
         {
-            throw std::runtime_error("Failed to add glyph to buffer!");
+            exitWithError("Failed to add text to glyph buffer!");
         }
         xOrigin +=
             f32(ch.advance >> 6); // TODO: Consider what will happen x grows outside the screen
     }
+    ScratchArenaEnd(tempArena);
 }
 
 void
-addTexts(GlyphAtlas& glyphAtlas, Text* texts, size_t len)
+addTexts(GlyphAtlas& glyphAtlas, Text* texts, size_t len, u32 fontSize)
 {
     for (size_t i = 0; i < len; i++)
     {
-        addText(glyphAtlas, texts[i].text, texts[i].x, texts[i].y);
+        addText(glyphAtlas, texts[i].text, texts[i].x, texts[i].y, fontSize);
     }
 }
 
@@ -175,32 +196,31 @@ createGlyphIndexBuffer(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtl
     vkUnmapMemory(device, vulkanGlyphAtlas.glyphIndexMemoryBuffer);
 }
 
-// // Things to do:
-// // 1. create the buffer in 2D (so the with and height should be found ) this is to use the buffer
-// as
-// // a texture
 unsigned char*
-initGlyphs(GlyphAtlas& glyphAtlas, u32* width, u32* height)
+initGlyphs(Arena* arena, GlyphAtlas* glyphAtlas, u32* width, u32* height, u32 fontSize)
 {
     FT_Library ft;
     FT_Face face;
     if (FT_Init_FreeType(&ft))
     {
-        throw std::runtime_error("failed to init freetype library!");
+        exitWithError("failed to init freetype library!");
     }
+
+    Character* CharArr = (*glyphAtlas->fontToGlyphAtlas)[fontSize] =
+        PushArray(arena, Character, MAX_GLYPHS);
 
     int error;
     error = FT_New_Face(ft, "fonts/Roboto-Black.ttf", 0, &face);
     if (error == FT_Err_Unknown_File_Format)
     {
-        throw std::runtime_error("failed to load font as the file format is unknown!");
+        exitWithError("failed to load font as the file format is unknown!");
     }
     else if (error)
     {
-        throw std::runtime_error("failed to load font file!");
+        exitWithError("failed to load font file!");
     }
 
-    FT_Set_Pixel_Sizes(face, 0, 40);
+    FT_Set_Pixel_Sizes(face, 0, 20);
 
     unsigned char* glyphBuffer;
 
@@ -219,21 +239,21 @@ initGlyphs(GlyphAtlas& glyphAtlas, u32* width, u32* height)
         *width += face->glyph->bitmap.width;
         *height = std::max(*height, face->glyph->bitmap.rows);
 
-        glyphAtlas.characters[c].width = static_cast<f32>(face->glyph->bitmap.width);
-        glyphAtlas.characters[c].height = static_cast<f32>(face->glyph->bitmap.rows);
-        glyphAtlas.characters[c].bearingX = static_cast<f32>(face->glyph->bitmap_left);
-        glyphAtlas.characters[c].bearingY = static_cast<f32>(face->glyph->bitmap_top);
-        glyphAtlas.characters[c].advance = static_cast<u32>(face->glyph->advance.x);
+        CharArr[c].width = static_cast<f32>(face->glyph->bitmap.width);
+        CharArr[c].height = static_cast<f32>(face->glyph->bitmap.rows);
+        CharArr[c].bearingX = static_cast<f32>(face->glyph->bitmap_left);
+        CharArr[c].bearingY = static_cast<f32>(face->glyph->bitmap_top);
+        CharArr[c].advance = static_cast<u32>(face->glyph->advance.x);
     }
 
-    glyphBuffer = new unsigned char[(*width) * (*height)];
+    glyphBuffer = PushArray(arena, u8, (*width) * (*height));
     u32 glyphOffset = 0;
     for (int i = 0; i < MAX_GLYPHS; i++)
     {
         u64 curChar = static_cast<u64>(i);
         if (FT_Load_Char(face, curChar, FT_LOAD_RENDER))
         {
-            throw std::runtime_error("failed to load glyph!");
+            exitWithError("failed to load glyph!");
         }
         for (unsigned int j = 0; j < face->glyph->bitmap.rows; j++)
         {
@@ -243,7 +263,7 @@ initGlyphs(GlyphAtlas& glyphAtlas, u32* width, u32* height)
                     face->glyph->bitmap.buffer[k + j * face->glyph->bitmap.width];
             }
         }
-        glyphAtlas.characters[curChar].glyphOffset = glyphOffset;
+        CharArr[curChar].glyphOffset = glyphOffset;
         glyphOffset += face->glyph->bitmap.width;
     }
 
@@ -275,10 +295,12 @@ cleanupFontResources(Vulkan_GlyphAtlas& vulkanGlyphAtlas, VkDevice device)
 void
 createGlyphAtlasImage(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
                       VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool,
-                      VkQueue graphicsQueue)
+                      VkQueue graphicsQueue, u32 fontSize)
 {
+    ArenaTemp scratchArena = ScratchArenaBegin();
     u32 texWidth, texHeight;
-    unsigned char* pixels = initGlyphs(glyphAtlas, &texWidth, &texHeight);
+    unsigned char* pixels =
+        initGlyphs(scratchArena.arena, &glyphAtlas, &texWidth, &texHeight, fontSize);
     VkDeviceSize imageSize = (u32)texWidth * (u32)texHeight * 4;
 
     if (!pixels)
@@ -302,8 +324,6 @@ createGlyphAtlasImage(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtla
     vkUnmapMemory(device,
                   stagingBufferMemory); // unmap the buffer memory so cpu no longer has access to
 
-    delete[] pixels;
-
     createImage(physicalDevice, device, (u32)texWidth, (u32)texHeight, VK_SAMPLE_COUNT_1_BIT,
                 VK_FORMAT_R8_UNORM, VK_IMAGE_TILING_OPTIMAL,
                 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -320,6 +340,8 @@ createGlyphAtlasImage(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtla
 
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+    ArenaTempEnd(scratchArena);
 }
 
 void

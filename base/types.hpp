@@ -16,12 +16,23 @@ typedef int64_t i64;
 typedef float f32;
 typedef double f64;
 
+enum Axis2
+{
+    Axis2_X,
+    Axis2_Y,
+    Axis2_COUNT
+};
+
 template <typename T> struct Vec2
 {
     static_assert(std::is_arithmetic<T>::value, "Divisor must be arithmetic type");
 
     T x;
     T y;
+
+    Vec2() : x(0), y(0)
+    {
+    }
 
     Vec2(const T& x, const T& y) : x(x), y(y)
     {
@@ -86,6 +97,32 @@ template <typename T> struct Vec2
         static_assert(std::is_floating_point<To>::value, "Divisor must be arithmetic type");
         return Vec2<To>(static_cast<To>(x), static_cast<To>(y));
     }
+};
+
+union F32Vec4
+{
+    struct
+    {
+        f32 x;
+        f32 y;
+        f32 z;
+        f32 w;
+    } axis;
+    struct
+    {
+        f32 r;
+        f32 g;
+        f32 b;
+        f32 a;
+    } color;
+
+    struct
+    {
+        Vec2<f32> p0;
+        Vec2<f32> p1;
+    } point;
+
+    f32 data[4];
 };
 
 struct Vec3

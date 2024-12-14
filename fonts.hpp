@@ -14,7 +14,7 @@ void
 cleanupFontResources(Vulkan_GlyphAtlas& vulkanGlyphAtlas, VkDevice device);
 
 unsigned char*
-initGlyphs(GlyphAtlas* glyphAtlas, int* width, int* height);
+initGlyphs(Arena* arena, GlyphAtlas* glyphAtlas, u32* width, u32* height, u32 size);
 void
 createGlyphIndexBuffer(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
                        VkPhysicalDevice physicalDevice, VkDevice device);
@@ -23,9 +23,9 @@ mapGlyphInstancesToBuffer(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyph
                           VkPhysicalDevice physicalDevice, VkDevice device, VkQueue queue);
 
 void
-addTexts(GlyphAtlas& glyphAtlas, Text* texts, size_t len);
+addTexts(GlyphAtlas& glyphAtlas, Text* texts, size_t len, u32 fontSize);
 void
-addText(GlyphAtlas& glyphAtlas, std::string text, float x, float y);
+addText(GlyphAtlas& glyphAtlas, std::string text, float x, float y, u32 fontSize);
 void
 beginGlyphAtlasRenderPass(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
                           VkCommandBuffer commandBuffer, VkFramebuffer swapChainFramebuffer,
@@ -35,7 +35,7 @@ beginGlyphAtlasRenderPass(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyph
 void
 createGlyphAtlasImage(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
                       VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool,
-                      VkQueue graphicsQueue);
+                      VkQueue graphicsQueue, u32 fontSize);
 void
 createGlyphAtlasImageView(Vulkan_GlyphAtlas& vulkanGlyphAtlas, VkDevice device);
 
@@ -53,4 +53,4 @@ void
 createFontDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout& descriptorSetLayout);
 
 Vec2<float>
-calculateTextDimensions(Context& context, std::string text);
+calculateTextDimensions(Context& context, std::string text, u32 fontSize);

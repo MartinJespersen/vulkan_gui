@@ -1,4 +1,3 @@
-#include "entrypoint.hpp"
 #include <complex.h>
 #include <cstdlib>
 #include <cstring>
@@ -15,9 +14,18 @@
 #include <sys/prctl.h>
 #include <sys/signal.h>
 
+// user defined: [hpp]
+#include "base/base.hpp"
+#include "entrypoint.hpp"
+
+// user defined: [cpp]
+
 void (*drawFrameLib)(Context*);
 void (*cleanupLib)(Context*);
 void (*initVulkanLib)(Context*);
+ThreadCtx (*InitContextLib)(Context*);
+void (*DeleteContextLib)();
+void (*InitThreadContextLib)(ThreadCtx*);
 
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 #define CONCAT(a, b) a b
@@ -118,11 +126,34 @@ loadLibrary()
         exit(EXIT_FAILURE);
     }
 
+    DeleteContextLib = (void (*)())dlsym(entryHandle, "DeleteContext");
+    if (!DeleteContextLib)
+    {
+        printf("Failed to load DeleteContext function: %s", dlerror());
+        exit(EXIT_FAILURE);
+    }
+
+    InitThreadContextLib = (void (*)(ThreadCtx*))dlsym(entryHandle, "InitThreadContext");
+    if (!InitThreadContextLib)
+    {
+        printf("Failed to load SetThreadContext function: %s", dlerror());
+        exit(EXIT_FAILURE);
+    }
+
     cleanupLib = (void (*)(Context*))dlsym(entryHandle, "cleanup");
     if (!cleanupLib)
     {
         printf("Failed to load cleanup: %s", dlerror());
         exit(EXIT_FAILURE);
+    }
+
+    {
+        InitContextLib = (ThreadCtx(*)(Context*))dlsym(entryHandle, "InitContext");
+        if (!InitContextLib)
+        {
+            printf("Failed to load InitContext: %s", dlerror());
+            exit(EXIT_FAILURE);
+        }
     }
 
     char* err = dlerror();
@@ -196,8 +227,9 @@ run()
     GUI_Rectangle rect = {};
     Vulkan_Rectangle vulkanRectangle = {};
     Vulkan_GlyphAtlas vulkanGlyphAtlas = {};
-    Context context = {&vulkanContext, &profilingContext, &glyphAtlas,
-                       &rect,          &vulkanRectangle,  &vulkanGlyphAtlas};
+    UI_IO input = {};
+    Context context = {&vulkanContext,   &profilingContext, &glyphAtlas, &rect,
+                       &vulkanRectangle, &vulkanGlyphAtlas, &input};
 
 #ifndef PROFILING_ENABLE
 
@@ -261,12 +293,18 @@ run()
     cleanupLib = cleanup;
 
 #endif
-
+    ThreadCtx ctx = InitContextLib(&context);
+    InitThreadContextLib(&ctx);
     initWindow(&context);
     initVulkanLib(&context);
     while (!glfwWindowShouldClose(vulkanContext.window))
     {
         glfwPollEvents();
+
+        glfwGetCursorPos(vulkanContext.window, &input.mousePosition.x, &input.mousePosition.y);
+        input.leftClicked =
+            glfwGetMouseButton(vulkanContext.window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+
 #ifndef PROFILING_ENABLE
 
         if (libChanged)
@@ -290,6 +328,8 @@ run()
     inotify_rm_watch(fd, wd);
 #endif
     cleanupLib(&context);
+
+    DeleteContextLib();
 }
 
 // NOTE: Tracydebugger has a dlclose function and it takes precedence over the one in the standard

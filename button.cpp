@@ -1,4 +1,5 @@
 #include "assert.h"
+#include "base/error.hpp"
 #include "entrypoint.hpp"
 #include "fonts.hpp"
 #include <glm/ext/vector_float2.hpp>
@@ -6,7 +7,7 @@
 
 void
 AddButton(Context& context, const Vec2<f32> pos, const Vec2<f32> dim, const Vec3 color,
-          const std::string text, f32 softness, f32 borderThickness, f32 cornerRadius)
+          const std::string text, f32 softness, f32 borderThickness, f32 cornerRadius, u32 fontSize)
 {
     assert(dim > 0 && dim < 1);
     assert(pos > 0 && pos < 1);
@@ -17,7 +18,7 @@ AddButton(Context& context, const Vec2<f32> pos, const Vec2<f32> dim, const Vec3
 
     Vec2<u32> screenDimensions = {swapChainExtent.width, swapChainExtent.height};
 
-    Vec2<f32> textDimInPixel = calculateTextDimensions(context, text);
+    Vec2<f32> textDimInPixel = calculateTextDimensions(context, text, fontSize);
     Vec2<f32> textDimNorm = textDimInPixel / (Vec2<f32>)screenDimensions;
 
     Vec2 diffDim = dim - textDimNorm;
@@ -28,7 +29,7 @@ AddButton(Context& context, const Vec2<f32> pos, const Vec2<f32> dim, const Vec3
     Vec2 posOffset = pos + diffDim / 2.0f;
 
     Vec2 posOffsetInPixel = posOffset * (Vec2<f32>)screenDimensions;
-    addText(glyphAtlas, text, posOffsetInPixel.x, posOffsetInPixel.y);
+    addText(glyphAtlas, text, posOffsetInPixel.x, posOffsetInPixel.y, fontSize);
 
     Vec2 bottomCorner = pos + dim;
     rect.rectangleInstances.pushBack(

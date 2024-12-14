@@ -6,7 +6,7 @@ PROFILE_DIR = build/profiler
 DEBUG_DIR = build/debug
 
 TRACY = $(PROFILE_DIR)/tracy.o
-HELPER_HPP = -include types.hpp -include error.hpp
+HELPER_HPP = -include base/base.hpp
 PROFILER_EXEC = $(PROFILE_DIR)/profiler_exe
 PROFILER_LIB = $(PROFILE_DIR)/libprofiler.so
 LIB = $(DEBUG_DIR)/entrypoint.so
@@ -14,7 +14,6 @@ EXEC = $(DEBUG_DIR)/VulkanTest
 ENTRYPOINT  = entrypoint.cpp
 MAIN = main.cpp
 CXXFLAGS = -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion
-# -Wshadow -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion 
 CFLAGS = -std=c++20  $(HELPER_HPP) 
 LDFLAGS = -lglfw -lvulkan -lpthread -lX11 -lXxf86vm -lXrandr -lXi -lfreetype -I$(STB_INCLUDE_PATH)
 
