@@ -64,7 +64,7 @@ void
 ArenaPop(Arena* arena, u64 pos);
 
 ArenaTemp
-ArenaBeginTemp(Arena* arena);
+ArenaTempBegin(Arena* arena);
 
 void
 ArenaTempEnd(ArenaTemp temp);

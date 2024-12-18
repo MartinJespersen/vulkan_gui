@@ -24,6 +24,8 @@ extern "C"
 const int MAX_GLYPHS = 126;
 const u32 MAX_FONT_SIZE = 100;
 const u64 FONT_ARENA_SIZE = MEGABYTE(4);
+const u32 MAX_FONTS_IN_USE = 10;
+const u64 MAX_GLYPH_INSTANCES = 1000;
 
 template <typename T> struct StaticArray
 {
@@ -141,7 +143,7 @@ extern "C"
         }
     };
 
-    struct GlyphBuffer
+    struct GlyphInstance
     {
         glm::vec2 pos;
         glm::vec2 size;
@@ -152,7 +154,7 @@ extern "C"
         {
             VkVertexInputBindingDescription bindingDescription{};
             bindingDescription.binding = 0;
-            bindingDescription.stride = sizeof(GlyphBuffer);
+            bindingDescription.stride = sizeof(GlyphInstance);
             bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
             return bindingDescription;
         }
@@ -164,17 +166,17 @@ extern "C"
             attributeDescriptions[0].binding = 0;
             attributeDescriptions[0].location = 0;
             attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-            attributeDescriptions[0].offset = offsetof(GlyphBuffer, pos);
+            attributeDescriptions[0].offset = offsetof(GlyphInstance, pos);
 
             attributeDescriptions[1].binding = 0;
             attributeDescriptions[1].location = 1;
             attributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
-            attributeDescriptions[1].offset = offsetof(GlyphBuffer, size);
+            attributeDescriptions[1].offset = offsetof(GlyphInstance, size);
 
             attributeDescriptions[2].binding = 0;
             attributeDescriptions[2].location = 2;
             attributeDescriptions[2].format = VK_FORMAT_R32_SFLOAT;
-            attributeDescriptions[2].offset = offsetof(GlyphBuffer, glyphOffset);
+            attributeDescriptions[2].offset = offsetof(GlyphInstance, glyphOffset);
 
             return attributeDescriptions;
         }
@@ -343,38 +345,48 @@ extern "C"
         std::vector<TracyVkCtx> tracyContexts;
     };
 
+    struct Font
+    {
+        u32 fontSize;
+        u64 instanceOffset;
+        u64 instanceCount;
+        LinkedList<GlyphInstance>* instances;
+        Array<Character> characters;
+
+        // vulkan
+        VkImage textureImage;
+        VkDeviceMemory textureImageMemory;
+        VkImageView textureImageView;
+        VkSampler textureSampler;
+        Array<VkDescriptorSet> descriptorSets;
+    };
+
     struct GlyphAtlas
     {
         Arena* fontArena;
-        Array<Character*>* fontToGlyphAtlas;
-        InstanceArray<GlyphBuffer> glyphInstances;
+        LinkedList<Font>* fonts;
+        Array<GlyphInstance> glyphInstanceBuffer;
+        u64 numInstances;
         const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
-    };
 
-    struct GUI_Rectangle
-    {
-        InstanceArray<RectangleInstance> rectangleInstances;
-    };
-
-    struct Vulkan_GlyphAtlas
-    {
+        // Vulkan part
         VkBuffer glyphInstBuffer;
         VkDeviceMemory glyphMemoryBuffer;
         VkDeviceSize glyphInstBufferSize;
         VkBuffer glyphIndexBuffer;
         VkDeviceMemory glyphIndexMemoryBuffer;
 
+        VkDescriptorPool descriptorPool;
+
+        VkDescriptorSetLayout descriptorSetLayout;
+
         VkPipeline graphicsPipeline;
         VkPipelineLayout pipelineLayout;
+    };
 
-        VkImage textureImage;
-        VkDeviceMemory textureImageMemory;
-        VkImageView textureImageView;
-        VkSampler textureSampler;
-
-        VkDescriptorPool descriptorPool;
-        StaticArray<VkDescriptorSet> descriptorSets;
-        VkDescriptorSetLayout descriptorSetLayout;
+    struct GUI_Rectangle
+    {
+        InstanceArray<RectangleInstance> rectangleInstances;
     };
 
     typedef struct Context
@@ -384,7 +396,6 @@ extern "C"
         GlyphAtlas* glyphAtlas;
         GUI_Rectangle* rect;
         Vulkan_Rectangle* vulkanRectangle;
-        Vulkan_GlyphAtlas* vulkanGlyphAtlas;
         UI_IO* input;
 
     } Context;
@@ -395,7 +406,7 @@ extern "C"
     ThreadCtx
     InitContext(Context* context);
     void
-    DeleteContext();
+    DeleteContext(Context* context);
     void
     InitThreadContext(ThreadCtx*);
     void
@@ -409,7 +420,7 @@ extern "C"
 }
 
 void
-recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame);
+recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame);
 
 void
 recreateSwapChain(Context& context);

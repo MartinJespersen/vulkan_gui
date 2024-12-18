@@ -7,10 +7,9 @@
 #include <vulkan/vulkan_core.h>
 
 void
-beginGlyphAtlasRenderPass(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
-                          VkCommandBuffer commandBuffer, VkFramebuffer swapChainFramebuffer,
-                          VkExtent2D swapChainExtent, VkDescriptorSet descriptorSet,
-                          VkRenderPass renderPass, Vulkan_Resolution resolution)
+beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, std::vector<VkCommandBuffer> commandBuffer,
+                          VkFramebuffer swapChainFramebuffer, VkExtent2D swapChainExtent,
+                          VkRenderPass renderPass, Vulkan_Resolution resolution, u32 currentFrame)
 {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -19,10 +18,10 @@ beginGlyphAtlasRenderPass(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyph
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = swapChainExtent;
 
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(commandBuffer[currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      vulkanGlyphAtlas.graphicsPipeline);
+    vkCmdBindPipeline(commandBuffer[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      glyphAtlas->graphicsPipeline);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -31,41 +30,55 @@ beginGlyphAtlasRenderPass(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyph
     viewport.height = static_cast<float>(swapChainExtent.height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+    vkCmdSetViewport(commandBuffer[currentFrame], 0, 1, &viewport);
 
     VkRect2D scissor{};
     scissor.offset = {0, 0};
     scissor.extent = swapChainExtent;
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+    vkCmdSetScissor(commandBuffer[currentFrame], 0, 1, &scissor);
 
-    VkBuffer vertexBuffers[] = {vulkanGlyphAtlas.glyphInstBuffer};
+    VkBuffer vertexBuffers[] = {glyphAtlas->glyphInstBuffer};
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindVertexBuffers(commandBuffer[currentFrame], 0, 1, vertexBuffers, offsets);
 
-    vkCmdBindIndexBuffer(commandBuffer, vulkanGlyphAtlas.glyphIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffer[currentFrame], glyphAtlas->glyphIndexBuffer, 0,
+                         VK_INDEX_TYPE_UINT16);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            vulkanGlyphAtlas.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+    for (LLItem<Font>* fontLI = glyphAtlas->fonts->start; fontLI != nullptr; fontLI = fontLI->next)
+    {
+        vkCmdBindDescriptorSets(commandBuffer[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                glyphAtlas->pipelineLayout, 0, 1,
+                                &fontLI->item.descriptorSets[currentFrame], 0, nullptr);
 
-    vkCmdPushConstants(commandBuffer, vulkanGlyphAtlas.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                       resolution.bufferInfo.offset, resolution.size(), resolution.data);
+        vkCmdPushConstants(commandBuffer[currentFrame], glyphAtlas->pipelineLayout,
+                           VK_SHADER_STAGE_VERTEX_BIT, resolution.bufferInfo.offset,
+                           resolution.size(), resolution.data);
 
-    vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(glyphAtlas.glyphInstances.size), 0, 0,
-                     0);
+        vkCmdDrawIndexed(commandBuffer[currentFrame], 6, (u32)(fontLI->item.instanceCount), 0, 0,
+                         (u32)(fontLI->item.instanceOffset));
+    }
 
-    vkCmdEndRenderPass(commandBuffer);
+    vkCmdEndRenderPass(commandBuffer[currentFrame]);
+}
+
+bool
+FontExists(LinkedList<Font>* fonts, u32 fontSize, Font** font)
+{
+    for (LLItem<Font>* fontItem = fonts->start; fontItem != nullptr; fontItem = fontItem->next)
+    {
+        if (fontItem->item.fontSize == fontSize)
+        {
+            (*font) = &fontItem->item;
+            return true;
+        }
+    }
+    (*font) = nullptr;
+    return false;
 }
 
 Vec2<float>
-calculateTextDimensions(Context& context, std::string text, u32 fontSize)
+calculateTextDimensions(Font* font, std::string text)
 {
-    GlyphAtlas& glyphAtlas = *context.glyphAtlas;
-    Character* charArr = (*glyphAtlas.fontToGlyphAtlas)[fontSize];
-    if (!charArr)
-    {
-        exitWithError("font Size has not been allocated");
-    }
-
     Vec2<float> dimensions = {0.0, 0.0};
     u64 len = (u64)text.size();
 
@@ -76,7 +89,7 @@ calculateTextDimensions(Context& context, std::string text, u32 fontSize)
             exitWithError("Character not supported!");
         }
 
-        Character* ch = &charArr[(u64)text[i]];
+        Character* ch = &font->characters[(u64)text[i]];
         dimensions.x += (f32)(ch->advance >> 6);
         dimensions.y = std::max((float)dimensions.y, ch->height);
     }
@@ -85,28 +98,13 @@ calculateTextDimensions(Context& context, std::string text, u32 fontSize)
 }
 
 void
-addText(GlyphAtlas& glyphAtlas, std::string text, float x, float y, u32 fontSize)
+addText(Arena* arena, Font* font, std::string text, float x, float y)
 {
-    ArenaTemp tempArena = ScratchArenaBegin();
-    // use or create font atlas
-
-    Character* characterArr = (*glyphAtlas.fontToGlyphAtlas)[(u64)fontSize];
-    if (characterArr == nullptr)
-    {
-        exitWithError("character array was not created");
-        // u32 width, height;
-        // u8* pixels = initGlyphs(tempArena.arena, &glyphAtlas, &width, &height, fontSize);
-        // Character* character = (*glyphAtlas.fontToGlyphAtlas)[(u64)fontSize];
-        // if (character == nullptr)
-        // {
-        //     exitWithError("character array was not created");
-        // }
-    }
     // find largest bearing to find origin
     f32 largestBearingY = 0;
     for (u32 textIndex = 0; textIndex < text.size(); textIndex++)
     {
-        Character& ch = characterArr[((u64)text[textIndex])];
+        Character& ch = font->characters[((u64)text[textIndex])];
         if (ch.bearingY > largestBearingY)
         {
             largestBearingY = ch.bearingY;
@@ -122,92 +120,112 @@ addText(GlyphAtlas& glyphAtlas, std::string text, float x, float y, u32 fontSize
             exitWithError("Character not supported!");
         }
 
-        Character& ch = characterArr[((u64)text[i])];
+        Character& ch = font->characters[((u64)text[i])];
         float xpos = xOrigin + ch.bearingX;
         float ypos = yOrigin - ch.bearingY;
 
-        GlyphBuffer tempGlyph = {
-            {xpos, ypos}, {ch.width + xpos, ch.height + ypos}, (f32)ch.glyphOffset};
+        GlyphInstance* glyphInstance = LinkedListPushItem(arena, font->instances);
+        glyphInstance->pos = {xpos, ypos};
+        glyphInstance->size = {ch.width + xpos, ch.height + ypos};
+        glyphInstance->glyphOffset = (f32)ch.glyphOffset;
 
-        if (glyphAtlas.glyphInstances.pushBack(tempGlyph))
-        {
-            exitWithError("Failed to add text to glyph buffer!");
-        }
         xOrigin +=
             f32(ch.advance >> 6); // TODO: Consider what will happen x grows outside the screen
     }
-    ScratchArenaEnd(tempArena);
 }
 
 void
-addTexts(GlyphAtlas& glyphAtlas, Text* texts, size_t len, u32 fontSize)
+addTexts(Arena* arena, Font* font, Text* texts, size_t len)
 {
     for (size_t i = 0; i < len; i++)
     {
-        addText(glyphAtlas, texts[i].text, texts[i].x, texts[i].y, fontSize);
+        addText(arena, font, texts[i].text, texts[i].x, texts[i].y);
     }
 }
 
+u64
+InstanceBufferFromFontBuffers(Array<GlyphInstance> outBuffer, LinkedList<Font>* fonts)
+{
+    u64 numInstances = 0;
+    for (LLItem<Font>* fontItem = fonts->start; fontItem != nullptr; fontItem = fontItem->next)
+    {
+        fontItem->item.instanceOffset = numInstances;
+        LinkedList<GlyphInstance>* glyphInstanceList = fontItem->item.instances;
+        for (LLItem<GlyphInstance>* instance = glyphInstanceList->start; instance != nullptr;
+             instance = instance->next)
+        {
+            outBuffer[numInstances] = instance->item;
+            numInstances++;
+        }
+        fontItem->item.instanceCount = numInstances - fontItem->item.instanceOffset;
+    }
+    return numInstances;
+}
+
 void
-mapGlyphInstancesToBuffer(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
-                          VkPhysicalDevice physicalDevice, VkDevice device, VkQueue queue)
+mapGlyphInstancesToBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device,
+                          VkQueue queue)
 {
     // Create the buffer for the text instances
-    VkDeviceSize bufferSize = sizeof(GlyphBuffer) * glyphAtlas.glyphInstances.size;
-    if (bufferSize > vulkanGlyphAtlas.glyphInstBufferSize)
+    VkDeviceSize bufferSize = sizeof(GlyphInstance) * glyphAtlas->numInstances;
+    if (bufferSize > glyphAtlas->glyphInstBufferSize)
     {
         vkQueueWaitIdle(queue);
-        vkFreeMemory(device, vulkanGlyphAtlas.glyphMemoryBuffer, nullptr);
-        vkDestroyBuffer(device, vulkanGlyphAtlas.glyphInstBuffer, nullptr);
+        vkFreeMemory(device, glyphAtlas->glyphMemoryBuffer, nullptr);
+        vkDestroyBuffer(device, glyphAtlas->glyphInstBuffer, nullptr);
 
         createBuffer(physicalDevice, device, bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                     vulkanGlyphAtlas.glyphInstBuffer, vulkanGlyphAtlas.glyphMemoryBuffer);
+                     glyphAtlas->glyphInstBuffer, glyphAtlas->glyphMemoryBuffer);
     }
 
     // TODO: Consider using vkFlushMappedMemoryRanges and vkInvalidateMappedMemoryRanges instead
     // VK_MEMORY_PROPERTY_HOST_COHERENT_BIT for performance.
 
     void* data;
-    vkMapMemory(device, vulkanGlyphAtlas.glyphMemoryBuffer, 0, bufferSize, 0, &data);
-    memcpy(data, glyphAtlas.glyphInstances.data, (size_t)bufferSize);
-    vkUnmapMemory(device, vulkanGlyphAtlas.glyphMemoryBuffer);
+    vkMapMemory(device, glyphAtlas->glyphMemoryBuffer, 0, bufferSize, 0, &data);
+    memcpy(data, &glyphAtlas->glyphInstanceBuffer[0], (size_t)bufferSize);
+    vkUnmapMemory(device, glyphAtlas->glyphMemoryBuffer);
 
-    vulkanGlyphAtlas.glyphInstBufferSize = bufferSize;
+    glyphAtlas->glyphInstBufferSize = bufferSize;
 }
 
 void
-createGlyphIndexBuffer(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
-                       VkPhysicalDevice physicalDevice, VkDevice device)
+createGlyphIndexBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device)
 {
-    VkDeviceSize bufferSize = sizeof(glyphAtlas.indices[0]) * glyphAtlas.indices.size();
+    VkDeviceSize bufferSize = sizeof(glyphAtlas->indices[0]) * glyphAtlas->indices.size();
 
     createBuffer(
         physicalDevice, device, bufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, // these are not the most performant flags
-        vulkanGlyphAtlas.glyphIndexBuffer, vulkanGlyphAtlas.glyphIndexMemoryBuffer);
+        glyphAtlas->glyphIndexBuffer, glyphAtlas->glyphIndexMemoryBuffer);
     // TODO: Consider using staging buffer that copies to the glyphIndexBuffer with
     // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 
     void* data;
-    vkMapMemory(device, vulkanGlyphAtlas.glyphIndexMemoryBuffer, 0, bufferSize, 0, &data);
-    memcpy(data, glyphAtlas.indices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device, vulkanGlyphAtlas.glyphIndexMemoryBuffer);
+    vkMapMemory(device, glyphAtlas->glyphIndexMemoryBuffer, 0, bufferSize, 0, &data);
+    memcpy(data, glyphAtlas->indices.data(), (size_t)bufferSize);
+    vkUnmapMemory(device, glyphAtlas->glyphIndexMemoryBuffer);
+}
+
+void
+FontInit(Arena* arena, Font* outFont, u32 fontSize, u32 numCharacter)
+{
+    outFont->fontSize = fontSize;
+    outFont->characters = ArrayAlloc<Character>(arena, numCharacter);
 }
 
 unsigned char*
-initGlyphs(Arena* arena, GlyphAtlas* glyphAtlas, u32* width, u32* height, u32 fontSize)
+initGlyphs(Arena* arena, Font* font, u32* width, u32* height)
 {
+    Array<Character> charArr = font->characters;
     FT_Library ft;
     FT_Face face;
     if (FT_Init_FreeType(&ft))
     {
         exitWithError("failed to init freetype library!");
     }
-
-    Character* CharArr = (*glyphAtlas->fontToGlyphAtlas)[fontSize] =
-        PushArray(arena, Character, MAX_GLYPHS);
 
     int error;
     error = FT_New_Face(ft, "fonts/Roboto-Black.ttf", 0, &face);
@@ -220,14 +238,12 @@ initGlyphs(Arena* arena, GlyphAtlas* glyphAtlas, u32* width, u32* height, u32 fo
         exitWithError("failed to load font file!");
     }
 
-    FT_Set_Pixel_Sizes(face, 0, 20);
-
-    unsigned char* glyphBuffer;
+    FT_Set_Pixel_Sizes(face, 0, font->fontSize);
 
     *width = 0;
     *height = 0;
 
-    for (int i = 0; i < MAX_GLYPHS; i++)
+    for (u64 i = 0; i < charArr.capacity; i++)
     {
         u64 c = static_cast<u64>(i);
         if (FT_Load_Char(face, c, FT_LOAD_DEFAULT))
@@ -239,13 +255,13 @@ initGlyphs(Arena* arena, GlyphAtlas* glyphAtlas, u32* width, u32* height, u32 fo
         *width += face->glyph->bitmap.width;
         *height = std::max(*height, face->glyph->bitmap.rows);
 
-        CharArr[c].width = static_cast<f32>(face->glyph->bitmap.width);
-        CharArr[c].height = static_cast<f32>(face->glyph->bitmap.rows);
-        CharArr[c].bearingX = static_cast<f32>(face->glyph->bitmap_left);
-        CharArr[c].bearingY = static_cast<f32>(face->glyph->bitmap_top);
-        CharArr[c].advance = static_cast<u32>(face->glyph->advance.x);
+        charArr[c].width = static_cast<f32>(face->glyph->bitmap.width);
+        charArr[c].height = static_cast<f32>(face->glyph->bitmap.rows);
+        charArr[c].bearingX = static_cast<f32>(face->glyph->bitmap_left);
+        charArr[c].bearingY = static_cast<f32>(face->glyph->bitmap_top);
+        charArr[c].advance = static_cast<u32>(face->glyph->advance.x);
     }
-
+    unsigned char* glyphBuffer;
     glyphBuffer = PushArray(arena, u8, (*width) * (*height));
     u32 glyphOffset = 0;
     for (int i = 0; i < MAX_GLYPHS; i++)
@@ -263,7 +279,7 @@ initGlyphs(Arena* arena, GlyphAtlas* glyphAtlas, u32* width, u32* height, u32 fo
                     face->glyph->bitmap.buffer[k + j * face->glyph->bitmap.width];
             }
         }
-        CharArr[curChar].glyphOffset = glyphOffset;
+        charArr[curChar].glyphOffset = glyphOffset;
         glyphOffset += face->glyph->bitmap.width;
     }
 
@@ -273,34 +289,35 @@ initGlyphs(Arena* arena, GlyphAtlas* glyphAtlas, u32* width, u32* height, u32 fo
 }
 
 void
-cleanupFontResources(Vulkan_GlyphAtlas& vulkanGlyphAtlas, VkDevice device)
+cleanupFontResources(GlyphAtlas* glyphAtlas, VkDevice device)
 {
-    vkFreeMemory(device, vulkanGlyphAtlas.textureImageMemory, nullptr);
-    vkDestroyImage(device, vulkanGlyphAtlas.textureImage, nullptr);
-    vkDestroyImageView(device, vulkanGlyphAtlas.textureImageView, nullptr);
-    vkDestroySampler(device, vulkanGlyphAtlas.textureSampler, nullptr);
+    for (LLItem<Font>* fontLI = glyphAtlas->fonts->start; fontLI != nullptr; fontLI = fontLI->next)
+    {
+        vkFreeMemory(device, fontLI->item.textureImageMemory, nullptr);
+        vkDestroyImage(device, fontLI->item.textureImage, nullptr);
+        vkDestroyImageView(device, fontLI->item.textureImageView, nullptr);
+        vkDestroySampler(device, fontLI->item.textureSampler, nullptr);
+    }
 
-    vkDestroyPipeline(device, vulkanGlyphAtlas.graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(device, vulkanGlyphAtlas.pipelineLayout, nullptr);
+    vkDestroyPipeline(device, glyphAtlas->graphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(device, glyphAtlas->pipelineLayout, nullptr);
 
-    vkDestroyBuffer(device, vulkanGlyphAtlas.glyphInstBuffer, nullptr);
-    vkFreeMemory(device, vulkanGlyphAtlas.glyphMemoryBuffer, nullptr);
-    vkDestroyBuffer(device, vulkanGlyphAtlas.glyphIndexBuffer, nullptr);
-    vkFreeMemory(device, vulkanGlyphAtlas.glyphIndexMemoryBuffer, nullptr);
+    vkDestroyBuffer(device, glyphAtlas->glyphInstBuffer, nullptr);
+    vkFreeMemory(device, glyphAtlas->glyphMemoryBuffer, nullptr);
+    vkDestroyBuffer(device, glyphAtlas->glyphIndexBuffer, nullptr);
+    vkFreeMemory(device, glyphAtlas->glyphIndexMemoryBuffer, nullptr);
 
-    vkDestroyDescriptorPool(device, vulkanGlyphAtlas.descriptorPool, nullptr);
-    vkDestroyDescriptorSetLayout(device, vulkanGlyphAtlas.descriptorSetLayout, nullptr);
+    vkDestroyDescriptorPool(device, glyphAtlas->descriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(device, glyphAtlas->descriptorSetLayout, nullptr);
 }
 
 void
-createGlyphAtlasImage(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtlas,
-                      VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool commandPool,
-                      VkQueue graphicsQueue, u32 fontSize)
+createGlyphAtlasImage(Font* font, VkPhysicalDevice physicalDevice, VkDevice device,
+                      VkCommandPool commandPool, VkQueue graphicsQueue)
 {
     ArenaTemp scratchArena = ScratchArenaBegin();
     u32 texWidth, texHeight;
-    unsigned char* pixels =
-        initGlyphs(scratchArena.arena, &glyphAtlas, &texWidth, &texHeight, fontSize);
+    unsigned char* pixels = initGlyphs(scratchArena.arena, font, &texWidth, &texHeight);
     VkDeviceSize imageSize = (u32)texWidth * (u32)texHeight * 4;
 
     if (!pixels)
@@ -312,7 +329,6 @@ createGlyphAtlasImage(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtla
     VkDeviceMemory stagingBufferMemory;
 
     createBuffer(physicalDevice, device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                  stagingBuffer, stagingBufferMemory);
 
@@ -327,14 +343,12 @@ createGlyphAtlasImage(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtla
     createImage(physicalDevice, device, (u32)texWidth, (u32)texHeight, VK_SAMPLE_COUNT_1_BIT,
                 VK_FORMAT_R8_UNORM, VK_IMAGE_TILING_OPTIMAL,
                 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkanGlyphAtlas.textureImage,
-                vulkanGlyphAtlas.textureImageMemory);
-    transitionImageLayout(commandPool, device, graphicsQueue, vulkanGlyphAtlas.textureImage,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, font->textureImage, font->textureImageMemory);
+    transitionImageLayout(commandPool, device, graphicsQueue, font->textureImage,
                           VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    copyBufferToImage(commandPool, device, graphicsQueue, stagingBuffer,
-                      vulkanGlyphAtlas.textureImage, static_cast<uint32_t>(texWidth),
-                      static_cast<uint32_t>(texHeight));
-    transitionImageLayout(commandPool, device, graphicsQueue, vulkanGlyphAtlas.textureImage,
+    copyBufferToImage(commandPool, device, graphicsQueue, stagingBuffer, font->textureImage,
+                      static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+    transitionImageLayout(commandPool, device, graphicsQueue, font->textureImage,
                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -345,15 +359,13 @@ createGlyphAtlasImage(Vulkan_GlyphAtlas& vulkanGlyphAtlas, GlyphAtlas& glyphAtla
 }
 
 void
-createGlyphAtlasImageView(Vulkan_GlyphAtlas& vulkanGlyphAtlas, VkDevice device)
+createGlyphAtlasImageView(Font* font, VkDevice device)
 {
-    vulkanGlyphAtlas.textureImageView =
-        createImageView(device, vulkanGlyphAtlas.textureImage, VK_FORMAT_R8_UNORM);
+    font->textureImageView = createImageView(device, font->textureImage, VK_FORMAT_R8_UNORM);
 }
 
 void
-createGlyphAtlasTextureSampler(Vulkan_GlyphAtlas& vulkanGlyphAtlas, VkPhysicalDevice physicalDevice,
-                               VkDevice device)
+createGlyphAtlasTextureSampler(Font* font, VkPhysicalDevice physicalDevice, VkDevice device)
 {
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -385,18 +397,16 @@ createGlyphAtlasTextureSampler(Vulkan_GlyphAtlas& vulkanGlyphAtlas, VkPhysicalDe
     samplerInfo.maxLod = 0.0f;
 
     // The sampler is not attached to a image so it can be applied to any image
-    if (vkCreateSampler(device, &samplerInfo, nullptr, &vulkanGlyphAtlas.textureSampler) !=
-        VK_SUCCESS)
+    if (vkCreateSampler(device, &samplerInfo, nullptr, &font->textureSampler) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create texture sampler!");
     }
 }
 
 void
-createFontDescriptorSets(VkImageView imageView, VkSampler sampler, VkDescriptorPool descriptorPool,
+createFontDescriptorSets(Font* font, VkDescriptorPool descriptorPool,
                          VkDescriptorSetLayout descriptorSetLayout, VkDevice device,
-                         const u32 MAX_FRAMES_IN_FLIGHT,
-                         StaticArray<VkDescriptorSet>& descriptorSets)
+                         const u32 MAX_FRAMES_IN_FLIGHT, Array<VkDescriptorSet> descriptorSets)
 {
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
 
@@ -411,25 +421,25 @@ createFontDescriptorSets(VkImageView imageView, VkSampler sampler, VkDescriptorP
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    VkDescriptorImageInfo imageInfo = {};
+
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo.imageView = font->textureImageView;
+    imageInfo.sampler = font->textureSampler;
+
+    for (size_t frameIndex = 0; frameIndex < MAX_FRAMES_IN_FLIGHT; frameIndex++)
     {
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = imageView;
-        imageInfo.sampler = sampler;
+        VkWriteDescriptorSet descriptorWrites = {};
 
-        std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
+        descriptorWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites.dstSet = descriptorSets.data[frameIndex];
+        descriptorWrites.dstBinding = 0;
+        descriptorWrites.dstArrayElement = 0;
+        descriptorWrites.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites.descriptorCount = 1;
+        descriptorWrites.pImageInfo = &imageInfo;
 
-        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = descriptorSets.data[i];
-        descriptorWrites[0].dstBinding = 0;
-        descriptorWrites[0].dstArrayElement = 0;
-        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].pImageInfo = &imageInfo;
-
-        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()),
-                               descriptorWrites.data(), 0, nullptr);
+        vkUpdateDescriptorSets(device, 1, &descriptorWrites, 0, nullptr);
     }
 }
 

@@ -94,14 +94,18 @@ InitContext(Context* context)
 {
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
     glyphAtlas->fontArena = (Arena*)AllocArena(FONT_ARENA_SIZE);
-    glyphAtlas->fontToGlyphAtlas = AllocArray<Character*>(glyphAtlas->fontArena, MAX_FONT_SIZE);
+    glyphAtlas->fonts = LinkedListAlloc<Font>(glyphAtlas->fontArena);
+
     ThreadCtx threadCtx = AllocThreadContext();
     return threadCtx;
 }
 
 void
-DeleteContext()
+DeleteContext(Context* context)
 {
+    GlyphAtlas* glyphAtlas = context->glyphAtlas;
+    DeallocArena(glyphAtlas->fontArena);
+
     DeallocThreadContext();
 }
 
@@ -114,8 +118,7 @@ InitThreadContext(ThreadCtx* ctx)
 void
 initVulkan(Context* context)
 {
-    VulkanContext* vulkanContext = context->vulkanContext;
-    Vulkan_GlyphAtlas* vulkanGlyphAtlas = context->vulkanGlyphAtlas;
+    VulkanContext* vulkan_context = context->vulkanContext;
     Vulkan_Rectangle* vulkanRectangle = context->vulkanRectangle;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
 
@@ -128,64 +131,70 @@ initVulkan(Context* context)
     createImageViews(*context);
     createCommandPool(*context);
 
-    vulkanContext->rectangleRenderPass = createRenderPass(
-        vulkanContext->device, vulkanContext->swapChainImageFormat, vulkanContext->msaaSamples,
+    vulkan_context->rectangleRenderPass = createRenderPass(
+        vulkan_context->device, vulkan_context->swapChainImageFormat, vulkan_context->msaaSamples,
         VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-    vulkanContext->fontRenderPass =
-        createRenderPass(vulkanContext->device, vulkanContext->swapChainImageFormat,
-                         vulkanContext->msaaSamples, VK_ATTACHMENT_LOAD_OP_LOAD,
+    vulkan_context->fontRenderPass =
+        createRenderPass(vulkan_context->device, vulkan_context->swapChainImageFormat,
+                         vulkan_context->msaaSamples, VK_ATTACHMENT_LOAD_OP_LOAD,
                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-    vulkanContext->resolutionInfo.offset = 0;
-    vulkanContext->resolutionInfo.size = sizeof(float) * 2;
+    vulkan_context->resolutionInfo.offset = 0;
+    vulkan_context->resolutionInfo.size = sizeof(float) * 2;
 
     auto rectangleObjects = createGraphicsPipeline(
-        vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->fontRenderPass,
-        VK_NULL_HANDLE, vulkanContext->msaaSamples, RectangleInstance::getBindingDescription(),
-        RectangleInstance::getAttributeDescriptions(), vulkanContext->resolutionInfo,
+        vulkan_context->device, vulkan_context->swapChainExtent, vulkan_context->fontRenderPass,
+        VK_NULL_HANDLE, vulkan_context->msaaSamples, RectangleInstance::getBindingDescription(),
+        RectangleInstance::getAttributeDescriptions(), vulkan_context->resolutionInfo,
         "shaders/vert.spv", "shaders/frag.spv");
 
     vulkanRectangle->pipelineLayout = std::get<0>(rectangleObjects);
     vulkanRectangle->graphicsPipeline = std::get<1>(rectangleObjects);
 
-    vulkanContext->colorImageView = createColorResources(
-        vulkanContext->physicalDevice, vulkanContext->device, vulkanContext->swapChainImageFormat,
-        vulkanContext->swapChainExtent, vulkanContext->msaaSamples, vulkanContext->colorImage,
-        vulkanContext->colorImageMemory);
-    vulkanContext->swapChainFramebuffers = createFramebuffers(
-        vulkanContext->device, vulkanContext->colorImageView, vulkanContext->fontRenderPass,
-        vulkanContext->swapChainExtent, vulkanContext->swapChainImageViews);
-    createRectangleIndexBuffer(*context->vulkanRectangle, vulkanContext->physicalDevice,
-                               vulkanContext->device, vulkanContext->commandPool,
-                               vulkanContext->graphicsQueue, vulkanContext->indices);
+    vulkan_context->colorImageView = createColorResources(
+        vulkan_context->physicalDevice, vulkan_context->device,
+        vulkan_context->swapChainImageFormat, vulkan_context->swapChainExtent,
+        vulkan_context->msaaSamples, vulkan_context->colorImage, vulkan_context->colorImageMemory);
+    vulkan_context->swapChainFramebuffers = createFramebuffers(
+        vulkan_context->device, vulkan_context->colorImageView, vulkan_context->fontRenderPass,
+        vulkan_context->swapChainExtent, vulkan_context->swapChainImageViews);
+    createRectangleIndexBuffer(*context->vulkanRectangle, vulkan_context->physicalDevice,
+                               vulkan_context->device, vulkan_context->commandPool,
+                               vulkan_context->graphicsQueue, vulkan_context->indices);
 
     {
-        createGlyphAtlasImage(*vulkanGlyphAtlas, *glyphAtlas, vulkanContext->physicalDevice,
-                              vulkanContext->device, vulkanContext->commandPool,
-                              vulkanContext->graphicsQueue, 30);
-        createGlyphAtlasImageView(*vulkanGlyphAtlas, vulkanContext->device);
-        createGlyphAtlasTextureSampler(*vulkanGlyphAtlas, vulkanContext->physicalDevice,
-                                       vulkanContext->device);
+        u32 test_fontSizes[] = {30, 50};
+        u32 numFonts = sizeof(test_fontSizes) / sizeof(u32);
 
-        vulkanGlyphAtlas->descriptorSets.setSize(vulkanContext->MAX_FRAMES_IN_FLIGHT);
-        createFontDescriptorSetLayout(vulkanContext->device, vulkanGlyphAtlas->descriptorSetLayout);
-        createFontDescriptorPool(vulkanContext->device, vulkanContext->MAX_FRAMES_IN_FLIGHT,
-                                 vulkanGlyphAtlas->descriptorPool);
-        createFontDescriptorSets(vulkanGlyphAtlas->textureImageView,
-                                 vulkanGlyphAtlas->textureSampler, vulkanGlyphAtlas->descriptorPool,
-                                 vulkanGlyphAtlas->descriptorSetLayout, vulkanContext->device,
-                                 vulkanContext->MAX_FRAMES_IN_FLIGHT,
-                                 vulkanGlyphAtlas->descriptorSets);
+        u32 totalDescSet = vulkan_context->MAX_FRAMES_IN_FLIGHT * numFonts;
+        createFontDescriptorSetLayout(vulkan_context->device, glyphAtlas->descriptorSetLayout);
+        createFontDescriptorPool(vulkan_context->device, totalDescSet, glyphAtlas->descriptorPool);
+
+        for (u32 fontIndex = 0; fontIndex < numFonts; fontIndex++)
+        {
+            Font* font = LinkedListPushItem(glyphAtlas->fontArena, glyphAtlas->fonts);
+            FontInit(glyphAtlas->fontArena, font, test_fontSizes[fontIndex], MAX_GLYPHS);
+
+            createGlyphAtlasImage(font, vulkan_context->physicalDevice, vulkan_context->device,
+                                  vulkan_context->commandPool, vulkan_context->graphicsQueue);
+            createGlyphAtlasImageView(font, vulkan_context->device);
+            createGlyphAtlasTextureSampler(font, vulkan_context->physicalDevice,
+                                           vulkan_context->device);
+            font->descriptorSets = ArrayAlloc<VkDescriptorSet>(
+                glyphAtlas->fontArena, vulkan_context->MAX_FRAMES_IN_FLIGHT);
+            createFontDescriptorSets(font, glyphAtlas->descriptorPool,
+                                     glyphAtlas->descriptorSetLayout, vulkan_context->device,
+                                     vulkan_context->MAX_FRAMES_IN_FLIGHT, font->descriptorSets);
+        }
+
         auto glyphAtlasGraphicsObjects = createGraphicsPipeline(
-            vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->fontRenderPass,
-            vulkanGlyphAtlas->descriptorSetLayout, vulkanContext->msaaSamples,
-            GlyphBuffer::getBindingDescription(), GlyphBuffer::getAttributeDescriptions(),
-            vulkanContext->resolutionInfo, "shaders/text_vert.spv", "shaders/text_frag.spv");
-        vulkanGlyphAtlas->pipelineLayout = std::get<0>(glyphAtlasGraphicsObjects);
-        vulkanGlyphAtlas->graphicsPipeline = std::get<1>(glyphAtlasGraphicsObjects);
-
-        createGlyphIndexBuffer(*context->vulkanGlyphAtlas, *context->glyphAtlas,
-                               vulkanContext->physicalDevice, vulkanContext->device);
+            vulkan_context->device, vulkan_context->swapChainExtent, vulkan_context->fontRenderPass,
+            glyphAtlas->descriptorSetLayout, vulkan_context->msaaSamples,
+            GlyphInstance::getBindingDescription(), GlyphInstance::getAttributeDescriptions(),
+            vulkan_context->resolutionInfo, "shaders/text_vert.spv", "shaders/text_frag.spv");
+        glyphAtlas->pipelineLayout = std::get<0>(glyphAtlasGraphicsObjects);
+        glyphAtlas->graphicsPipeline = std::get<1>(glyphAtlasGraphicsObjects);
+        createGlyphIndexBuffer(glyphAtlas, vulkan_context->physicalDevice, vulkan_context->device);
     }
 
     createCommandBuffers(*context);
@@ -197,8 +206,8 @@ cleanup(Context* context)
 {
     VulkanContext* vulkanContext = context->vulkanContext;
     ProfilingContext* profilingContext = context->profilingContext;
-    Vulkan_GlyphAtlas* vulkanGlyphAtlas = context->vulkanGlyphAtlas;
     Vulkan_Rectangle* vulkanRectangle = context->vulkanRectangle;
+    GlyphAtlas* glyphAtlas = context->glyphAtlas;
 
     vkDeviceWaitIdle(vulkanContext->device);
 
@@ -209,7 +218,7 @@ cleanup(Context* context)
     }
     cleanupSwapChain(*context);
 
-    cleanupFontResources(*vulkanGlyphAtlas, vulkanContext->device);
+    cleanupFontResources(glyphAtlas, vulkanContext->device);
     cleanupRectangle(*vulkanRectangle, vulkanContext->device);
 
     vkDestroyRenderPass(vulkanContext->device, vulkanContext->rectangleRenderPass, nullptr);
@@ -898,17 +907,25 @@ getMaxUsableSampleCount(VkPhysicalDevice device)
 }
 
 void
-recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
+recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
 {
     ZoneScoped;
+    ArenaTemp glyphFrameArena = ArenaTempBegin(context->glyphAtlas->fontArena);
+    for (LLItem<Font>* fontLI = context->glyphAtlas->fonts->start; fontLI != nullptr;
+         fontLI = fontLI->next)
+    {
+        fontLI->item.instances = LinkedListAlloc<GlyphInstance>(glyphFrameArena.arena);
+    }
 
-    VulkanContext* vulkanContext = context.vulkanContext;
-    Vulkan_Rectangle* vulkanRectangle = context.vulkanRectangle;
-    Vulkan_GlyphAtlas* vulkanGlyphAtlas = context.vulkanGlyphAtlas;
-    GlyphAtlas* glyphAtlas = context.glyphAtlas;
-    GUI_Rectangle* rectangle = context.rect;
-    ProfilingContext* profilingContext = context.profilingContext;
+    VulkanContext* vulkanContext = context->vulkanContext;
+    Vulkan_Rectangle* vulkanRectangle = context->vulkanRectangle;
+    GlyphAtlas* glyphAtlas = context->glyphAtlas;
+    GUI_Rectangle* rectangle = context->rect;
+    ProfilingContext* profilingContext = context->profilingContext;
     (void)profilingContext;
+
+    glyphAtlas->glyphInstanceBuffer =
+        ArrayAlloc<GlyphInstance>(glyphAtlas->fontArena, MAX_GLYPH_INSTANCES);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -918,7 +935,6 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
     Vulkan_Resolution resolution =
         Vulkan_Resolution(vulkanContext->swapChainExtent, vulkanContext->resolutionInfo);
 
-    glyphAtlas->glyphInstances.reset();
     rectangle->rectangleInstances.reset();
     rectangle->rectangleInstances.add(
         {{{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}, 10.0f, 10.0f, 5.0f},
@@ -929,13 +945,18 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
     // add buttom that is only a rectangle and text at the moment
     {
         ZoneScopedN("Create Buttom");
-        AddButton(context, Vec2(0.45f, 0.45f), Vec2(0.3f, 0.3f), Vec3(0.8f, 0.8f, 0.8f),
-                  "testingerdb", 1.0f, 10.0f, 5.0f, 30);
+        // temporary way of choosing font
+        Font* font;
+        if (!FontExists(glyphAtlas->fonts, 30, &font))
+        {
+            exitWithError("Font has not been loaded");
+        }
+        AddButton(glyphFrameArena.arena, context, font, Vec2(0.45f, 0.45f), Vec2(0.3f, 0.3f),
+                  Vec3(0.8f, 0.8f, 0.8f), "testingerdb", 1.0f, 10.0f, 5.0f);
     }
     // recording rectangles
     {
         ZoneScopedN("Rectangle CPU");
-
         mapRectanglesToBuffer(*vulkanRectangle, rectangle->rectangleInstances,
                               vulkanContext->physicalDevice, vulkanContext->device);
     }
@@ -943,9 +964,17 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
     {
         ZoneScopedN("Text CPU");
         Text texts[] = {{"testing", 0, 0}, {"more testing", 300, 400}};
-        addTexts(*glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]), 30);
-        mapGlyphInstancesToBuffer(*context.vulkanGlyphAtlas, *context.glyphAtlas,
-                                  vulkanContext->physicalDevice, vulkanContext->device,
+        Font* font;
+        u32 fontSize = 50;
+        if (!FontExists(glyphAtlas->fonts, fontSize, &font))
+        {
+            exitWithError("the font size specified is not loaded");
+        }
+
+        addTexts(glyphFrameArena.arena, font, texts, sizeof(texts) / sizeof(texts[0]));
+        glyphAtlas->numInstances =
+            InstanceBufferFromFontBuffers(glyphAtlas->glyphInstanceBuffer, glyphAtlas->fonts);
+        mapGlyphInstancesToBuffer(glyphAtlas, vulkanContext->physicalDevice, vulkanContext->device,
                                   vulkanContext->graphicsQueue);
     }
 
@@ -961,25 +990,24 @@ recordCommandBuffer(Context& context, u32 imageIndex, u32 currentFrame)
         TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
                      vulkanContext->commandBuffers[currentFrame], "Rectangles GPU", 0xff0000);
         beginRectangleRenderPass(
-            *context.vulkanRectangle, vulkanContext->commandBuffers[currentFrame],
+            *(context->vulkanRectangle), vulkanContext->commandBuffers[currentFrame],
             vulkanContext->rectangleRenderPass, vulkanContext->swapChainFramebuffers[imageIndex],
             vulkanContext->swapChainExtent, (u32)rectangle->rectangleInstances.size, resolution);
     }
     {
         TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
                      vulkanContext->commandBuffers[currentFrame], "Text GPU", 0x00FF00);
-        beginGlyphAtlasRenderPass(*context.vulkanGlyphAtlas, *context.glyphAtlas,
-                                  vulkanContext->commandBuffers[currentFrame],
+        beginGlyphAtlasRenderPass(context->glyphAtlas, vulkanContext->commandBuffers,
                                   vulkanContext->swapChainFramebuffers[imageIndex],
-                                  vulkanContext->swapChainExtent,
-                                  vulkanGlyphAtlas->descriptorSets.data[currentFrame],
-                                  vulkanContext->fontRenderPass, resolution);
+                                  vulkanContext->swapChainExtent, vulkanContext->fontRenderPass,
+                                  resolution, currentFrame);
     }
 
     if (vkEndCommandBuffer(vulkanContext->commandBuffers[currentFrame]) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to record command buffer!");
     }
+    ArenaTempEnd(glyphFrameArena);
 }
 
 void
@@ -1015,7 +1043,7 @@ drawFrame(Context* context)
                   &vulkanContext->inFlightFences[vulkanContext->currentFrame]);
     vkResetCommandBuffer(vulkanContext->commandBuffers[vulkanContext->currentFrame], 0);
 
-    recordCommandBuffer(*context, imageIndex, vulkanContext->currentFrame);
+    recordCommandBuffer(context, imageIndex, vulkanContext->currentFrame);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

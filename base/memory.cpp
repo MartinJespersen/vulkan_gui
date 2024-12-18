@@ -46,7 +46,7 @@ DeallocArena(Arena* arena)
 }
 
 ArenaTemp
-ArenaBeginTemp(Arena* arena)
+ArenaTempBegin(Arena* arena)
 {
     ArenaTemp arenaTemp = {arena, arena->pos};
     return arenaTemp;

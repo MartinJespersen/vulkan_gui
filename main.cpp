@@ -24,7 +24,7 @@ void (*drawFrameLib)(Context*);
 void (*cleanupLib)(Context*);
 void (*initVulkanLib)(Context*);
 ThreadCtx (*InitContextLib)(Context*);
-void (*DeleteContextLib)();
+void (*DeleteContextLib)(Context*);
 void (*InitThreadContextLib)(ThreadCtx*);
 
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
@@ -126,7 +126,7 @@ loadLibrary()
         exit(EXIT_FAILURE);
     }
 
-    DeleteContextLib = (void (*)())dlsym(entryHandle, "DeleteContext");
+    DeleteContextLib = (void (*)(Context*))dlsym(entryHandle, "DeleteContext");
     if (!DeleteContextLib)
     {
         printf("Failed to load DeleteContext function: %s", dlerror());
@@ -226,10 +226,9 @@ run()
     GlyphAtlas glyphAtlas = {};
     GUI_Rectangle rect = {};
     Vulkan_Rectangle vulkanRectangle = {};
-    Vulkan_GlyphAtlas vulkanGlyphAtlas = {};
     UI_IO input = {};
-    Context context = {&vulkanContext,   &profilingContext, &glyphAtlas, &rect,
-                       &vulkanRectangle, &vulkanGlyphAtlas, &input};
+    Context context = {&vulkanContext, &profilingContext, &glyphAtlas,
+                       &rect,          &vulkanRectangle,  &input};
 
 #ifndef PROFILING_ENABLE
 
@@ -329,7 +328,7 @@ run()
 #endif
     cleanupLib(&context);
 
-    DeleteContextLib();
+    DeleteContextLib(&context);
 }
 
 // NOTE: Tracydebugger has a dlclose function and it takes precedence over the one in the standard

@@ -3,71 +3,10 @@
 #include "memory.hpp"
 #include <initializer_list>
 
-template <typename T> struct Vector
-{
-    T* Data;
-    u64 Size;
-    u64 Capacity;
+// TODO: Create a array/list that is a mix of a fixed array and a linked list to improve cache
+// utility for some workloads.
 
-    Vector()
-    {
-        Capacity = 0;
-        Size = 0;
-        Data = NULL;
-    }
-
-    void
-    resize(u64 newSize)
-    {
-        if (newSize > Capacity)
-        {
-            T* oldData = Data;
-            Capacity = newSize + Capacity / 2;
-            Data = memAlloc(Capacity * sizeof(T));
-            memcpy(Data, oldData, Size);
-            memFree(oldData, Size * sizeof(T));
-        }
-        Size = newSize;
-    }
-
-    void
-    add(std::initializer_list<T> list)
-    {
-        u64 listSize = list.size();
-        u64 listSizeInBytes = listSize * sizeof(T);
-        u64 minimumCapacity = listSize + Size;
-        u64 oldSize = Size;
-
-        resize(minimumCapacity);
-        memcpy(Data + oldSize, list.begin(), listSizeInBytes);
-    }
-
-    int
-    pushBack(const T& elem)
-    {
-        u64 oldSize = Size;
-        u64 requiredCapacity = Size + 1;
-
-        resize(requiredCapacity);
-        Data[oldSize] = elem;
-
-        return 0;
-    }
-
-    void
-    reset()
-    {
-        Size = 0;
-    }
-
-    ~Vector()
-    {
-        if (Data)
-        {
-            delete[] Data;
-        }
-    }
-};
+// Fixed array
 
 template <typename T> struct Array
 {
@@ -86,11 +25,54 @@ template <typename T> struct Array
 };
 
 template <typename T>
-Array<T>*
-AllocArray(Arena* arena, u64 capacity)
+Array<T>
+ArrayAlloc(Arena* arena, u64 capacity)
 {
     Array<T>* arr = PushStruct(arena, Array<T>);
     arr->capacity = capacity;
     arr->data = PushArray(arena, T, arr->capacity);
-    return arr;
+    return *arr;
+}
+
+// Linked List
+
+template <typename T> struct LLItem
+{
+    LLItem<T>* next;
+    T item;
+};
+
+template <typename T> struct LinkedList
+{
+    LLItem<T>* start;
+    LLItem<T>* end;
+};
+
+template <typename T>
+LinkedList<T>*
+LinkedListAlloc(Arena* arena)
+{
+    LinkedList<T>* list = PushStruct(arena, LinkedList<T>);
+    return list;
+}
+
+template <typename T>
+T*
+LinkedListPushItem(Arena* arena, LinkedList<T>* list)
+{
+    LLItem<T>* item = PushStruct(arena, LLItem<T>);
+    item->next = 0;
+
+    if (!list->start)
+    {
+        list->start = item;
+    }
+    else
+    {
+        list->end->next = item;
+    }
+
+    list->end = item;
+
+    return &item->item;
 }
