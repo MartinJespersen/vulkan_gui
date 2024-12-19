@@ -1,5 +1,6 @@
 #include "memory.hpp"
 
+// Arenas
 Arena*
 AllocArena(u64 size)
 {
@@ -57,3 +58,36 @@ ArenaTempEnd(ArenaTemp temp)
 {
     temp.arena->pos = temp.pos;
 }
+
+// allocations
+
+#ifdef __linux__
+#include <string.h>
+#include <sys/mman.h>
+
+#include "error.hpp"
+#include "types.hpp"
+
+void*
+memAlloc(u64 size)
+{
+    void* mappedMem = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (mappedMem == MAP_FAILED)
+    {
+        exitWithError(strerror(errno));
+    }
+    return mappedMem;
+}
+
+void
+memFree(void* ptr, u64 freeSize)
+{
+    if (munmap(ptr, freeSize) < 0)
+    {
+        exitWithError(strerror(errno));
+    }
+}
+
+#else
+#error "Unsupported OS"
+#endif

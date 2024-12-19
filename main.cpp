@@ -290,6 +290,9 @@ run()
     initVulkanLib = initVulkan;
     drawFrameLib = drawFrame;
     cleanupLib = cleanup;
+    InitContextLib = InitContext;
+    InitThreadContextLib = InitThreadContext;
+    DeleteContextLib = DeleteContext;
 
 #endif
     ThreadCtx ctx = InitContextLib(&context);

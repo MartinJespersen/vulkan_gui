@@ -32,7 +32,7 @@ build:
 ${TRACY}: profiler_clean
 	mkdir -p $(PROFILE_DIR) && g++ -c -fPIC $(CFLAGS) -o $@ profiler/TracyClient.cpp -DTRACY_ENABLE 
 
-profiler: CFLAGS += -O2 
+profiler: CFLAGS += -g -O0  # use -O0 for actual profiling
 profiler: $(PROFILER_EXEC)
 
 run_profiler: profiler

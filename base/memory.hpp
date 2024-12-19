@@ -1,37 +1,14 @@
 #pragma once
+#include "types.hpp"
 #include <cerrno>
 #include <cstdlib>
 
-#ifdef __linux__
-#include <string.h>
-#include <sys/mman.h>
-
-#include "error.hpp"
-#include "types.hpp"
-
+// os memory
 void*
-memAlloc(u64 size)
-{
-    void* mappedMem = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (mappedMem == MAP_FAILED)
-    {
-        exitWithError(strerror(errno));
-    }
-    return mappedMem;
-}
+memAlloc(u64 size);
 
 void
-memFree(void* ptr, u64 freeSize)
-{
-    if (munmap(ptr, freeSize) < 0)
-    {
-        exitWithError(strerror(errno));
-    }
-}
-
-#else
-#error "Unsupported OS"
-#endif
+memFree(void* ptr, u64 freeSize);
 
 // Arena
 struct Arena

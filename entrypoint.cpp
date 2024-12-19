@@ -40,24 +40,12 @@ extern "C"
 
 #include "button.cpp"
 #include "button.hpp"
-// #include "entrypoint.hpp"
+
 #include "ui/input.hpp"
 #include "ui/widget.hpp"
 
 #include "base/base.cpp"
 #include "base/base.hpp"
-
-__attribute__((constructor(101))) void
-before_main()
-{
-    printf("\nentrypoint constructor called\n");
-}
-
-__attribute__((destructor(101))) void
-after_main()
-{
-    printf("\nentrpoint destructor called\n");
-}
 
 VkResult
 CreateDebugUtilsMessengerEXT(VkInstance instance,
@@ -1082,7 +1070,7 @@ drawFrame(Context* context)
 
     result = vkQueuePresentKHR(vulkanContext->presentQueue, &presentInfo);
     // TracyVkCollect(tracyContexts[currentFrame], commandBuffers[currentFrame]);
-    FrameMark; // end of frame is assumed to be here as the
+    FrameMark; // end of frame is assumed to be here
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
         vulkanContext->framebufferResized)
     {
