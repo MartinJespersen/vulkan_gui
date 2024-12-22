@@ -80,6 +80,8 @@ DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debu
 ThreadCtx
 InitContext(Context* context)
 {
+    context->cpuFreq = EstimateCPUTimerFreq();
+
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
     glyphAtlas->fontArena = (Arena*)AllocArena(FONT_ARENA_SIZE);
     glyphAtlas->fonts = LinkedListAlloc<Font>(glyphAtlas->fontArena);
@@ -998,10 +1000,21 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     ArenaTempEnd(glyphFrameArena);
 }
 
+inline f64
+CalculateFrameRate(u64* prevFrameTickCount, u64 cpuFreq)
+{
+    u64 tick = ReadCPUTimer();
+    u64 tickDelta = tick - *prevFrameTickCount;
+    *prevFrameTickCount = tick;
+
+    return (f64)cpuFreq / (f64)tickDelta;
+}
+
 void
 drawFrame(Context* context)
 {
     VulkanContext* vulkanContext = context->vulkanContext;
+
     ZoneScoped;
     {
         ZoneScopedN("Wait for frame");
@@ -1009,6 +1022,10 @@ drawFrame(Context* context)
                         &vulkanContext->inFlightFences[vulkanContext->currentFrame], VK_TRUE,
                         UINT64_MAX);
     }
+
+    context->frameRate = CalculateFrameRate(&context->frameTickPrev, context->cpuFreq);
+    // printf("%f\n", context->frameRate);
+
     uint32_t imageIndex;
     VkResult result =
         vkAcquireNextImageKHR(vulkanContext->device, vulkanContext->swapChain, UINT64_MAX,

@@ -397,6 +397,9 @@ extern "C"
         GUI_Rectangle* rect;
         Vulkan_Rectangle* vulkanRectangle;
         UI_IO* input;
+        u64 frameTickPrev;
+        f64 frameRate;
+        u64 cpuFreq;
 
     } Context;
 }
