@@ -4,6 +4,7 @@ ThreadCtx
 AllocThreadContext()
 {
     ThreadCtx ctx = {};
+    ctx.scratchArena = (Arena*)AllocArena(MEGABYTE(64));
     return ctx;
 }
 

@@ -54,6 +54,8 @@ LinkedList<T>*
 LinkedListAlloc(Arena* arena)
 {
     LinkedList<T>* list = PushStruct(arena, LinkedList<T>);
+    list->end = 0;
+    list->start = 0;
     return list;
 }
 

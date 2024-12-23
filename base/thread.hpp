@@ -4,7 +4,7 @@
 
 struct ThreadCtx
 {
-    Arena* scratchArena = (Arena*)AllocArena(MEGABYTE(64));
+    Arena* scratchArena;
 };
 
 ThreadCtx

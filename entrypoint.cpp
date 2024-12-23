@@ -900,11 +900,11 @@ void
 recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
 {
     ZoneScoped;
-    ArenaTemp glyphFrameArena = ArenaTempBegin(context->glyphAtlas->fontArena);
+    ArenaTemp frameArena = ScratchArenaBegin();
     for (LLItem<Font>* fontLI = context->glyphAtlas->fonts->start; fontLI != nullptr;
          fontLI = fontLI->next)
     {
-        fontLI->item.instances = LinkedListAlloc<GlyphInstance>(glyphFrameArena.arena);
+        fontLI->item.instances = LinkedListAlloc<GlyphInstance>(frameArena.arena);
     }
 
     VulkanContext* vulkanContext = context->vulkanContext;
@@ -915,7 +915,7 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     (void)profilingContext;
 
     glyphAtlas->glyphInstanceBuffer =
-        ArrayAlloc<GlyphInstance>(glyphAtlas->fontArena, MAX_GLYPH_INSTANCES);
+        ArrayAlloc<GlyphInstance>(frameArena.arena, MAX_GLYPH_INSTANCES);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -941,7 +941,7 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
         {
             exitWithError("Font has not been loaded");
         }
-        AddButton(glyphFrameArena.arena, context, font, Vec2(0.45f, 0.45f), Vec2(0.3f, 0.3f),
+        AddButton(frameArena.arena, context, font, Vec2(0.45f, 0.45f), Vec2(0.3f, 0.3f),
                   Vec3(0.8f, 0.8f, 0.8f), "testingerdb", 1.0f, 10.0f, 5.0f);
     }
     // recording rectangles
@@ -961,7 +961,7 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
             exitWithError("the font size specified is not loaded");
         }
 
-        addTexts(glyphFrameArena.arena, font, texts, sizeof(texts) / sizeof(texts[0]));
+        addTexts(frameArena.arena, font, texts, sizeof(texts) / sizeof(texts[0]));
         glyphAtlas->numInstances =
             InstanceBufferFromFontBuffers(glyphAtlas->glyphInstanceBuffer, glyphAtlas->fonts);
         mapGlyphInstancesToBuffer(glyphAtlas, vulkanContext->physicalDevice, vulkanContext->device,
@@ -997,7 +997,7 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     {
         throw std::runtime_error("failed to record command buffer!");
     }
-    ArenaTempEnd(glyphFrameArena);
+    ScratchArenaEnd(frameArena);
 }
 
 inline f64

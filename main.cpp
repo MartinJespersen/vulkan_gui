@@ -228,7 +228,7 @@ run()
     Vulkan_Rectangle vulkanRectangle = {};
     UI_IO input = {};
     Context context = {
-        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &vulkanRectangle, &input, 0};
+        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &vulkanRectangle, &input, 0, 0, 0};
 
 #ifndef PROFILING_ENABLE
 
