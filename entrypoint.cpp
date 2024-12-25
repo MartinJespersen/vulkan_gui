@@ -32,8 +32,8 @@ extern "C"
 #include "fonts.cpp"
 #include "fonts.hpp"
 
-#include "rectangle.cpp"
-#include "rectangle.hpp"
+#include "box.cpp"
+#include "box.hpp"
 
 #include "vulkan_helpers.cpp"
 #include "vulkan_helpers.hpp"
@@ -109,8 +109,8 @@ void
 initVulkan(Context* context)
 {
     VulkanContext* vulkan_context = context->vulkanContext;
-    Vulkan_Rectangle* vulkanRectangle = context->vulkanRectangle;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
+    BoxContext* boxContext = context->boxContext;
 
     createInstance(*context);
     setupDebugMessenger(*context);
@@ -134,12 +134,12 @@ initVulkan(Context* context)
 
     auto rectangleObjects = createGraphicsPipeline(
         vulkan_context->device, vulkan_context->swapChainExtent, vulkan_context->fontRenderPass,
-        VK_NULL_HANDLE, vulkan_context->msaaSamples, RectangleInstance::getBindingDescription(),
-        RectangleInstance::getAttributeDescriptions(), vulkan_context->resolutionInfo,
-        "shaders/vert.spv", "shaders/frag.spv");
+        VK_NULL_HANDLE, vulkan_context->msaaSamples, BoxInstance::getBindingDescription(),
+        BoxInstance::getAttributeDescriptions(), vulkan_context->resolutionInfo, "shaders/vert.spv",
+        "shaders/frag.spv");
 
-    vulkanRectangle->pipelineLayout = std::get<0>(rectangleObjects);
-    vulkanRectangle->graphicsPipeline = std::get<1>(rectangleObjects);
+    boxContext->pipelineLayout = std::get<0>(rectangleObjects);
+    boxContext->graphicsPipeline = std::get<1>(rectangleObjects);
 
     vulkan_context->colorImageView = createColorResources(
         vulkan_context->physicalDevice, vulkan_context->device,
@@ -148,7 +148,7 @@ initVulkan(Context* context)
     vulkan_context->swapChainFramebuffers = createFramebuffers(
         vulkan_context->device, vulkan_context->colorImageView, vulkan_context->fontRenderPass,
         vulkan_context->swapChainExtent, vulkan_context->swapChainImageViews);
-    createRectangleIndexBuffer(*context->vulkanRectangle, vulkan_context->physicalDevice,
+    createRectangleIndexBuffer(context->boxContext, vulkan_context->physicalDevice,
                                vulkan_context->device, vulkan_context->commandPool,
                                vulkan_context->graphicsQueue, vulkan_context->indices);
 
@@ -196,8 +196,8 @@ cleanup(Context* context)
 {
     VulkanContext* vulkanContext = context->vulkanContext;
     ProfilingContext* profilingContext = context->profilingContext;
-    Vulkan_Rectangle* vulkanRectangle = context->vulkanRectangle;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
+    BoxContext* boxContext = context->boxContext;
 
     vkDeviceWaitIdle(vulkanContext->device);
 
@@ -209,7 +209,7 @@ cleanup(Context* context)
     cleanupSwapChain(*context);
 
     cleanupFontResources(glyphAtlas, vulkanContext->device);
-    cleanupRectangle(*vulkanRectangle, vulkanContext->device);
+    cleanupRectangle(boxContext, vulkanContext->device);
 
     vkDestroyRenderPass(vulkanContext->device, vulkanContext->rectangleRenderPass, nullptr);
     vkDestroyRenderPass(vulkanContext->device, vulkanContext->fontRenderPass, nullptr);
@@ -908,14 +908,18 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     }
 
     VulkanContext* vulkanContext = context->vulkanContext;
-    Vulkan_Rectangle* vulkanRectangle = context->vulkanRectangle;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
-    GUI_Rectangle* rectangle = context->rect;
+    BoxContext* boxContext = context->boxContext;
     ProfilingContext* profilingContext = context->profilingContext;
     (void)profilingContext;
 
     glyphAtlas->glyphInstanceBuffer =
         ArrayAlloc<GlyphInstance>(frameArena.arena, MAX_GLYPH_INSTANCES);
+
+    boxContext->boxInstances = ArrayAlloc<BoxInstance>(frameArena.arena, MAX_BOX_INSTANCES);
+    boxContext->boxList = LinkedListAlloc<Box>(frameArena.arena);
+    Box* box = LinkedListPushItem(frameArena.arena, boxContext->boxList);
+    box->boxInstanceList = LinkedListAlloc<BoxInstance>(frameArena.arena);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -924,13 +928,6 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
 
     Vulkan_Resolution resolution =
         Vulkan_Resolution(vulkanContext->swapChainExtent, vulkanContext->resolutionInfo);
-
-    rectangle->rectangleInstances.reset();
-    rectangle->rectangleInstances.add(
-        {{{0.0f, 0.0f}, {0.2f, 0.2f}, {0.1f, 0.1f, 0.1f}, 10.0f, 10.0f, 5.0f},
-         {{0.8f, 0.0f}, {1.0f, 0.2f}, {0.8f, 0.8f, 0.8f}, 10.0f, 10.0f, 5.0f},
-         {{0.0f, 0.8f}, {0.2f, 1.0f}, {0.8f, 0.8f, 0.8f}, 10.0f, 10.0f, 5.0f},
-         {{0.8f, 0.8f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, 10.0f, 10.0f, 5.0f}});
 
     // add buttom that is only a rectangle and text at the moment
     {
@@ -941,14 +938,15 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
         {
             exitWithError("Font has not been loaded");
         }
-        AddButton(frameArena.arena, context, font, Vec2(0.45f, 0.45f), Vec2(0.3f, 0.3f),
-                  Vec3(0.8f, 0.8f, 0.8f), "testingerdb", 1.0f, 10.0f, 5.0f);
+        AddButton(frameArena.arena, box, vulkanContext->swapChainExtent, font, Vec2(0.45f, 0.45f),
+                  Vec2(0.3f, 0.3f), Vec3(0.8f, 0.8f, 0.8f), "testingerdb", 1.0f, 10.0f, 5.0f);
     }
     // recording rectangles
     {
         ZoneScopedN("Rectangle CPU");
-        mapRectanglesToBuffer(*vulkanRectangle, rectangle->rectangleInstances,
-                              vulkanContext->physicalDevice, vulkanContext->device);
+        boxContext->numInstances =
+            InstanceBufferFromBoxes(boxContext->boxList, boxContext->boxInstances);
+        mapRectanglesToBuffer(boxContext, vulkanContext->physicalDevice, vulkanContext->device);
     }
     // recording text
     {
@@ -980,9 +978,9 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
         TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
                      vulkanContext->commandBuffers[currentFrame], "Rectangles GPU", 0xff0000);
         beginRectangleRenderPass(
-            *(context->vulkanRectangle), vulkanContext->commandBuffers[currentFrame],
+            boxContext, vulkanContext->commandBuffers[currentFrame],
             vulkanContext->rectangleRenderPass, vulkanContext->swapChainFramebuffers[imageIndex],
-            vulkanContext->swapChainExtent, (u32)rectangle->rectangleInstances.size, resolution);
+            vulkanContext->swapChainExtent, (u32)boxContext->numInstances, resolution);
     }
     {
         TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
@@ -1024,7 +1022,6 @@ drawFrame(Context* context)
     }
 
     context->frameRate = CalculateFrameRate(&context->frameTickPrev, context->cpuFreq);
-    // printf("%f\n", context->frameRate);
 
     uint32_t imageIndex;
     VkResult result =

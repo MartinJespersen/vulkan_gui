@@ -26,6 +26,7 @@ const u32 MAX_FONT_SIZE = 100;
 const u64 FONT_ARENA_SIZE = MEGABYTE(4);
 const u32 MAX_FONTS_IN_USE = 10;
 const u64 MAX_GLYPH_INSTANCES = 1000;
+const u64 MAX_BOX_INSTANCES = 1000;
 
 template <typename T> struct StaticArray
 {
@@ -182,7 +183,7 @@ extern "C"
         }
     };
 
-    struct RectangleInstance
+    struct BoxInstance
     {
         glm::vec2 pos1;
         glm::vec2 pos2;
@@ -196,7 +197,7 @@ extern "C"
         {
             VkVertexInputBindingDescription bindingDescription{};
             bindingDescription.binding = 0;
-            bindingDescription.stride = sizeof(RectangleInstance);
+            bindingDescription.stride = sizeof(BoxInstance);
             bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
             return bindingDescription;
         }
@@ -208,32 +209,32 @@ extern "C"
             attributeDescriptions[0].binding = 0;
             attributeDescriptions[0].location = 0;
             attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-            attributeDescriptions[0].offset = offsetof(RectangleInstance, pos1);
+            attributeDescriptions[0].offset = offsetof(BoxInstance, pos1);
 
             attributeDescriptions[1].binding = 0;
             attributeDescriptions[1].location = 1;
             attributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
-            attributeDescriptions[1].offset = offsetof(RectangleInstance, pos2);
+            attributeDescriptions[1].offset = offsetof(BoxInstance, pos2);
 
             attributeDescriptions[2].binding = 0;
             attributeDescriptions[2].location = 2;
             attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
-            attributeDescriptions[2].offset = offsetof(RectangleInstance, color);
+            attributeDescriptions[2].offset = offsetof(BoxInstance, color);
 
             attributeDescriptions[3].binding = 0;
             attributeDescriptions[3].location = 3;
             attributeDescriptions[3].format = VK_FORMAT_R32_SFLOAT;
-            attributeDescriptions[3].offset = offsetof(RectangleInstance, softness);
+            attributeDescriptions[3].offset = offsetof(BoxInstance, softness);
 
             attributeDescriptions[4].binding = 0;
             attributeDescriptions[4].location = 4;
             attributeDescriptions[4].format = VK_FORMAT_R32_SFLOAT;
-            attributeDescriptions[4].offset = offsetof(RectangleInstance, borderThickness);
+            attributeDescriptions[4].offset = offsetof(BoxInstance, borderThickness);
 
             attributeDescriptions[5].binding = 0;
             attributeDescriptions[5].location = 5;
             attributeDescriptions[5].format = VK_FORMAT_R32_SFLOAT;
-            attributeDescriptions[5].offset = offsetof(RectangleInstance, cornerRadius);
+            attributeDescriptions[5].offset = offsetof(BoxInstance, cornerRadius);
 
             return attributeDescriptions;
         }
@@ -328,17 +329,6 @@ extern "C"
         const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
     };
 
-    struct Vulkan_Rectangle
-    {
-        VkBuffer instBuffer;
-        VkDeviceMemory instMemoryBuffer;
-        VkDeviceSize instBufferSize;
-        VkBuffer indexBuffer;
-        VkDeviceMemory indexMemoryBuffer;
-        VkPipelineLayout pipelineLayout;
-        VkPipeline graphicsPipeline;
-    };
-
     struct ProfilingContext
     {
         // tracy profiling context
@@ -384,9 +374,27 @@ extern "C"
         VkPipelineLayout pipelineLayout;
     };
 
-    struct GUI_Rectangle
+    struct Box
     {
-        InstanceArray<RectangleInstance> rectangleInstances;
+        u64 instanceOffset;
+        u64 instanceCount;
+        LinkedList<BoxInstance>* boxInstanceList;
+    };
+
+    struct BoxContext
+    {
+        Array<BoxInstance> boxInstances;
+        LinkedList<Box>* boxList;
+        u64 numInstances;
+
+        // vulkan part
+        VkBuffer instBuffer;
+        VkDeviceMemory instMemoryBuffer;
+        VkDeviceSize instBufferSize;
+        VkBuffer indexBuffer;
+        VkDeviceMemory indexMemoryBuffer;
+        VkPipelineLayout pipelineLayout;
+        VkPipeline graphicsPipeline;
     };
 
     typedef struct Context
@@ -394,8 +402,7 @@ extern "C"
         VulkanContext* vulkanContext;
         ProfilingContext* profilingContext;
         GlyphAtlas* glyphAtlas;
-        GUI_Rectangle* rect;
-        Vulkan_Rectangle* vulkanRectangle;
+        BoxContext* boxContext;
         UI_IO* input;
         u64 frameTickPrev;
         f64 frameRate;

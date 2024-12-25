@@ -35,6 +35,48 @@ ArrayAlloc(Arena* arena, u64 capacity)
     return *arr;
 }
 
+// Array Bound
+template <typename T> struct ArrayBound
+{
+    T* data;
+    u64 capacity;
+    u64 size;
+
+    T&
+    operator[](u64 index)
+    {
+        if (index >= size)
+        {
+            exitWithError("Indexing is out of bounds");
+        }
+        return data[index];
+    }
+};
+
+template <typename T>
+ArrayBound<T>*
+ArrayBoundAlloc(Arena* arena, u64 capacity)
+{
+    ArrayBound<T>* arr = PushStruct(arena, ArrayBound<T>);
+    arr->capacity = capacity;
+    arr->data = PushArray(arena, T, arr->capacity);
+    arr->size = 0;
+    return arr;
+}
+
+template <typename T>
+T*
+ArrayBoundPush(ArrayBound<T>* arr)
+{
+    arr->size++;
+    if (arr->size >= arr->capacity)
+    {
+        exitWithError("Indexing Out of Bounds");
+    }
+
+    return arr[arr->size - 1];
+}
+
 // Linked List
 
 template <typename T> struct LLItem

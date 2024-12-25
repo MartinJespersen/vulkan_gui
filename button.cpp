@@ -6,15 +6,12 @@
 #include <glm/ext/vector_float3.hpp>
 
 void
-AddButton(Arena* arena, Context* context, Font* font, const Vec2<f32> pos, const Vec2<f32> dim,
-          const Vec3 color, const std::string text, f32 softness, f32 borderThickness,
-          f32 cornerRadius)
+AddButton(Arena* arena, Box* box, VkExtent2D swapChainExtent, Font* font, const Vec2<f32> pos,
+          const Vec2<f32> dim, const Vec3 color, const std::string text, f32 softness,
+          f32 borderThickness, f32 cornerRadius)
 {
     assert(dim > 0 && dim < 1);
     assert(pos > 0 && pos < 1);
-
-    GUI_Rectangle* rect = context->rect;
-    VkExtent2D swapChainExtent = context->vulkanContext->swapChainExtent;
 
     Vec2<u32> screenDimensions = {swapChainExtent.width, swapChainExtent.height};
 
@@ -32,11 +29,12 @@ AddButton(Arena* arena, Context* context, Font* font, const Vec2<f32> pos, const
     addText(arena, font, text, posOffsetInPixel.x, posOffsetInPixel.y);
 
     Vec2 bottomCorner = pos + dim;
-    rect->rectangleInstances.pushBack(
-        RectangleInstance{.pos1 = glm::vec2(pos.x, pos.y),
-                          .pos2 = glm::vec2(bottomCorner.x, bottomCorner.y),
-                          .color = glm::vec3(color.x, color.y, color.z),
-                          .softness = softness,
-                          .borderThickness = borderThickness,
-                          .cornerRadius = cornerRadius});
+    BoxInstance* boxInstance = LinkedListPushItem<BoxInstance>(arena, box->boxInstanceList);
+
+    boxInstance->pos1 = glm::vec2(pos.x, pos.y);
+    boxInstance->pos2 = glm::vec2(bottomCorner.x, bottomCorner.y);
+    boxInstance->color = glm::vec3(color.x, color.y, color.z);
+    boxInstance->softness = softness;
+    boxInstance->borderThickness = borderThickness;
+    boxInstance->cornerRadius = cornerRadius;
 }

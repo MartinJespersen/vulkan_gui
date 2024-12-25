@@ -224,11 +224,9 @@ run()
     VulkanContext vulkanContext = {};
     ProfilingContext profilingContext = {};
     GlyphAtlas glyphAtlas = {};
-    GUI_Rectangle rect = {};
-    Vulkan_Rectangle vulkanRectangle = {};
+    BoxContext rect = {};
     UI_IO input = {};
-    Context context = {
-        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &vulkanRectangle, &input, 0, 0, 0};
+    Context context = {&vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, 0, 0, 0};
 
 #ifndef PROFILING_ENABLE
 

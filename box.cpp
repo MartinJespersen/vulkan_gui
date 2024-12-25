@@ -1,9 +1,9 @@
-#include "rectangle.hpp"
+#include "box.hpp"
 #include <cstring>
 
 void
-createRectangleIndexBuffer(Vulkan_Rectangle& vulkanRectangle, VkPhysicalDevice physicalDevice,
-                           VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue,
+createRectangleIndexBuffer(BoxContext* boxContext, VkPhysicalDevice physicalDevice, VkDevice device,
+                           VkCommandPool commandPool, VkQueue graphicsQueue,
                            std::vector<uint16_t> indices)
 {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
@@ -21,10 +21,10 @@ createRectangleIndexBuffer(Vulkan_Rectangle& vulkanRectangle, VkPhysicalDevice p
 
     createBuffer(physicalDevice, device, bufferSize,
                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkanRectangle.indexBuffer,
-                 vulkanRectangle.indexMemoryBuffer);
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, boxContext->indexBuffer,
+                 boxContext->indexMemoryBuffer);
 
-    copyBuffer(device, commandPool, graphicsQueue, stagingBuffer, vulkanRectangle.indexBuffer,
+    copyBuffer(device, commandPool, graphicsQueue, stagingBuffer, boxContext->indexBuffer,
                bufferSize);
 
     vkDestroyBuffer(device, stagingBuffer, nullptr);
@@ -32,7 +32,7 @@ createRectangleIndexBuffer(Vulkan_Rectangle& vulkanRectangle, VkPhysicalDevice p
 }
 
 void
-beginRectangleRenderPass(Vulkan_Rectangle& vulkanRectangle, VkCommandBuffer commandBuffer,
+beginRectangleRenderPass(BoxContext* boxContext, VkCommandBuffer commandBuffer,
                          VkRenderPass renderPass, VkFramebuffer swapchainFramebuffer,
                          VkExtent2D swapChainExtent, u32 rectangleArraySize,
                          Vulkan_Resolution resolution)
@@ -53,8 +53,7 @@ beginRectangleRenderPass(Vulkan_Rectangle& vulkanRectangle, VkCommandBuffer comm
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      vulkanRectangle.graphicsPipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, boxContext->graphicsPipeline);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -70,13 +69,13 @@ beginRectangleRenderPass(Vulkan_Rectangle& vulkanRectangle, VkCommandBuffer comm
     scissor.extent = swapChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    VkBuffer vertexBuffers[] = {vulkanRectangle.instBuffer};
+    VkBuffer vertexBuffers[] = {boxContext->instBuffer};
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-    vkCmdBindIndexBuffer(commandBuffer, vulkanRectangle.indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffer, boxContext->indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-    vkCmdPushConstants(commandBuffer, vulkanRectangle.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+    vkCmdPushConstants(commandBuffer, boxContext->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                        resolution.bufferInfo.offset, resolution.size(), resolution.data);
 
     vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(rectangleArraySize), 0, 0, 0);
@@ -85,41 +84,58 @@ beginRectangleRenderPass(Vulkan_Rectangle& vulkanRectangle, VkCommandBuffer comm
 }
 
 void
-cleanupRectangle(Vulkan_Rectangle& vulkanRectangle, VkDevice device)
+cleanupRectangle(BoxContext* boxContext, VkDevice device)
 {
-    vkDestroyBuffer(device, vulkanRectangle.indexBuffer, nullptr);
-    vkFreeMemory(device, vulkanRectangle.indexMemoryBuffer, nullptr);
+    vkDestroyBuffer(device, boxContext->indexBuffer, nullptr);
+    vkFreeMemory(device, boxContext->indexMemoryBuffer, nullptr);
 
-    vkDestroyBuffer(device, vulkanRectangle.instBuffer, nullptr);
-    vkFreeMemory(device, vulkanRectangle.instMemoryBuffer, nullptr);
+    vkDestroyBuffer(device, boxContext->instBuffer, nullptr);
+    vkFreeMemory(device, boxContext->instMemoryBuffer, nullptr);
 
-    vkDestroyPipeline(device, vulkanRectangle.graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(device, vulkanRectangle.pipelineLayout, nullptr);
+    vkDestroyPipeline(device, boxContext->graphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(device, boxContext->pipelineLayout, nullptr);
 }
 
 void
-mapRectanglesToBuffer(Vulkan_Rectangle& vulkanRectangle,
-                      InstanceArray<RectangleInstance>& rectangles, VkPhysicalDevice physicalDevice,
-                      VkDevice device)
+mapRectanglesToBuffer(BoxContext* boxContext, VkPhysicalDevice physicalDevice, VkDevice device)
 {
-    VkDeviceSize bufferSize = sizeof(RectangleInstance) * rectangles.size;
-    if (bufferSize > vulkanRectangle.instBufferSize)
+    VkDeviceSize bufferSize = sizeof(BoxInstance) * boxContext->numInstances;
+    if (bufferSize > boxContext->instBufferSize)
     {
-        vkDestroyBuffer(device, vulkanRectangle.instBuffer, nullptr);
-        vkFreeMemory(device, vulkanRectangle.instMemoryBuffer, nullptr);
+        vkDestroyBuffer(device, boxContext->instBuffer, nullptr);
+        vkFreeMemory(device, boxContext->instMemoryBuffer, nullptr);
 
         createBuffer(physicalDevice, device, bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                     vulkanRectangle.instBuffer, vulkanRectangle.instMemoryBuffer);
+                     boxContext->instBuffer, boxContext->instMemoryBuffer);
     }
 
     // TODO: Consider using vkFlushMappedMemoryRanges and vkInvalidateMappedMemoryRanges instead of
     // VK_MEMORY_PROPERTY_HOST_COHERENT_BIT for performance.
 
     void* data;
-    vkMapMemory(device, vulkanRectangle.instMemoryBuffer, 0, bufferSize, 0, &data);
-    memcpy(data, rectangles.data, (size_t)bufferSize);
-    vkUnmapMemory(device, vulkanRectangle.instMemoryBuffer);
+    vkMapMemory(device, boxContext->instMemoryBuffer, 0, bufferSize, 0, &data);
+    memcpy(data, boxContext->boxInstances.data, (size_t)bufferSize);
+    vkUnmapMemory(device, boxContext->instMemoryBuffer);
 
-    vulkanRectangle.instBufferSize = bufferSize;
+    boxContext->instBufferSize = bufferSize;
+}
+
+u64
+InstanceBufferFromBoxes(LinkedList<Box>* boxList, Array<BoxInstance> outBuffer)
+{
+    u64 numInstances = 0;
+    for (LLItem<Box>* boxItem = boxList->start; boxItem != nullptr; boxItem = boxItem->next)
+    {
+        boxItem->item.instanceOffset = numInstances;
+        LinkedList<BoxInstance>* boxInstanceList = boxItem->item.boxInstanceList;
+        for (LLItem<BoxInstance>* instance = boxInstanceList->start; instance != nullptr;
+             instance = instance->next)
+        {
+            outBuffer[numInstances] = instance->item;
+            numInstances++;
+        }
+        boxItem->item.instanceCount = numInstances - boxItem->item.instanceOffset;
+    }
+    return numInstances;
 }
