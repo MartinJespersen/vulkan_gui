@@ -2,7 +2,7 @@
 
 layout(location = 0) in vec2 pos0;
 layout(location = 1) in vec2 pos1;
-layout(location = 2) in float offset;
+layout(location = 2) in vec2 offset;
 layout(location = 0) out vec2 fragTexCoord;
 layout(push_constant) uniform PushConstants {
     vec2 resolution;
@@ -20,6 +20,6 @@ void main() {
     float yPosScaled = position.y / pushConstants.resolution.y;
     gl_Position = vec4(2 * xPosScaled - 1, 2 * yPosScaled - 1, 0.0, 1.0);
     vec2 size = pos1 - pos0;
-    fragTexCoord = uvs[gl_VertexIndex] * size + vec2(offset, 0);
+    fragTexCoord = uvs[gl_VertexIndex] * size + offset;
 
 }

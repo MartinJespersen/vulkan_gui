@@ -49,9 +49,21 @@ template <typename T> struct Vec2
     }
 
     inline Vec2
+    operator+(const f32 adder) const
+    {
+        return {x + adder, y + adder};
+    }
+
+    inline Vec2
     operator-(const Vec2& other) const
     {
         return {x - other.x, y - other.y};
+    }
+
+    inline Vec2
+    operator-(const f32 substractor) const
+    {
+        return {x - substractor, y - substractor};
     }
 
     inline Vec2

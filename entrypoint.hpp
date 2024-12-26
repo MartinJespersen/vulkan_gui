@@ -146,9 +146,9 @@ extern "C"
 
     struct GlyphInstance
     {
-        glm::vec2 pos;
-        glm::vec2 size;
-        glm::float32 glyphOffset;
+        glm::vec2 pos0;
+        glm::vec2 pos1;
+        glm::vec2 glyphOffset;
 
         static VkVertexInputBindingDescription
         getBindingDescription()
@@ -167,16 +167,16 @@ extern "C"
             attributeDescriptions[0].binding = 0;
             attributeDescriptions[0].location = 0;
             attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-            attributeDescriptions[0].offset = offsetof(GlyphInstance, pos);
+            attributeDescriptions[0].offset = offsetof(GlyphInstance, pos0);
 
             attributeDescriptions[1].binding = 0;
             attributeDescriptions[1].location = 1;
             attributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
-            attributeDescriptions[1].offset = offsetof(GlyphInstance, size);
+            attributeDescriptions[1].offset = offsetof(GlyphInstance, pos1);
 
             attributeDescriptions[2].binding = 0;
             attributeDescriptions[2].location = 2;
-            attributeDescriptions[2].format = VK_FORMAT_R32_SFLOAT;
+            attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
             attributeDescriptions[2].offset = offsetof(GlyphInstance, glyphOffset);
 
             return attributeDescriptions;

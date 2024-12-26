@@ -23,9 +23,11 @@ mapGlyphInstancesToBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevic
                           VkQueue queue);
 
 void
-addTexts(Arena* arena, Font* font, Text* texts, size_t len, u32 fontSize);
+addTexts(Arena* arena, Font* font, Text* texts, size_t len, u32 fontSize, Vec2<f32> min,
+         Vec2<f32> max);
 void
-addText(Arena* arena, Font* font, std::string text, float x, float y);
+addText(Arena* arena, Font* font, std::string text, Vec2<f32> offset, Vec2<f32> pos0,
+        Vec2<f32> pos1, f32 textHeight);
 void
 beginGlyphAtlasRenderPass(GlyphAtlas& glyphAtlas, VkCommandBuffer commandBuffer,
                           VkFramebuffer swapChainFramebuffer, VkExtent2D swapChainExtent,

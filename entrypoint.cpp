@@ -934,7 +934,7 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
         ZoneScopedN("Create Buttom");
         // temporary way of choosing font
         Font* font;
-        if (!FontExists(glyphAtlas->fonts, 30, &font))
+        if (!FontExists(glyphAtlas->fonts, 50, &font))
         {
             exitWithError("Font has not been loaded");
         }
@@ -959,7 +959,9 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
             exitWithError("the font size specified is not loaded");
         }
 
-        addTexts(frameArena.arena, font, texts, sizeof(texts) / sizeof(texts[0]));
+        // addTexts(frameArena.arena, font, texts, sizeof(texts) / sizeof(texts[0]), Vec2(0, 0),
+        //          Vec2<f32>((f32)vulkanContext->swapChainExtent.width,
+        //                    (f32)vulkanContext->swapChainExtent.height));
         glyphAtlas->numInstances =
             InstanceBufferFromFontBuffers(glyphAtlas->glyphInstanceBuffer, glyphAtlas->fonts);
         mapGlyphInstancesToBuffer(glyphAtlas, vulkanContext->physicalDevice, vulkanContext->device,

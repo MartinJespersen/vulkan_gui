@@ -2,6 +2,7 @@
 #include "base/thread.hpp"
 #include "entrypoint.hpp"
 #include "vulkan_helpers.hpp"
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <vulkan/vulkan_core.h>
@@ -98,7 +99,8 @@ calculateTextDimensions(Font* font, std::string text)
 }
 
 void
-addText(Arena* arena, Font* font, std::string text, float x, float y)
+addText(Arena* arena, Font* font, std::string text, Vec2<f32> offset, Vec2<f32> pos0,
+        Vec2<f32> pos1, f32 textHeight)
 {
     // find largest bearing to find origin
     f32 largestBearingY = 0;
@@ -110,8 +112,9 @@ addText(Arena* arena, Font* font, std::string text, float x, float y)
             largestBearingY = ch.bearingY;
         }
     }
-    f32 xOrigin = x;
-    f32 yOrigin = y + largestBearingY;
+
+    f32 xOrigin = offset.x;
+    f32 yOrigin = offset.y + largestBearingY;
 
     for (u32 i = 0; i < text.size(); i++)
     {
@@ -121,13 +124,24 @@ addText(Arena* arena, Font* font, std::string text, float x, float y)
         }
 
         Character& ch = font->characters[((u64)text[i])];
-        float xpos = xOrigin + ch.bearingX;
-        float ypos = yOrigin - ch.bearingY;
+
+        f32 xGlyphPos0 = xOrigin + ch.bearingX;
+        f32 yGlyphPos0 = yOrigin - ch.bearingY;
+
+        f32 xPosOffset0 = std::max(pos0.x - xGlyphPos0, 0.0f);
+
+        f32 xpos0 = std::clamp(xGlyphPos0, pos0.x, pos1.x);
+        f32 ypos0 = std::clamp(yGlyphPos0, pos0.y, pos1.y);
+        f32 xpos1 = std::clamp(xGlyphPos0 + ch.width, pos0.x, pos1.x);
+        f32 ypos1 = std::clamp(yGlyphPos0 + ch.height, pos0.y, pos1.y);
+
+        f32 yPosOffset0 =
+            std::max(-(largestBearingY - ch.bearingY) + ((textHeight - (ypos1 - ypos0)) / 2), 0.0f);
 
         GlyphInstance* glyphInstance = LinkedListPushItem(arena, font->instances);
-        glyphInstance->pos = {xpos, ypos};
-        glyphInstance->size = {ch.width + xpos, ch.height + ypos};
-        glyphInstance->glyphOffset = (f32)ch.glyphOffset;
+        glyphInstance->pos0 = {xpos0, ypos0};
+        glyphInstance->pos1 = {xpos1, ypos1};
+        glyphInstance->glyphOffset = {(f32)ch.glyphOffset + xPosOffset0, yPosOffset0};
 
         xOrigin +=
             f32(ch.advance >> 6); // TODO: Consider what will happen x grows outside the screen
@@ -135,11 +149,13 @@ addText(Arena* arena, Font* font, std::string text, float x, float y)
 }
 
 void
-addTexts(Arena* arena, Font* font, Text* texts, size_t len)
+addTexts(Arena* arena, Font* font, Text* texts, size_t len, Vec2<f32> min, Vec2<f32> max)
 {
     for (size_t i = 0; i < len; i++)
     {
-        addText(arena, font, texts[i].text, texts[i].x, texts[i].y);
+        Vec2<f32> textHeight = calculateTextDimensions(font, texts[i].text);
+        addText(arena, font, texts[i].text, Vec2<f32>(texts[i].x, texts[i].y), min, max,
+                textHeight.y);
     }
 }
 
