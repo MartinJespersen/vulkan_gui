@@ -4,12 +4,9 @@
 #include <initializer_list>
 #include <stdexcept>
 #include <string>
-extern "C"
-{
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-}
 #include <optional>
 #include <vector>
 
@@ -19,7 +16,7 @@ extern "C"
 
 // user defined: [hpp]
 #include "base/base.hpp"
-#include "ui/input.hpp"
+#include "ui/ui.hpp"
 
 const int MAX_GLYPHS = 126;
 const u32 MAX_FONT_SIZE = 100;
@@ -397,18 +394,18 @@ extern "C"
         VkPipeline graphicsPipeline;
     };
 
-    typedef struct Context
+    struct Context
     {
         VulkanContext* vulkanContext;
         ProfilingContext* profilingContext;
         GlyphAtlas* glyphAtlas;
         BoxContext* boxContext;
-        UI_IO* input;
+        UI_IO* io;
+        ThreadCtx threadCtx;
         u64 frameTickPrev;
         f64 frameRate;
         u64 cpuFreq;
-
-    } Context;
+    };
 }
 
 extern "C"
@@ -417,8 +414,7 @@ extern "C"
     InitContext(Context* context);
     void
     DeleteContext(Context* context);
-    void
-    InitThreadContext(ThreadCtx*);
+
     void
     initWindow(Context* context);
     void

@@ -60,3 +60,10 @@ struct UI_Widget
     bool hot_t;
     bool active_t;
 };
+
+typedef u32 UI_Comm;
+enum
+{
+    UI_Comm_Hovered = (1 << 0),
+    UI_Comm_Clicked = (1 << 1)
+};

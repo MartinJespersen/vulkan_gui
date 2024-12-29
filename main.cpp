@@ -18,14 +18,11 @@
 #include "base/base.hpp"
 #include "entrypoint.hpp"
 
-// user defined: [cpp]
-
 void (*drawFrameLib)(Context*);
 void (*cleanupLib)(Context*);
 void (*initVulkanLib)(Context*);
 ThreadCtx (*InitContextLib)(Context*);
 void (*DeleteContextLib)(Context*);
-void (*InitThreadContextLib)(ThreadCtx*);
 
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 #define CONCAT(a, b) a b
@@ -133,13 +130,6 @@ loadLibrary()
         exit(EXIT_FAILURE);
     }
 
-    InitThreadContextLib = (void (*)(ThreadCtx*))dlsym(entryHandle, "InitThreadContext");
-    if (!InitThreadContextLib)
-    {
-        printf("Failed to load SetThreadContext function: %s", dlerror());
-        exit(EXIT_FAILURE);
-    }
-
     cleanupLib = (void (*)(Context*))dlsym(entryHandle, "cleanup");
     if (!cleanupLib)
     {
@@ -221,13 +211,6 @@ initWindow(Context* context)
 void
 run()
 {
-    VulkanContext vulkanContext = {};
-    ProfilingContext profilingContext = {};
-    GlyphAtlas glyphAtlas = {};
-    BoxContext rect = {};
-    UI_IO input = {};
-    Context context = {&vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, 0, 0, 0};
-
 #ifndef PROFILING_ENABLE
 
     void* entryHandle = loadLibrary();
@@ -289,14 +272,22 @@ run()
     drawFrameLib = drawFrame;
     cleanupLib = cleanup;
     InitContextLib = InitContext;
-    InitThreadContextLib = InitThreadContext;
     DeleteContextLib = DeleteContext;
 
 #endif
-    ThreadCtx ctx = InitContextLib(&context);
-    InitThreadContextLib(&ctx);
+
+    VulkanContext vulkanContext = {};
+    ProfilingContext profilingContext = {};
+    GlyphAtlas glyphAtlas = {};
+    BoxContext rect = {};
+    UI_IO input = {};
+    Context context = {
+        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, nullptr, 0, 0, 0};
+
     initWindow(&context);
+    context.threadCtx = InitContextLib(&context);
     initVulkanLib(&context);
+
     while (!glfwWindowShouldClose(vulkanContext.window))
     {
         glfwPollEvents();

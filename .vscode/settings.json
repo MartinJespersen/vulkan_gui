@@ -62,6 +62,7 @@
         "shared_mutex": "cpp",
         "sstream": "cpp",
         "stop_token": "cpp",
-        "thread": "cpp"
+        "thread": "cpp",
+        "cerrno": "cpp"
     }
 }

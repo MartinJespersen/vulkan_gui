@@ -8,3 +8,17 @@
 
 #define KILOBYTE(n) ((n) * 1024)
 #define MEGABYTE(n) (KILOBYTE(n) * 1024)
+
+// tread context
+#include "memory.hpp"
+
+struct ThreadCtx
+{
+    Arena* scratchArena;
+};
+
+ThreadCtx
+ThreadContextAlloc();
+
+void
+ThreadContextDealloc(ThreadCtx* ctx);

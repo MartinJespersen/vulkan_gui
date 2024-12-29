@@ -1,13 +1,10 @@
 #include "entrypoint.hpp"
 #include <GL/gl.h>
+#include <ft2build.h>
 #include <set>
 #include <vulkan/vulkan_core.h>
-extern "C"
-{
-#include <ft2build.h>
 #include FT_FREETYPE_H
 #include "stb_image_wrapper.hpp"
-}
 
 #include <cstdio>
 #define GLFW_INCLUDE_VULKAN
@@ -28,24 +25,20 @@ extern "C"
 #include "profiler/tracy/Tracy.hpp"
 #include "profiler/tracy/TracyVulkan.hpp"
 
-// domain files
-#include "fonts.cpp"
-#include "fonts.hpp"
-
-#include "box.cpp"
+// domain: hpp
+#include "base/base.hpp"
 #include "box.hpp"
-
-#include "vulkan_helpers.cpp"
+#include "button.hpp"
+#include "fonts.hpp"
+#include "ui/ui.hpp"
 #include "vulkan_helpers.hpp"
 
-#include "button.cpp"
-#include "button.hpp"
-
-#include "ui/input.hpp"
-#include "ui/widget.hpp"
-
+// domain: cpp
 #include "base/base.cpp"
-#include "base/base.hpp"
+#include "box.cpp"
+#include "button.cpp"
+#include "fonts.cpp"
+#include "vulkan_helpers.cpp"
 
 VkResult
 CreateDebugUtilsMessengerEXT(VkInstance instance,
@@ -86,8 +79,7 @@ InitContext(Context* context)
     glyphAtlas->fontArena = (Arena*)AllocArena(FONT_ARENA_SIZE);
     glyphAtlas->fonts = LinkedListAlloc<Font>(glyphAtlas->fontArena);
 
-    ThreadCtx threadCtx = AllocThreadContext();
-    return threadCtx;
+    return ThreadContextAlloc();
 }
 
 void
@@ -96,13 +88,7 @@ DeleteContext(Context* context)
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
     DeallocArena(glyphAtlas->fontArena);
 
-    DeallocThreadContext();
-}
-
-void
-InitThreadContext(ThreadCtx* ctx)
-{
-    SetThreadContext(ctx);
+    ThreadContextDealloc(&(context->threadCtx));
 }
 
 void
@@ -165,7 +151,8 @@ initVulkan(Context* context)
             Font* font = LinkedListPushItem(glyphAtlas->fontArena, glyphAtlas->fonts);
             FontInit(glyphAtlas->fontArena, font, test_fontSizes[fontIndex], MAX_GLYPHS);
 
-            createGlyphAtlasImage(font, vulkan_context->physicalDevice, vulkan_context->device,
+            createGlyphAtlasImage(context->threadCtx.scratchArena, font,
+                                  vulkan_context->physicalDevice, vulkan_context->device,
                                   vulkan_context->commandPool, vulkan_context->graphicsQueue);
             createGlyphAtlasImageView(font, vulkan_context->device);
             createGlyphAtlasTextureSampler(font, vulkan_context->physicalDevice,
@@ -900,7 +887,7 @@ void
 recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
 {
     ZoneScoped;
-    ArenaTemp frameArena = ScratchArenaBegin();
+    ArenaTemp frameArena = ArenaTempBegin(context->threadCtx.scratchArena);
     for (LLItem<Font>* fontLI = context->glyphAtlas->fonts->start; fontLI != nullptr;
          fontLI = fontLI->next)
     {
@@ -938,8 +925,17 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
         {
             exitWithError("Font has not been loaded");
         }
-        AddButton(frameArena.arena, box, vulkanContext->swapChainExtent, font, Vec2(0.45f, 0.45f),
-                  Vec2(0.3f, 0.3f), Vec3(0.8f, 0.8f, 0.8f), "testingerdb", 1.0f, 10.0f, 5.0f);
+        UI_Comm comm = AddButton(frameArena.arena, box, vulkanContext->swapChainExtent, font,
+                                 Vec2(0.1f, 0.1f), Vec2(0.8f, 0.2f), Vec3(0.8f, 0.8f, 0.8f),
+                                 "Press Yes or No", 1.0f, 10.0f, 5.0f, context->io);
+        if (comm & UI_Comm_Hovered)
+        {
+            printf("hovering button\n");
+        }
+        if (comm & UI_Comm_Clicked)
+        {
+            printf("clicked\n");
+        }
     }
     // recording rectangles
     {
@@ -959,9 +955,8 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
             exitWithError("the font size specified is not loaded");
         }
 
-        // addTexts(frameArena.arena, font, texts, sizeof(texts) / sizeof(texts[0]), Vec2(0, 0),
-        //          Vec2<f32>((f32)vulkanContext->swapChainExtent.width,
-        //                    (f32)vulkanContext->swapChainExtent.height));
+        addTexts(frameArena.arena, font, texts, sizeof(texts) / sizeof(texts[0]),
+                 Vec2<f32>(0.0f, 0.0f), Vec2<f32>(800.0f, 800.0f));
         glyphAtlas->numInstances =
             InstanceBufferFromFontBuffers(glyphAtlas->glyphInstanceBuffer, glyphAtlas->fonts);
         mapGlyphInstancesToBuffer(glyphAtlas, vulkanContext->physicalDevice, vulkanContext->device,
@@ -997,7 +992,7 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     {
         throw std::runtime_error("failed to record command buffer!");
     }
-    ScratchArenaEnd(frameArena);
+    ArenaTempEnd(frameArena);
 }
 
 inline f64

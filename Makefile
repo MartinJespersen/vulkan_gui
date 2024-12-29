@@ -19,20 +19,20 @@ LDFLAGS = -lglfw -lvulkan -lpthread -lX11 -lXxf86vm -lXrandr -lXi -lfreetype -I$
 
 all: debug
 
-release: CFLAGS  += -O2 -DNDEBUG $(CXXFLAGS)
+release: CFLAGS  += -O3 -DNDEBUG $(CXXFLAGS)
 release: $(EXEC)
 
-debug: CFLAGS += -g -O0 $(CXXFLAGS)
+debug: CFLAGS += -g -O3 $(CXXFLAGS)
 debug: $(EXEC)
 
-build: CFLAGS += -g -O0 $(CXXFLAGS)
+build: CFLAGS += -g -O3 $(CXXFLAGS)
 build: 
 	g++ $(CFLAGS) -shared -fPIC -o $(LIB) $(ENTRYPOINT) $(LDFLAGS)
 
 ${TRACY}: profiler_clean
 	mkdir -p $(PROFILE_DIR) && g++ -c -fPIC $(CFLAGS) -o $@ profiler/TracyClient.cpp -DTRACY_ENABLE 
 
-profiler: CFLAGS += -g -O0  # use -O0 for actual profiling
+profiler: CFLAGS += -O3 -march=native 
 profiler: $(PROFILER_EXEC)
 
 run_profiler: profiler

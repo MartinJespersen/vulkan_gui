@@ -104,6 +104,20 @@ template <typename T> struct Vec2
         return (x > comparator && y > comparator);
     }
 
+    inline bool
+    operator<=(const Vec2<T>& comparator) const
+    {
+        static_assert(std::is_floating_point<T>::value, "Divisor must be arithmetic type");
+        return (x <= comparator.x && y <= comparator.y);
+    }
+
+    inline bool
+    operator>=(const Vec2<T>& comparator) const
+    {
+        static_assert(std::is_floating_point<T>::value, "Divisor must be arithmetic type");
+        return (x >= comparator.x && y >= comparator.y);
+    }
+
     template <typename To> operator Vec2<To>() const
     {
         static_assert(std::is_floating_point<To>::value, "Divisor must be arithmetic type");

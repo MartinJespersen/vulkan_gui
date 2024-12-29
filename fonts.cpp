@@ -1,5 +1,4 @@
 #include "fonts.hpp"
-#include "base/thread.hpp"
 #include "entrypoint.hpp"
 #include "vulkan_helpers.hpp"
 #include <algorithm>
@@ -143,8 +142,7 @@ addText(Arena* arena, Font* font, std::string text, Vec2<f32> offset, Vec2<f32> 
         glyphInstance->pos1 = {xpos1, ypos1};
         glyphInstance->glyphOffset = {(f32)ch.glyphOffset + xPosOffset0, yPosOffset0};
 
-        xOrigin +=
-            f32(ch.advance >> 6); // TODO: Consider what will happen x grows outside the screen
+        xOrigin += f32(ch.advance >> 6);
     }
 }
 
@@ -328,10 +326,10 @@ cleanupFontResources(GlyphAtlas* glyphAtlas, VkDevice device)
 }
 
 void
-createGlyphAtlasImage(Font* font, VkPhysicalDevice physicalDevice, VkDevice device,
+createGlyphAtlasImage(Arena* arena, Font* font, VkPhysicalDevice physicalDevice, VkDevice device,
                       VkCommandPool commandPool, VkQueue graphicsQueue)
 {
-    ArenaTemp scratchArena = ScratchArenaBegin();
+    ArenaTemp scratchArena = ArenaTempBegin(arena);
     u32 texWidth, texHeight;
     unsigned char* pixels = initGlyphs(scratchArena.arena, font, &texWidth, &texHeight);
     VkDeviceSize imageSize = (u32)texWidth * (u32)texHeight * 4;

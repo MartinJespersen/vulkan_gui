@@ -1,14 +1,8 @@
 #pragma once
-extern "C"
-{
-#include <ft2build.h>
-#include FT_FREETYPE_H
+
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
-}
-
 #include "entrypoint.hpp"
-#include <glm/glm.hpp>
 
 void
 cleanupFontResources(GlyphAtlas* glyphAtlas, VkDevice device);
@@ -34,7 +28,7 @@ beginGlyphAtlasRenderPass(GlyphAtlas& glyphAtlas, VkCommandBuffer commandBuffer,
                           VkRenderPass renderPass, Vulkan_Resolution resolution);
 
 void
-createGlyphAtlasImage(Font* font, VkPhysicalDevice physicalDevice, VkDevice device,
+createGlyphAtlasImage(Arena* arena, Font* font, VkPhysicalDevice physicalDevice, VkDevice device,
                       VkCommandPool commandPool, VkQueue graphicsQueue, u32 fontSize);
 void
 createGlyphAtlasImageView(Font* font, VkDevice device);
