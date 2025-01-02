@@ -16,7 +16,7 @@ createRectangleIndexBuffer(BoxContext* boxContext, VkPhysicalDevice physicalDevi
 
     void* data;
     vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, indices.data(), (size_t)bufferSize);
+    MemoryCopy(data, indices.data(), (size_t)bufferSize);
     vkUnmapMemory(device, stagingBufferMemory);
 
     createBuffer(physicalDevice, device, bufferSize,
@@ -115,7 +115,7 @@ mapRectanglesToBuffer(BoxContext* boxContext, VkPhysicalDevice physicalDevice, V
 
     void* data;
     vkMapMemory(device, boxContext->instMemoryBuffer, 0, bufferSize, 0, &data);
-    memcpy(data, boxContext->boxInstances.data, (size_t)bufferSize);
+    MemoryCopy(data, boxContext->boxInstances.data, (size_t)bufferSize);
     vkUnmapMemory(device, boxContext->instMemoryBuffer);
 
     boxContext->instBufferSize = bufferSize;

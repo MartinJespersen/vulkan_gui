@@ -198,7 +198,7 @@ mapGlyphInstancesToBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevic
 
     void* data;
     vkMapMemory(device, glyphAtlas->glyphMemoryBuffer, 0, bufferSize, 0, &data);
-    memcpy(data, &glyphAtlas->glyphInstanceBuffer[0], (size_t)bufferSize);
+    MemoryCopy(data, &glyphAtlas->glyphInstanceBuffer[0], (size_t)bufferSize);
     vkUnmapMemory(device, glyphAtlas->glyphMemoryBuffer);
 
     glyphAtlas->glyphInstBufferSize = bufferSize;
@@ -219,7 +219,7 @@ createGlyphIndexBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevice, 
 
     void* data;
     vkMapMemory(device, glyphAtlas->glyphIndexMemoryBuffer, 0, bufferSize, 0, &data);
-    memcpy(data, glyphAtlas->indices.data(), (size_t)bufferSize);
+    MemoryCopy(data, glyphAtlas->indices.data(), (size_t)bufferSize);
     vkUnmapMemory(device, glyphAtlas->glyphIndexMemoryBuffer);
 }
 
@@ -350,7 +350,7 @@ createGlyphAtlasImage(Arena* arena, Font* font, VkPhysicalDevice physicalDevice,
     vkMapMemory(
         device, stagingBufferMemory, 0, imageSize, 0,
         &data); // maps the buffer memory into the application address space, so cpu can access
-    memcpy(data, pixels, static_cast<size_t>(imageSize)); // copy the pixel data to the buffer
+    MemoryCopy(data, pixels, static_cast<size_t>(imageSize)); // copy the pixel data to the buffer
     vkUnmapMemory(device,
                   stagingBufferMemory); // unmap the buffer memory so cpu no longer has access to
 

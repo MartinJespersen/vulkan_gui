@@ -38,6 +38,7 @@
 #include "box.cpp"
 #include "button.cpp"
 #include "fonts.cpp"
+#include "ui/ui.cpp"
 #include "vulkan_helpers.cpp"
 
 VkResult
@@ -78,6 +79,12 @@ InitContext(Context* context)
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
     glyphAtlas->fontArena = (Arena*)AllocArena(FONT_ARENA_SIZE);
     glyphAtlas->fonts = LinkedListAlloc<Font>(glyphAtlas->fontArena);
+
+    UI_State* uiState = context->uiState;
+    uiState->arena = (Arena*)AllocArena(GIGABYTE(1));
+    uiState->widgetCacheSize = 4096;
+    uiState->widgetSlot = PushArray(uiState->arena, UI_WidgetSlot, uiState->widgetCacheSize);
+    uiState->root = &g_UI_Widget;
 
     return ThreadContextAlloc();
 }
@@ -925,9 +932,11 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
         {
             exitWithError("Font has not been loaded");
         }
-        UI_Comm comm = AddButton(frameArena.arena, box, vulkanContext->swapChainExtent, font,
-                                 Vec2(0.1f, 0.1f), Vec2(0.8f, 0.2f), Vec3(0.8f, 0.8f, 0.8f),
-                                 "Press Yes or No", 1.0f, 10.0f, 5.0f, context->io);
+        String8 name = str8(frameArena.arena, "test_name");
+        F32Vec4 positions = {0.2f, 0.2f, 0.8f, 0.4f};
+        UI_Comm comm = AddButton(name, context->uiState, frameArena.arena, box,
+                                 vulkanContext->swapChainExtent, font, Vec3(0.0f, 0.8f, 0.8f),
+                                 "Press Yes or No", 1.0f, 10.0f, 5.0f, context->io, positions);
         if (comm & UI_Comm_Hovered)
         {
             printf("hovering button\n");

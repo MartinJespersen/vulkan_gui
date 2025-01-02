@@ -1,7 +1,10 @@
 #pragma once
 
+#include "core.hpp"
 #include "error.hpp"
 #include "memory.hpp"
+#include "third_party/third_party_wrapper.hpp"
+#include <algorithm>
 #include <initializer_list>
 
 // TODO: Create a array/list that is a mix of a fixed array and a linked list to improve cache
@@ -120,4 +123,17 @@ LinkedListPushItem(Arena* arena, LinkedList<T>* list)
     list->end = item;
 
     return &item->item;
+}
+
+// MeowHash wrapper
+
+u128
+HashFromString(String8 string)
+{
+    u128 hash = {0};
+    {
+        meow_u128 meow_hash = MeowHash(MeowDefaultSeed, string.size, string.str);
+        MemoryCopy(&hash, &meow_hash, std::min(sizeof(meow_hash), sizeof(hash)));
+    }
+    return hash;
 }

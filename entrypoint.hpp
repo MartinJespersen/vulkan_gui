@@ -402,6 +402,7 @@ extern "C"
         BoxContext* boxContext;
         UI_IO* io;
         ThreadCtx threadCtx;
+        UI_State* uiState;
         u64 frameTickPrev;
         f64 frameRate;
         u64 cpuFreq;

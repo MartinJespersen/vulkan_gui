@@ -42,8 +42,16 @@ enum
     // potentially more flags
 };
 
+struct UI_Key
+{
+    u64 key;
+};
+
 struct UI_Widget
 {
+    UI_Widget* hashNext;
+    UI_Widget* hashPrev;
+
     UI_Widget* first;
     UI_Widget* next;
     UI_Widget* prev;
@@ -52,7 +60,9 @@ struct UI_Widget
 
     UI_WidgetFlags flags;
 
-    UI_Size semantic_size[Axis2_COUNT];
+    UI_Key key;
+
+    UI_Size semanticSize[Axis2_COUNT];
     Vec2<f32> computedRelativePosition;
     Vec2<f32> computedSize;
     F32Vec4 rect;
@@ -67,3 +77,67 @@ enum
     UI_Comm_Hovered = (1 << 0),
     UI_Comm_Clicked = (1 << 1)
 };
+
+struct UI_WidgetSlot
+{
+    UI_Widget* first;
+    UI_Widget* last;
+};
+
+struct UI_State
+{
+    Arena* arena;
+    UI_Widget* root;
+
+    // ui cache size
+    u64 widgetCacheSize;
+    UI_WidgetSlot* widgetSlot;
+    UI_Widget* freeList;
+    u64 freeListSize;
+};
+
+// UI_Key functions
+UI_Key
+UI_Key_Calculate(String8 str)
+{
+    u128 hash = HashFromString(str);
+    UI_Key key = {hash.data[1]};
+    return key;
+}
+
+bool
+UI_Key_IsEqual(UI_Key key0, UI_Key key1)
+{
+    return key0.key == key1.key;
+}
+
+bool
+UI_Key_IsNull(UI_Key key)
+{
+    return key.key == 0;
+}
+
+// Widget Cache
+
+UI_Widget g_UI_Widget = {&g_UI_Widget, &g_UI_Widget, &g_UI_Widget, &g_UI_Widget,
+                         &g_UI_Widget, &g_UI_Widget, &g_UI_Widget};
+
+#define UI_Widget_SetNULL(w) ((w) = &g_UI_Widget)
+
+bool
+UI_Widget_IsNull(UI_Widget* widget);
+
+UI_Widget*
+UI_Widget_FromKey(UI_State* uiState, UI_Key key);
+
+UI_Widget*
+UI_Widget_Allocate(UI_State* uiState);
+
+// UI_WidgetSlot
+UI_WidgetSlot g_UI_WidgetSlot = {};
+
+bool
+UI_WidgetSlot_IsNull(UI_WidgetSlot* slot);
+
+UI_Widget*
+UI_WidgetSlot_Push(UI_State* uiState, UI_Key key);

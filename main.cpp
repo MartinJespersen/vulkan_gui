@@ -281,8 +281,9 @@ run()
     GlyphAtlas glyphAtlas = {};
     BoxContext rect = {};
     UI_IO input = {};
+    UI_State uiState = {};
     Context context = {
-        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, nullptr, 0, 0, 0};
+        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, 0, &uiState, 0, 0, 0};
 
     initWindow(&context);
     context.threadCtx = InitContextLib(&context);
@@ -323,7 +324,7 @@ run()
     DeleteContextLib(&context);
 }
 
-// NOTE: Tracydebugger has a dlclose function and it takes precedence over the one in the standard
+// NOTE: Tracy profiler has a dlclose function and it takes precedence over the one in the standard
 // library
 //  This is only the case when -DTRACY_ENABLE is defined
 // NOTE: For some reason dlclose is also not called when using std::map. If this is directly related
