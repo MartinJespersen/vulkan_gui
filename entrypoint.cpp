@@ -82,7 +82,7 @@ InitContext(Context* context)
 
     UI_State* uiState = context->uiState;
     uiState->arena = (Arena*)AllocArena(GIGABYTE(1));
-    uiState->widgetCacheSize = 4096;
+    uiState->widgetCacheSize = 1; // 4096;
     uiState->widgetSlot = PushArray(uiState->arena, UI_WidgetSlot, uiState->widgetCacheSize);
     uiState->root = &g_UI_Widget;
 
@@ -114,7 +114,7 @@ initVulkan(Context* context)
     createImageViews(*context);
     createCommandPool(*context);
 
-    vulkan_context->rectangleRenderPass = createRenderPass(
+    vulkan_context->boxRenderPass = createRenderPass(
         vulkan_context->device, vulkan_context->swapChainImageFormat, vulkan_context->msaaSamples,
         VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
     vulkan_context->fontRenderPass =
@@ -129,7 +129,7 @@ initVulkan(Context* context)
         vulkan_context->device, vulkan_context->swapChainExtent, vulkan_context->fontRenderPass,
         VK_NULL_HANDLE, vulkan_context->msaaSamples, BoxInstance::getBindingDescription(),
         BoxInstance::getAttributeDescriptions(), vulkan_context->resolutionInfo, "shaders/vert.spv",
-        "shaders/frag.spv");
+        "shaders/frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
     boxContext->pipelineLayout = std::get<0>(rectangleObjects);
     boxContext->graphicsPipeline = std::get<1>(rectangleObjects);
@@ -175,7 +175,8 @@ initVulkan(Context* context)
             vulkan_context->device, vulkan_context->swapChainExtent, vulkan_context->fontRenderPass,
             glyphAtlas->descriptorSetLayout, vulkan_context->msaaSamples,
             GlyphInstance::getBindingDescription(), GlyphInstance::getAttributeDescriptions(),
-            vulkan_context->resolutionInfo, "shaders/text_vert.spv", "shaders/text_frag.spv");
+            vulkan_context->resolutionInfo, "shaders/text_vert.spv", "shaders/text_frag.spv",
+            VK_SHADER_STAGE_VERTEX_BIT);
         glyphAtlas->pipelineLayout = std::get<0>(glyphAtlasGraphicsObjects);
         glyphAtlas->graphicsPipeline = std::get<1>(glyphAtlasGraphicsObjects);
         createGlyphIndexBuffer(glyphAtlas, vulkan_context->physicalDevice, vulkan_context->device);
@@ -205,7 +206,7 @@ cleanup(Context* context)
     cleanupFontResources(glyphAtlas, vulkanContext->device);
     cleanupRectangle(boxContext, vulkanContext->device);
 
-    vkDestroyRenderPass(vulkanContext->device, vulkanContext->rectangleRenderPass, nullptr);
+    vkDestroyRenderPass(vulkanContext->device, vulkanContext->boxRenderPass, nullptr);
     vkDestroyRenderPass(vulkanContext->device, vulkanContext->fontRenderPass, nullptr);
 
     for (u32 i = 0; i < profilingContext->tracyContexts.size(); i++)
@@ -920,9 +921,6 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     beginInfo.flags = 0;                  // Optional
     beginInfo.pInheritanceInfo = nullptr; // Optional
 
-    Vulkan_Resolution resolution =
-        Vulkan_Resolution(vulkanContext->swapChainExtent, vulkanContext->resolutionInfo);
-
     // add buttom that is only a rectangle and text at the moment
     {
         ZoneScopedN("Create Buttom");
@@ -934,17 +932,17 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
         }
         String8 name = str8(frameArena.arena, "test_name");
         F32Vec4 positions = {0.2f, 0.2f, 0.8f, 0.4f};
-        UI_Comm comm = AddButton(name, context->uiState, frameArena.arena, box,
-                                 vulkanContext->swapChainExtent, font, Vec3(0.0f, 0.8f, 0.8f),
-                                 "Press Yes or No", 1.0f, 10.0f, 5.0f, context->io, positions);
-        if (comm & UI_Comm_Hovered)
-        {
-            printf("hovering button\n");
-        }
-        if (comm & UI_Comm_Clicked)
-        {
-            printf("clicked\n");
-        }
+        F32Vec4 color = {0.0f, 0.8f, 0.8f, 0.1f};
+        UI_WidgetFlags flags = UI_WidgetFlag_Clickable;
+        AddButton(name, context->uiState, frameArena.arena, box, vulkanContext->swapChainExtent,
+                  font, color, "Press Yes or No", 1.0f, 10.0f, 5.0f, context->io, positions, flags);
+
+        name = str8(frameArena.arena, "test_name_2");
+        positions = {0.2f, 0.6f, 0.8f, 0.8f};
+        color = {0.8f, 0.8f, 0.0f, 0.2f};
+        flags = 0;
+        AddButton(name, context->uiState, frameArena.arena, box, vulkanContext->swapChainExtent,
+                  font, color, "Press Yes or No", 1.0f, 10.0f, 5.0f, context->io, positions, flags);
     }
     // recording rectangles
     {
@@ -983,18 +981,12 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     {
         TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
                      vulkanContext->commandBuffers[currentFrame], "Rectangles GPU", 0xff0000);
-        beginRectangleRenderPass(
-            boxContext, vulkanContext->commandBuffers[currentFrame],
-            vulkanContext->rectangleRenderPass, vulkanContext->swapChainFramebuffers[imageIndex],
-            vulkanContext->swapChainExtent, (u32)boxContext->numInstances, resolution);
+        beginRectangleRenderPass(boxContext, vulkanContext, imageIndex, currentFrame);
     }
     {
         TracyVkZoneC(profilingContext->tracyContexts[currentFrame],
                      vulkanContext->commandBuffers[currentFrame], "Text GPU", 0x00FF00);
-        beginGlyphAtlasRenderPass(context->glyphAtlas, vulkanContext->commandBuffers,
-                                  vulkanContext->swapChainFramebuffers[imageIndex],
-                                  vulkanContext->swapChainExtent, vulkanContext->fontRenderPass,
-                                  resolution, currentFrame);
+        beginGlyphAtlasRenderPass(glyphAtlas, vulkanContext, imageIndex, currentFrame);
     }
 
     if (vkEndCommandBuffer(vulkanContext->commandBuffers[currentFrame]) != VK_SUCCESS)

@@ -296,7 +296,7 @@ createGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
                        VkVertexInputBindingDescription bindingDescription,
                        std::vector<VkVertexInputAttributeDescription> attributeDescriptions,
                        Vulkan_PushConstantInfo pushConstInfo, std::string vertShaderPath,
-                       std::string fragShaderPath)
+                       std::string fragShaderPath, VkShaderStageFlagBits pushConstantStage)
 {
     auto vertShaderCode = readFile(vertShaderPath);
     auto fragShaderCode = readFile(fragShaderPath);
@@ -410,7 +410,7 @@ createGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
     colorBlending.blendConstants[3] = 0.0f; // Optional
 
     VkPushConstantRange range = {};
-    range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    range.stageFlags = pushConstantStage;
     range.offset = pushConstInfo.offset;
     range.size = pushConstInfo.size;
 

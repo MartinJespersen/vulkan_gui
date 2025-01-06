@@ -121,26 +121,6 @@ extern "C"
         uint32_t size;
     };
 
-    struct Vulkan_Resolution
-    {
-        static const uint32_t SIZE = 2;
-        f32 data[SIZE];
-        Vulkan_PushConstantInfo bufferInfo;
-
-        Vulkan_Resolution(VkExtent2D extent, Vulkan_PushConstantInfo bufferInfo)
-        {
-            data[0] = (f32)extent.width;
-            data[1] = (f32)extent.height;
-            this->bufferInfo = bufferInfo;
-        }
-
-        inline uint32_t
-        size()
-        {
-            return sizeof(data);
-        }
-    };
-
     struct GlyphInstance
     {
         glm::vec2 pos0;
@@ -180,14 +160,21 @@ extern "C"
         }
     };
 
+    enum BoxAttributes
+    {
+        HOT = (1 << 0),
+        ACTIVE = (1 << 1)
+    };
+
     struct BoxInstance
     {
         glm::vec2 pos1;
         glm::vec2 pos2;
-        glm::vec3 color;
+        glm::vec4 color;
         glm::f32 softness;
         glm::f32 borderThickness;
         glm::f32 cornerRadius;
+        u32 attributes;
 
         static VkVertexInputBindingDescription
         getBindingDescription()
@@ -202,7 +189,7 @@ extern "C"
         getAttributeDescriptions()
         {
             std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
-            attributeDescriptions.resize(6);
+            attributeDescriptions.resize(7);
             attributeDescriptions[0].binding = 0;
             attributeDescriptions[0].location = 0;
             attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
@@ -215,7 +202,7 @@ extern "C"
 
             attributeDescriptions[2].binding = 0;
             attributeDescriptions[2].location = 2;
-            attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+            attributeDescriptions[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
             attributeDescriptions[2].offset = offsetof(BoxInstance, color);
 
             attributeDescriptions[3].binding = 0;
@@ -232,6 +219,11 @@ extern "C"
             attributeDescriptions[5].location = 5;
             attributeDescriptions[5].format = VK_FORMAT_R32_SFLOAT;
             attributeDescriptions[5].offset = offsetof(BoxInstance, cornerRadius);
+
+            attributeDescriptions[6].binding = 0;
+            attributeDescriptions[6].location = 6;
+            attributeDescriptions[6].format = VK_FORMAT_R32_UINT;
+            attributeDescriptions[6].offset = offsetof(BoxInstance, attributes);
 
             return attributeDescriptions;
         }
@@ -319,7 +311,7 @@ extern "C"
         VkImageView colorImageView;
         VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
-        VkRenderPass rectangleRenderPass;
+        VkRenderPass boxRenderPass;
         VkRenderPass fontRenderPass;
 
         Vulkan_PushConstantInfo resolutionInfo;

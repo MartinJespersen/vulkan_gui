@@ -53,7 +53,7 @@ createGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
                        VkVertexInputBindingDescription bindingDescription,
                        std::vector<VkVertexInputAttributeDescription> attributeDescriptions,
                        Vulkan_PushConstantInfo pushConstInfo, std::string vertShaderPath,
-                       std::string fragShaderPath);
+                       std::string fragShaderPath, VkShaderStageFlagBits pushConstantStage);
 
 VkRenderPass
 createRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFlagBits msaaSamples,

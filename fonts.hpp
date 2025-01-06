@@ -23,9 +23,8 @@ void
 addText(Arena* arena, Font* font, std::string text, Vec2<f32> offset, Vec2<f32> pos0,
         Vec2<f32> pos1, f32 textHeight);
 void
-beginGlyphAtlasRenderPass(GlyphAtlas& glyphAtlas, VkCommandBuffer commandBuffer,
-                          VkFramebuffer swapChainFramebuffer, VkExtent2D swapChainExtent,
-                          VkRenderPass renderPass, Vulkan_Resolution resolution);
+beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, u32 imageIndex,
+                          u32 currentFrame);
 
 void
 createGlyphAtlasImage(Arena* arena, Font* font, VkPhysicalDevice physicalDevice, VkDevice device,

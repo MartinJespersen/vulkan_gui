@@ -10,10 +10,9 @@ createRectangleIndexBuffer(BoxContext* boxContext, VkPhysicalDevice physicalDevi
                            std::vector<uint16_t> indices);
 
 void
-beginRectangleRenderPass(BoxContext* boxContext, VkCommandBuffer commandBuffer,
-                         VkRenderPass renderPass, VkFramebuffer swapchainFramebuffer,
-                         VkExtent2D swapChainExtent, std::vector<BoxInstance> boxInstances,
-                         Vulkan_Resolution resolution);
+beginRectangleRenderPass(BoxContext* boxContext, VulkanContext* vulkanContext, u32 imageIndex,
+                         u32 currentFrame);
+
 void
 cleanupRectangle(BoxContext* boxContext, VkDevice device);
 

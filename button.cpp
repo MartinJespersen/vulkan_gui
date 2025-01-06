@@ -5,13 +5,14 @@
 #include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_float3.hpp>
 
-UI_Comm
+void
 AddButton(String8 widgetName, UI_State* uiState, Arena* arena, Box* box, VkExtent2D swapChainExtent,
-          Font* font, const Vec3 color, const std::string text, f32 softness, f32 borderThickness,
-          f32 cornerRadius, UI_IO* io, F32Vec4 positions)
+          Font* font, const F32Vec4 color, const std::string text, f32 softness,
+          f32 borderThickness, f32 cornerRadius, UI_IO* io, F32Vec4 positions, UI_WidgetFlags flags)
 {
     UI_Key key = UI_Key_Calculate(widgetName);
     UI_Widget* widget = UI_Widget_FromKey(uiState, key);
+    widget->flags = flags;
     widget->rect = positions; // TODO: remove this in favor of a layout algorithm
     Vec2 pos0Norm = widget->rect.point.p0;
     Vec2 pos1Norm = widget->rect.point.p1;
@@ -32,34 +33,35 @@ AddButton(String8 widgetName, UI_State* uiState, Arena* arena, Box* box, VkExten
 
     BoxInstance* boxInstance = LinkedListPushItem<BoxInstance>(arena, box->boxInstanceList);
 
+    // reacting to last frame input
     boxInstance->pos1 = glm::vec2(pos0Norm.x, pos0Norm.y);
     boxInstance->pos2 = glm::vec2(pos1Norm.x, pos1Norm.y);
-    boxInstance->color = glm::vec3(color.x, color.y, color.z);
+    boxInstance->color = glm::vec4(color.axis.x, color.axis.y, color.axis.z, color.axis.w);
     boxInstance->softness = softness;
     boxInstance->borderThickness = borderThickness;
     boxInstance->cornerRadius = cornerRadius;
-
-    UI_Comm flags = 0;
-    widget->active_t = false;
-    widget->hot_t = false;
-    if (io->mousePosition >= pos0PxActual && io->mousePosition <= pos1PxActual)
+    boxInstance->attributes = 0;
+    if (widget->flags & UI_WidgetFlag_Clickable)
     {
-        widget->active_t = true;
-        if (io->leftClicked)
-        {
-            widget->hot_t = true;
-        }
-    }
-
-    // Setting action for next render pass
-    if (widget->active_t)
-    {
-        flags |= UI_Comm_Hovered;
         if (widget->hot_t)
         {
-            flags |= UI_Comm_Clicked;
+            boxInstance->attributes |= BoxAttributes::HOT;
+            if (widget->active_t)
+            {
+                boxInstance->attributes |= BoxAttributes::ACTIVE;
+            }
+        }
+        // Setting action for next render pass
+
+        widget->active_t = false;
+        widget->hot_t = false;
+        if (io->mousePosition >= pos0PxActual && io->mousePosition <= pos1PxActual)
+        {
+            widget->hot_t = true;
+            if (io->leftClicked)
+            {
+                widget->active_t = true;
+            }
         }
     }
-
-    return flags;
 }

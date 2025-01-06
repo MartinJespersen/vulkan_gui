@@ -32,15 +32,17 @@ createRectangleIndexBuffer(BoxContext* boxContext, VkPhysicalDevice physicalDevi
 }
 
 void
-beginRectangleRenderPass(BoxContext* boxContext, VkCommandBuffer commandBuffer,
-                         VkRenderPass renderPass, VkFramebuffer swapchainFramebuffer,
-                         VkExtent2D swapChainExtent, u32 rectangleArraySize,
-                         Vulkan_Resolution resolution)
+beginRectangleRenderPass(BoxContext* boxContext, VulkanContext* vulkanContext, u32 imageIndex,
+                         u32 currentFrame)
 {
+    VkExtent2D swapChainExtent = vulkanContext->swapChainExtent;
+    VkCommandBuffer commandBuffer = vulkanContext->commandBuffers[currentFrame];
+    Vulkan_PushConstantInfo pushContextInfo = vulkanContext->resolutionInfo;
+
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = renderPass;
-    renderPassInfo.framebuffer = swapchainFramebuffer;
+    renderPassInfo.renderPass = vulkanContext->boxRenderPass;
+    renderPassInfo.framebuffer = vulkanContext->swapChainFramebuffers[imageIndex];
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = swapChainExtent;
 
@@ -71,14 +73,15 @@ beginRectangleRenderPass(BoxContext* boxContext, VkCommandBuffer commandBuffer,
 
     VkBuffer vertexBuffers[] = {boxContext->instBuffer};
     VkDeviceSize offsets[] = {0};
+    f32 resolutionData[2] = {(f32)swapChainExtent.width, (f32)swapChainExtent.height};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
     vkCmdBindIndexBuffer(commandBuffer, boxContext->indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-    vkCmdPushConstants(commandBuffer, boxContext->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                       resolution.bufferInfo.offset, resolution.size(), resolution.data);
+    vkCmdPushConstants(commandBuffer, boxContext->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT,
+                       pushContextInfo.offset, pushContextInfo.size, resolutionData);
 
-    vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(rectangleArraySize), 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(boxContext->numInstances), 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 }

@@ -7,21 +7,23 @@
 #include <vulkan/vulkan_core.h>
 
 void
-beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, std::vector<VkCommandBuffer> commandBuffer,
-                          VkFramebuffer swapChainFramebuffer, VkExtent2D swapChainExtent,
-                          VkRenderPass renderPass, Vulkan_Resolution resolution, u32 currentFrame)
+beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, u32 imageIndex,
+                          u32 currentFrame)
 {
+    VkExtent2D swapChainExtent = vulkanContext->swapChainExtent;
+    VkCommandBuffer commandBuffer = vulkanContext->commandBuffers[currentFrame];
+    Vulkan_PushConstantInfo pushConstantInfo = vulkanContext->resolutionInfo;
+
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = renderPass;
-    renderPassInfo.framebuffer = swapChainFramebuffer;
+    renderPassInfo.renderPass = vulkanContext->fontRenderPass;
+    renderPassInfo.framebuffer = vulkanContext->swapChainFramebuffers[imageIndex];
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = swapChainExtent;
 
-    vkCmdBeginRenderPass(commandBuffer[currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(commandBuffer[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      glyphAtlas->graphicsPipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, glyphAtlas->graphicsPipeline);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -30,35 +32,34 @@ beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, std::vector<VkCommandBuffer> c
     viewport.height = static_cast<float>(swapChainExtent.height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer[currentFrame], 0, 1, &viewport);
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
     VkRect2D scissor{};
     scissor.offset = {0, 0};
     scissor.extent = swapChainExtent;
-    vkCmdSetScissor(commandBuffer[currentFrame], 0, 1, &scissor);
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     VkBuffer vertexBuffers[] = {glyphAtlas->glyphInstBuffer};
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer[currentFrame], 0, 1, vertexBuffers, offsets);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-    vkCmdBindIndexBuffer(commandBuffer[currentFrame], glyphAtlas->glyphIndexBuffer, 0,
-                         VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffer, glyphAtlas->glyphIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
+    f32 resolutionData[2] = {(f32)swapChainExtent.width, (f32)swapChainExtent.height};
     for (LLItem<Font>* fontLI = glyphAtlas->fonts->start; fontLI != nullptr; fontLI = fontLI->next)
     {
-        vkCmdBindDescriptorSets(commandBuffer[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS,
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 glyphAtlas->pipelineLayout, 0, 1,
                                 &fontLI->item.descriptorSets[currentFrame], 0, nullptr);
 
-        vkCmdPushConstants(commandBuffer[currentFrame], glyphAtlas->pipelineLayout,
-                           VK_SHADER_STAGE_VERTEX_BIT, resolution.bufferInfo.offset,
-                           resolution.size(), resolution.data);
+        vkCmdPushConstants(commandBuffer, glyphAtlas->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                           pushConstantInfo.offset, pushConstantInfo.size, resolutionData);
 
-        vkCmdDrawIndexed(commandBuffer[currentFrame], 6, (u32)(fontLI->item.instanceCount), 0, 0,
+        vkCmdDrawIndexed(commandBuffer, 6, (u32)(fontLI->item.instanceCount), 0, 0,
                          (u32)(fontLI->item.instanceOffset));
     }
 
-    vkCmdEndRenderPass(commandBuffer[currentFrame]);
+    vkCmdEndRenderPass(commandBuffer);
 }
 
 bool

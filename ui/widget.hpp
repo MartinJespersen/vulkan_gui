@@ -27,7 +27,7 @@ struct UI_Size
     f32 strictness;
 };
 
-typedef f32 UI_WidgetFlags;
+typedef u32 UI_WidgetFlags;
 enum
 {
     UI_WidgetFlag_Clickable = (1 << 0),

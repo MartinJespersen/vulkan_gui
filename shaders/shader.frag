@@ -1,16 +1,24 @@
 #version 450
 
-layout(location = 0) in vec3 fragColor; // Input texture coordinates
+layout(location = 0) in vec4 fragColor; // Input texture coordinates
 layout(location = 1) in vec2 inCenter;
 layout(location = 2) in vec2 inHalfSize;
 layout(location = 3) in vec2 inPos;
 layout(location = 4) in float softness;
 layout(location = 5) in float borderThickness;
 layout(location = 6) in float cornerRadius;
+layout(location = 7) flat in uint inAttributes;
 
 layout(location = 0) out vec4 outColor;    // Output color
 
+layout(push_constant) uniform PushConstants {
+    vec2 resolution;
+} pushConstants;
+
 float borderFactor = 1.0;
+
+const uint hot_t = (1u << 0);
+const uint active_t = (1u << 1u);
 
 float RoundedRectSDF(
     vec2 sample_pos,
@@ -24,20 +32,26 @@ float RoundedRectSDF(
     return min(max(d2.x, d2.y), 0.0) + length(max(d2, 0.0)) - r;
 }
 void main() {
+    vec2 centerPosPx = inCenter * pushConstants.resolution;
+    vec2 halfSizePx = inHalfSize * pushConstants.resolution;
+    vec2 posPx = inPos * pushConstants.resolution;
+    float transparency = fragColor.a;
 
     vec2 softnessPadding = vec2(max(0, softness * 2 - 1), max(0, softness * 2 - 1));
     if(borderThickness != 0.0) {
-        vec2 interiorHalfSize = inHalfSize - vec2(borderThickness);
-        float interiorRadiusReduceF = min(interiorHalfSize.x / inHalfSize.x, interiorHalfSize.y / inHalfSize.y);
+        vec2 interiorHalfSize = halfSizePx - vec2(borderThickness);
+        float interiorRadiusReduceF = min(interiorHalfSize.x / halfSizePx.x, interiorHalfSize.y / halfSizePx.y);
         float interiorCornerRadius = (cornerRadius *
             interiorRadiusReduceF *
             interiorRadiusReduceF);
-        float insideD = RoundedRectSDF(inPos, inCenter, interiorHalfSize - softnessPadding, interiorCornerRadius);
+        float insideD = RoundedRectSDF(posPx, centerPosPx, interiorHalfSize - softnessPadding, interiorCornerRadius);
         float insideF = 1.0 - smoothstep(0.0, 2 * softness, insideD);
         borderFactor = insideF;
     }
 
-    float dist = RoundedRectSDF(inPos, inCenter, inHalfSize - softnessPadding, cornerRadius);
+    float dist = RoundedRectSDF(posPx, centerPosPx, halfSizePx - softnessPadding, cornerRadius);
     float sdfFactor = 1.0 - smoothstep(0.0, 2 * softness, dist);
-    outColor = vec4(fragColor * sdfFactor * borderFactor, 1.0);
+    transparency = (inAttributes & hot_t) != 0 ? fragColor.a + ((1 - fragColor.a) * inPos.y) : fragColor.a;
+    transparency = (inAttributes & active_t) != 0 ? fragColor.a : transparency;
+    outColor = vec4(fragColor.xyz * sdfFactor * borderFactor, transparency);
 }

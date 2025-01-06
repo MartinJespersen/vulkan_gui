@@ -5,5 +5,5 @@ pushd ./shaders
 ./compile.sh
 popd
 make clean
-make
+make debug
 ./build/debug/VulkanTest
