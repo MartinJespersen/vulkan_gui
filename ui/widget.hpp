@@ -98,24 +98,13 @@ struct UI_State
 
 // UI_Key functions
 UI_Key
-UI_Key_Calculate(String8 str)
-{
-    u128 hash = HashFromString(str);
-    UI_Key key = {hash.data[1]};
-    return key;
-}
+UI_Key_Calculate(String8 str);
 
 bool
-UI_Key_IsEqual(UI_Key key0, UI_Key key1)
-{
-    return key0.key == key1.key;
-}
+UI_Key_IsEqual(UI_Key key0, UI_Key key1);
 
 bool
-UI_Key_IsNull(UI_Key key)
-{
-    return key.key == 0;
-}
+UI_Key_IsNull(UI_Key key);
 
 // Widget Cache
 

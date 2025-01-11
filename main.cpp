@@ -327,8 +327,6 @@ run()
 // NOTE: Tracy profiler has a dlclose function and it takes precedence over the one in the standard
 // library
 //  This is only the case when -DTRACY_ENABLE is defined
-// NOTE: For some reason dlclose is also not called when using std::map. If this is directly related
-// to std::map I do not know
 int
 main()
 {

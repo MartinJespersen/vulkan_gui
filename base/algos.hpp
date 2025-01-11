@@ -128,12 +128,4 @@ LinkedListPushItem(Arena* arena, LinkedList<T>* list)
 // MeowHash wrapper
 
 u128
-HashFromString(String8 string)
-{
-    u128 hash = {0};
-    {
-        meow_u128 meow_hash = MeowHash(MeowDefaultSeed, string.size, string.str);
-        MemoryCopy(&hash, &meow_hash, std::min(sizeof(meow_hash), sizeof(hash)));
-    }
-    return hash;
-}
+HashFromStr8(String8 string);

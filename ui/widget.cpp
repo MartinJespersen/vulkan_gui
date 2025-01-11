@@ -66,3 +66,24 @@ UI_WidgetSlot_Push(UI_State* uiState, UI_Key key)
     widget->key = key;
     return widget;
 }
+
+// UI_Key
+UI_Key
+UI_Key_Calculate(String8 str)
+{
+    u128 hash = HashFromStr8(str);
+    UI_Key key = {hash.data[1]};
+    return key;
+}
+
+bool
+UI_Key_IsEqual(UI_Key key0, UI_Key key1)
+{
+    return key0.key == key1.key;
+}
+
+bool
+UI_Key_IsNull(UI_Key key)
+{
+    return key.key == 0;
+}

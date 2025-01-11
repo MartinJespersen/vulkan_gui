@@ -15,8 +15,11 @@ ENTRYPOINT  = entrypoint.cpp
 MAIN = main.cpp
 CXXFLAGS = -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -Wno-missing-field-initializers -Wno-write-strings -Wno-class-memaccess -maes -msse4
 CFLAGS = -std=c++20  $(HELPER_HPP) 
-ENTRYPOINT_LDFLAGS = -I. -lglfw -lvulkan -lpthread -lX11 -lXxf86vm -lXrandr -lXi -lfreetype -I$(STB_INCLUDE_PATH) 
-EXEC_LDFLAGS = -lglfw -ldl -I./
+CWD_LDFLAGS = -I.
+ENTRYPOINT_LDFLAGS = -lglfw -lvulkan -lpthread -lX11 -lXxf86vm -lXrandr -lXi -lfreetype -I$(STB_INCLUDE_PATH) $(CWD_LDFLAGS)
+EXEC_LDFLAGS = -lglfw -ldl $(CWD_LDFLAGS)
+TRACY_LDFLAGS = $(CWD_LDFLAGS)
+
 all: debug
 
 release: CFLAGS  += -O3 -DNDEBUG $(CXXFLAGS)
@@ -29,10 +32,7 @@ build: CFLAGS += -g -O3 $(CXXFLAGS)
 build: 
 	g++ $(CFLAGS) -shared -fPIC -o $(LIB) $(ENTRYPOINT) $(ENTRYPOINT_LDFLAGS)
 
-${TRACY}: profiler_clean
-	mkdir -p $(PROFILE_DIR) && g++ -c -fPIC $(CFLAGS) -o $@ profiler/TracyClient.cpp -DTRACY_ENABLE 
-
-profiler: CFLAGS += -O3 -march=native 
+profiler: CFLAGS += -O3 -march=native -Wno-write-strings 
 profiler: $(PROFILER_EXEC)
 
 run_profiler: profiler
@@ -41,12 +41,14 @@ run_profiler: profiler
 profiler_clean: 
 	rm -f $(PROFILER_EXEC) || rm -f $(PROFILER_LIB)
 
- 	
+${TRACY}: profiler_clean
+	mkdir -p $(PROFILE_DIR) && g++ -c -fPIC $(CFLAGS) -o $@ profiler/TracyClient.cpp $(TRACY_LDFLAGS) -DTRACY_ENABLE 	
+
 $(PROFILER_LIB): $(TRACY)
 	mkdir -p $(PROFILE_DIR) && g++ $(CFLAGS) -shared -fPIC -o $@ $(ENTRYPOINT) $(TRACY) $(ENTRYPOINT_LDFLAGS) -DTRACY_ENABLE
 
 $(PROFILER_EXEC): $(PROFILER_LIB) 
-	mkdir -p $(PROFILE_DIR) && g++ -o $@ $(MAIN) $^ $(CFLAGS) $(ENTRYPOINT_LDFLAGS) -DPROFILING_ENABLE
+	mkdir -p $(PROFILE_DIR) && g++ -o $@ $(MAIN) $^ $(CFLAGS) $(EXEC_LDFLAGS) -DPROFILING_ENABLE
 
 clean:
 	rm -f $(EXEC) || rm -f $(LIB)
