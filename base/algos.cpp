@@ -1,3 +1,23 @@
+#include "core.hpp"
+#include "error.hpp"
+#include "memory.hpp"
+#include "third_party/third_party_wrapper.hpp"
+#include <algorithm>
+#include <initializer_list>
+
+// fixed array
+
+template <typename T>
+Array<T>
+ArrayAlloc(Arena* arena, u64 capacity)
+{
+    Array<T>* arr = PushStruct(arena, Array<T>);
+    arr->capacity = capacity;
+    arr->data = PushArray(arena, T, arr->capacity);
+    return *arr;
+}
+
+// hash
 u128
 HashFromStr8(String8 string)
 {

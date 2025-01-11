@@ -13,7 +13,7 @@
 #define ArrayLen(a) (sizeof((a)) / sizeof((a[0])))
 
 // linked list helpers
-
+#define CheckEmpty(p, o) ((p) == 0 || (p) == (o))
 #define CheckNull(p) ((p) == 0)
 #define SetNull(p) ((p) = 0)
 

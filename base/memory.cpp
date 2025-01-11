@@ -34,6 +34,14 @@ ArenaPush(Arena* arena, u64 size)
     return result;
 }
 
+void*
+ArenaPushZero(Arena* arena, u64 size)
+{
+    void* box = ArenaPush(arena, size);
+    MemoryZero(box, size);
+    return box;
+}
+
 void
 ArenaPop(Arena* arena, u64 pos)
 {

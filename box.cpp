@@ -1,10 +1,13 @@
 #include "box.hpp"
 #include <cstring>
 
+Box g_Box = {.next = &g_Box};
+BoxInstance g_BoxInstance = {.next = &g_BoxInstance};
+
 void
-createRectangleIndexBuffer(BoxContext* boxContext, VkPhysicalDevice physicalDevice, VkDevice device,
-                           VkCommandPool commandPool, VkQueue graphicsQueue,
-                           std::vector<uint16_t> indices)
+BoxIndexBufferCreate(BoxContext* boxContext, VkPhysicalDevice physicalDevice, VkDevice device,
+                     VkCommandPool commandPool, VkQueue graphicsQueue,
+                     std::vector<uint16_t> indices)
 {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
@@ -32,8 +35,8 @@ createRectangleIndexBuffer(BoxContext* boxContext, VkPhysicalDevice physicalDevi
 }
 
 void
-beginRectangleRenderPass(BoxContext* boxContext, VulkanContext* vulkanContext, u32 imageIndex,
-                         u32 currentFrame)
+BoxRenderPassBegin(BoxContext* boxContext, VulkanContext* vulkanContext, u32 imageIndex,
+                   u32 currentFrame)
 {
     VkExtent2D swapChainExtent = vulkanContext->swapChainExtent;
     VkCommandBuffer commandBuffer = vulkanContext->commandBuffers[currentFrame];
@@ -87,7 +90,7 @@ beginRectangleRenderPass(BoxContext* boxContext, VulkanContext* vulkanContext, u
 }
 
 void
-cleanupRectangle(BoxContext* boxContext, VkDevice device)
+BoxCleanup(BoxContext* boxContext, VkDevice device)
 {
     vkDestroyBuffer(device, boxContext->indexBuffer, nullptr);
     vkFreeMemory(device, boxContext->indexMemoryBuffer, nullptr);
@@ -100,9 +103,10 @@ cleanupRectangle(BoxContext* boxContext, VkDevice device)
 }
 
 void
-mapRectanglesToBuffer(BoxContext* boxContext, VkPhysicalDevice physicalDevice, VkDevice device)
+InstanceBufferFillFromBoxes(BoxContext* boxContext, VkPhysicalDevice physicalDevice,
+                            VkDevice device)
 {
-    VkDeviceSize bufferSize = sizeof(BoxInstance) * boxContext->numInstances;
+    VkDeviceSize bufferSize = sizeof(Vulkan_BoxInstance) * boxContext->numInstances;
     if (bufferSize > boxContext->instBufferSize)
     {
         vkDestroyBuffer(device, boxContext->instBuffer, nullptr);
@@ -125,20 +129,28 @@ mapRectanglesToBuffer(BoxContext* boxContext, VkPhysicalDevice physicalDevice, V
 }
 
 u64
-InstanceBufferFromBoxes(LinkedList<Box>* boxList, Array<BoxInstance> outBuffer)
+InstanceBufferFromBoxes(Box* boxList, Array<Vulkan_BoxInstance> outBuffer)
 {
     u64 numInstances = 0;
-    for (LLItem<Box>* boxItem = boxList->start; boxItem != nullptr; boxItem = boxItem->next)
+    for (Box* boxItem = boxList; !CheckEmpty(boxItem, &g_Box); boxItem = boxItem->next)
     {
-        boxItem->item.instanceOffset = numInstances;
-        LinkedList<BoxInstance>* boxInstanceList = boxItem->item.boxInstanceList;
-        for (LLItem<BoxInstance>* instance = boxInstanceList->start; instance != nullptr;
+        boxItem->instanceOffset = numInstances;
+        BoxInstance* boxInstanceList = boxItem->boxInstanceList;
+        for (BoxInstance* instance = boxInstanceList; !CheckEmpty(instance, &g_BoxInstance);
              instance = instance->next)
         {
-            outBuffer[numInstances] = instance->item;
+            outBuffer[numInstances].pos0 = (glm::vec2)(instance->pos0);
+            outBuffer[numInstances].pos1 = (glm::vec2)(instance->pos1);
+            outBuffer[numInstances].color =
+                glm::vec4(instance->color.data[0], instance->color.data[1], instance->color.data[2],
+                          instance->color.data[3]);
+            outBuffer[numInstances].borderThickness = instance->borderThickness;
+            outBuffer[numInstances].cornerRadius = instance->cornerRadius;
+            outBuffer[numInstances].softness = instance->softness;
+            outBuffer[numInstances].attributes = instance->attributes;
             numInstances++;
         }
-        boxItem->item.instanceCount = numInstances - boxItem->item.instanceOffset;
+        boxItem->instanceCount = numInstances - boxItem->instanceOffset;
     }
     return numInstances;
 }

@@ -31,12 +31,13 @@ AddButton(String8 widgetName, UI_State* uiState, Arena* arena, Box* box, VkExten
 
     addText(arena, font, text, glyphPos, pos0PxActual, pos1PxActual, textDimPx.y);
 
-    BoxInstance* boxInstance = LinkedListPushItem<BoxInstance>(arena, box->boxInstanceList);
+    BoxInstance* boxInstance = PushStruct(arena, BoxInstance);
+    StackPush(box->boxInstanceList, boxInstance);
 
     // reacting to last frame input
-    boxInstance->pos1 = glm::vec2(pos0Norm.x, pos0Norm.y);
-    boxInstance->pos2 = glm::vec2(pos1Norm.x, pos1Norm.y);
-    boxInstance->color = glm::vec4(color.axis.x, color.axis.y, color.axis.z, color.axis.w);
+    boxInstance->pos0 = pos0Norm;
+    boxInstance->pos1 = pos1Norm;
+    boxInstance->color = color;
     boxInstance->softness = softness;
     boxInstance->borderThickness = borderThickness;
     boxInstance->cornerRadius = cornerRadius;

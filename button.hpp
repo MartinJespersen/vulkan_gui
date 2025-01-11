@@ -1,4 +1,7 @@
-#include "entrypoint.hpp"
+#include "base/base.hpp"
+#include "fonts.hpp"
+#include "ui/ui.hpp"
+#include "vulkan_helpers.hpp"
 
 void
 AddButton(String8 widgetName, UI_State* uiState, Arena* arena, Box* box, VkExtent2D swapChainExtent,

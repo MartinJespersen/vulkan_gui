@@ -6,6 +6,9 @@
 #include <iostream>
 #include <vulkan/vulkan_core.h>
 
+GlyphInstance g_GlyphInstance = {.next = &g_GlyphInstance};
+Font g_font = {&g_font, &g_font};
+
 void
 beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, u32 imageIndex,
                           u32 currentFrame)
@@ -46,34 +49,34 @@ beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, 
     vkCmdBindIndexBuffer(commandBuffer, glyphAtlas->glyphIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
     f32 resolutionData[2] = {(f32)swapChainExtent.width, (f32)swapChainExtent.height};
-    for (LLItem<Font>* fontLI = glyphAtlas->fonts->start; fontLI != nullptr; fontLI = fontLI->next)
+    for (Font* font = glyphAtlas->fontList; !CheckEmpty(font, &g_font); font = font->next)
     {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 glyphAtlas->pipelineLayout, 0, 1,
-                                &fontLI->item.descriptorSets[currentFrame], 0, nullptr);
+                                &font->descriptorSets[currentFrame], 0, nullptr);
 
         vkCmdPushConstants(commandBuffer, glyphAtlas->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                            pushConstantInfo.offset, pushConstantInfo.size, resolutionData);
 
-        vkCmdDrawIndexed(commandBuffer, 6, (u32)(fontLI->item.instanceCount), 0, 0,
-                         (u32)(fontLI->item.instanceOffset));
+        vkCmdDrawIndexed(commandBuffer, 6, (u32)(font->instanceCount), 0, 0,
+                         (u32)(font->instanceOffset));
     }
 
     vkCmdEndRenderPass(commandBuffer);
 }
 
 bool
-FontExists(LinkedList<Font>* fonts, u32 fontSize, Font** font)
+FontExists(Font* fonts, u32 fontSize, Font** font)
 {
-    for (LLItem<Font>* fontItem = fonts->start; fontItem != nullptr; fontItem = fontItem->next)
+    for (Font* fontItem = fonts; !CheckEmpty(fontItem, &g_font); fontItem = fontItem->next)
     {
-        if (fontItem->item.fontSize == fontSize)
+        if (fontItem->fontSize == fontSize)
         {
-            (*font) = &fontItem->item;
+            (*font) = fontItem;
             return true;
         }
     }
-    (*font) = nullptr;
+    (*font) = &g_font;
     return false;
 }
 
@@ -138,7 +141,9 @@ addText(Arena* arena, Font* font, std::string text, Vec2<f32> offset, Vec2<f32> 
         f32 yPosOffset0 =
             std::max(-(largestBearingY - ch.bearingY) + ((textHeight - (ypos1 - ypos0)) / 2), 0.0f);
 
-        GlyphInstance* glyphInstance = LinkedListPushItem(arena, font->instances);
+        GlyphInstance* glyphInstance = PushStruct(arena, GlyphInstance);
+        StackPush(font->instances, glyphInstance);
+
         glyphInstance->pos0 = {xpos0, ypos0};
         glyphInstance->pos1 = {xpos1, ypos1};
         glyphInstance->glyphOffset = {(f32)ch.glyphOffset + xPosOffset0, yPosOffset0};
@@ -159,20 +164,22 @@ addTexts(Arena* arena, Font* font, Text* texts, size_t len, Vec2<f32> min, Vec2<
 }
 
 u64
-InstanceBufferFromFontBuffers(Array<GlyphInstance> outBuffer, LinkedList<Font>* fonts)
+InstanceBufferFromFontBuffers(Array<Vulkan_GlyphInstance> outBuffer, Font* fonts)
 {
     u64 numInstances = 0;
-    for (LLItem<Font>* fontItem = fonts->start; fontItem != nullptr; fontItem = fontItem->next)
+    for (Font* font = fonts; !CheckEmpty(font, &g_font); font = font->next)
     {
-        fontItem->item.instanceOffset = numInstances;
-        LinkedList<GlyphInstance>* glyphInstanceList = fontItem->item.instances;
-        for (LLItem<GlyphInstance>* instance = glyphInstanceList->start; instance != nullptr;
+        font->instanceOffset = numInstances;
+        GlyphInstance* glyphInstanceList = font->instances;
+        for (GlyphInstance* instance = glyphInstanceList; !CheckEmpty(instance, &g_GlyphInstance);
              instance = instance->next)
         {
-            outBuffer[numInstances] = instance->item;
+            outBuffer[numInstances].pos0 = instance->pos0;
+            outBuffer[numInstances].pos1 = instance->pos1;
+            outBuffer[numInstances].glyphOffset = instance->glyphOffset;
             numInstances++;
         }
-        fontItem->item.instanceCount = numInstances - fontItem->item.instanceOffset;
+        font->instanceCount = numInstances - font->instanceOffset;
     }
     return numInstances;
 }
@@ -182,7 +189,7 @@ mapGlyphInstancesToBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevic
                           VkQueue queue)
 {
     // Create the buffer for the text instances
-    VkDeviceSize bufferSize = sizeof(GlyphInstance) * glyphAtlas->numInstances;
+    VkDeviceSize bufferSize = sizeof(Vulkan_GlyphInstance) * glyphAtlas->numInstances;
     if (bufferSize > glyphAtlas->glyphInstBufferSize)
     {
         vkQueueWaitIdle(queue);
@@ -306,12 +313,12 @@ initGlyphs(Arena* arena, Font* font, u32* width, u32* height)
 void
 cleanupFontResources(GlyphAtlas* glyphAtlas, VkDevice device)
 {
-    for (LLItem<Font>* fontLI = glyphAtlas->fonts->start; fontLI != nullptr; fontLI = fontLI->next)
+    for (Font* font = glyphAtlas->fontList; !CheckEmpty(font, &g_font); font = font->next)
     {
-        vkFreeMemory(device, fontLI->item.textureImageMemory, nullptr);
-        vkDestroyImage(device, fontLI->item.textureImage, nullptr);
-        vkDestroyImageView(device, fontLI->item.textureImageView, nullptr);
-        vkDestroySampler(device, fontLI->item.textureSampler, nullptr);
+        vkFreeMemory(device, font->textureImageMemory, nullptr);
+        vkDestroyImage(device, font->textureImage, nullptr);
+        vkDestroyImageView(device, font->textureImageView, nullptr);
+        vkDestroySampler(device, font->textureSampler, nullptr);
     }
 
     vkDestroyPipeline(device, glyphAtlas->graphicsPipeline, nullptr);

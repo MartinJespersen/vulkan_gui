@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <glm/glm.hpp>
 #include <type_traits>
 
 typedef uint8_t u8;
@@ -126,6 +127,12 @@ template <typename T> struct Vec2
     {
         static_assert(std::is_floating_point<To>::value, "Divisor must be arithmetic type");
         return Vec2<To>(static_cast<To>(x), static_cast<To>(y));
+    }
+
+    operator glm::vec2() const
+    {
+        static_assert(std::is_same<T, f32>::value, "Divisor must be arithmetic type");
+        return glm::vec2(x, y);
     }
 };
 

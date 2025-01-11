@@ -13,7 +13,7 @@ LIB = $(DEBUG_DIR)/entrypoint.so
 EXEC = $(DEBUG_DIR)/VulkanTest
 ENTRYPOINT  = entrypoint.cpp
 MAIN = main.cpp
-CXXFLAGS = -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -Wno-missing-field-initializers -Wno-write-strings -Wno-class-memaccess -maes -msse4
+CXXFLAGS = -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -Wno-missing-field-initializers -Wno-write-strings -Wno-class-memaccess -Wno-pedantic -maes -msse4
 CFLAGS = -std=c++20  $(HELPER_HPP) 
 CWD_LDFLAGS = -I.
 ENTRYPOINT_LDFLAGS = -lglfw -lvulkan -lpthread -lX11 -lXxf86vm -lXrandr -lXi -lfreetype -I$(STB_INCLUDE_PATH) $(CWD_LDFLAGS)

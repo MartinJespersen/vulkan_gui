@@ -6,6 +6,72 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
+struct Vulkan_PushConstantInfo
+{
+    uint32_t offset;
+    uint32_t size;
+};
+
+struct SwapChainSupportDetails
+{
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> presentModes;
+};
+
+struct VulkanContext
+{
+    const u32 WIDTH = 800;
+    const u32 HEIGHT = 600;
+    const u32 MAX_FRAMES_IN_FLIGHT = 2;
+
+    const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
+    const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+#ifdef NDEBUG
+    const u8 enableValidationLayers = 0;
+#else
+    const u8 enableValidationLayers = 1;
+#endif
+    u8 framebufferResized = 0;
+
+    GLFWwindow* window;
+    VkInstance instance;
+    VkDebugUtilsMessengerEXT debugMessenger;
+    VkDevice device;
+    VkPhysicalDevice physicalDevice;
+    VkQueue graphicsQueue;
+    VkSurfaceKHR surface;
+    VkQueue presentQueue;
+    VkSwapchainKHR swapChain;
+    std::vector<VkImage> swapChainImages;
+    VkFormat swapChainImageFormat;
+    VkExtent2D swapChainExtent;
+    std::vector<VkImageView> swapChainImageViews;
+
+    std::vector<VkFramebuffer> swapChainFramebuffers;
+    VkCommandPool commandPool;
+    std::vector<VkCommandBuffer> commandBuffers;
+
+    std::vector<VkSemaphore> imageAvailableSemaphores;
+    std::vector<VkSemaphore> renderFinishedSemaphores;
+    std::vector<VkFence> inFlightFences;
+    uint32_t currentFrame = 0;
+
+    // TODO: add descriptor set layout and descriptor set to glyph atlas and rectangle
+
+    VkImage colorImage;
+    VkDeviceMemory colorImageMemory;
+    VkImageView colorImageView;
+    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkRenderPass boxRenderPass;
+    VkRenderPass fontRenderPass;
+
+    Vulkan_PushConstantInfo resolutionInfo;
+    const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
+};
+
 VkCommandBuffer
 beginSingleTimeCommands(VkDevice device, VkCommandPool commandPool);
 
