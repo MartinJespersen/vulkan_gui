@@ -1,10 +1,4 @@
-#include "fonts.hpp"
-#include "entrypoint.hpp"
-#include "vulkan_helpers.hpp"
-#include <algorithm>
-#include <cstdlib>
-#include <iostream>
-#include <vulkan/vulkan_core.h>
+const int MAX_GLYPHS = 126;
 
 GlyphInstance g_GlyphInstance = {.next = &g_GlyphInstance};
 Font g_font = {&g_font, &g_font};
@@ -174,9 +168,10 @@ InstanceBufferFromFontBuffers(Array<Vulkan_GlyphInstance> outBuffer, Font* fonts
         for (GlyphInstance* instance = glyphInstanceList; !CheckEmpty(instance, &g_GlyphInstance);
              instance = instance->next)
         {
-            outBuffer[numInstances].pos0 = instance->pos0;
-            outBuffer[numInstances].pos1 = instance->pos1;
-            outBuffer[numInstances].glyphOffset = instance->glyphOffset;
+            outBuffer[numInstances].pos0 = glm::vec2(instance->pos0.x, instance->pos0.y);
+            outBuffer[numInstances].pos1 = glm::vec2(instance->pos1.x, instance->pos1.y);
+            outBuffer[numInstances].glyphOffset =
+                glm::vec2(instance->glyphOffset.x, instance->glyphOffset.y);
             numInstances++;
         }
         font->instanceCount = numInstances - font->instanceOffset;
@@ -270,7 +265,7 @@ initGlyphs(Arena* arena, Font* font, u32* width, u32* height)
         u64 c = static_cast<u64>(i);
         if (FT_Load_Char(face, c, FT_LOAD_DEFAULT))
         {
-            std::cerr << "Failed to load glyph for character " << c << std::endl;
+            printf("Failed to load glyph for character %lu", c);
             continue; // Skip this character and continue with the next
         }
 

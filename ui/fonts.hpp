@@ -1,9 +1,5 @@
 #pragma once
 
-#include "vulkan_helpers.hpp"
-#include <vulkan/vulkan_core.h>
-#define GLFW_INCLUDE_VULKAN
-
 struct Character
 {
     float width; // Size of glyph

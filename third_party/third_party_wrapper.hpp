@@ -11,5 +11,8 @@
 
 #include "meow_hash_x64_aesni.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 // Re-enable warnings for your code
 #pragma GCC diagnostic pop

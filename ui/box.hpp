@@ -1,7 +1,4 @@
 #pragma once
-#include "vulkan_helpers.hpp"
-#include <vector>
-#include <vulkan/vulkan.h>
 
 enum BoxAttributes
 {

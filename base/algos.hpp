@@ -1,12 +1,5 @@
 #pragma once
 
-#include "core.hpp"
-#include "error.hpp"
-#include "memory.hpp"
-#include "third_party/third_party_wrapper.hpp"
-#include <algorithm>
-#include <initializer_list>
-
 // TODO: Create a array/list that is a mix of a fixed array and a linked list to improve cache
 // utility for some workloads.
 

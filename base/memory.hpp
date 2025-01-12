@@ -1,9 +1,4 @@
 #pragma once
-#include "types.hpp"
-#include <cerrno>
-#include <cstdlib>
-#include <stdio.h>
-#include <string.h>
 
 // os memory
 void*

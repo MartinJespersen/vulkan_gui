@@ -14,7 +14,10 @@
             "cppStandard": "c++17",
             "intelliSenseMode": "linux-gcc-x64",
             "forcedInclude": [
-                "${workspaceFolder}/base/base.hpp"
+                "${workspaceFolder}/base/base.hpp",
+                "${workspaceFolder}/ui/ui.hpp",
+                "${workspaceFolder}/third_party/third_party_wrapper.hpp",
+                "vulkan/vulkan_core.h"
             ],
             "browse": {
                 "path": [

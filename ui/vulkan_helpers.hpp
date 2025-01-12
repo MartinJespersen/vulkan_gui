@@ -1,11 +1,5 @@
 #pragma once
 
-#include "entrypoint.hpp"
-#include <string>
-#include <tuple>
-#include <vector>
-#include <vulkan/vulkan.h>
-
 struct Vulkan_PushConstantInfo
 {
     uint32_t offset;
@@ -124,3 +118,6 @@ createGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
 VkRenderPass
 createRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFlagBits msaaSamples,
                  VkAttachmentLoadOp loadOp, VkImageLayout initialLayout, VkImageLayout finalLayout);
+
+VkShaderModule
+createShaderModule(VkDevice device, const std::vector<char>& code);

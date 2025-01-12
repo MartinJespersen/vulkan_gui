@@ -1,6 +1,3 @@
-#include "vulkan_helpers.hpp"
-#include "shader.hpp"
-
 VkCommandBuffer
 beginSingleTimeCommands(VkDevice device, VkCommandPool commandPool)
 {
@@ -298,8 +295,8 @@ createGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
                        Vulkan_PushConstantInfo pushConstInfo, std::string vertShaderPath,
                        std::string fragShaderPath, VkShaderStageFlagBits pushConstantStage)
 {
-    auto vertShaderCode = readFile(vertShaderPath);
-    auto fragShaderCode = readFile(fragShaderPath);
+    auto vertShaderCode = ReadFile(vertShaderPath);
+    auto fragShaderCode = ReadFile(fragShaderPath);
 
     VkShaderModule vertShaderModule = createShaderModule(device, vertShaderCode);
     VkShaderModule fragShaderModule = createShaderModule(device, fragShaderCode);
@@ -526,4 +523,21 @@ createRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFl
     }
 
     return renderPass;
+}
+
+VkShaderModule
+createShaderModule(VkDevice device, const std::vector<char>& code)
+{
+    VkShaderModuleCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = code.size();
+    createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+    VkShaderModule shaderModule;
+    if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create shader module!");
+    }
+
+    return shaderModule;
 }

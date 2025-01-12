@@ -1,6 +1,3 @@
-#include "box.hpp"
-#include <cstring>
-
 Box g_Box = {.next = &g_Box};
 BoxInstance g_BoxInstance = {.next = &g_BoxInstance};
 
@@ -139,8 +136,8 @@ InstanceBufferFromBoxes(Box* boxList, Array<Vulkan_BoxInstance> outBuffer)
         for (BoxInstance* instance = boxInstanceList; !CheckEmpty(instance, &g_BoxInstance);
              instance = instance->next)
         {
-            outBuffer[numInstances].pos0 = (glm::vec2)(instance->pos0);
-            outBuffer[numInstances].pos1 = (glm::vec2)(instance->pos1);
+            outBuffer[numInstances].pos0 = glm::vec2(instance->pos0.x, instance->pos0.y);
+            outBuffer[numInstances].pos1 = glm::vec2(instance->pos1.x, instance->pos1.y);
             outBuffer[numInstances].color =
                 glm::vec4(instance->color.data[0], instance->color.data[1], instance->color.data[2],
                           instance->color.data[3]);

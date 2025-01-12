@@ -1,5 +1,4 @@
-#include <sys/time.h>
-#include <x86intrin.h>
+
 
 static u64
 GetOSTimerFreq(void)

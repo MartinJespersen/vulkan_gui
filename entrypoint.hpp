@@ -1,29 +1,16 @@
 #pragma once
 
-#include <array>
-#include <initializer_list>
-#include <stdexcept>
-#include <string>
-#include <vulkan/vulkan_core.h>
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include <optional>
+#include <set>
 #include <vector>
-
-#include <glm/glm.hpp>
-// profiler
-#include "profiler/tracy/TracyVulkan.hpp"
+#include <optional>
 
 // user defined: [hpp]
 #include "base/base.hpp"
-#include "box.hpp"
-#include "button.hpp"
-#include "fonts.hpp"
 #include "ui/ui.hpp"
-#include "vulkan_helpers.hpp"
 
-const int MAX_GLYPHS = 126;
-const u32 MAX_FONT_SIZE = 100;
+// profiler
+#include "profiler/tracy/TracyVulkan.hpp"
+
 const u64 FONT_ARENA_SIZE = MEGABYTE(4);
 const u32 MAX_FONTS_IN_USE = 10;
 const u64 MAX_GLYPH_INSTANCES = 1000;

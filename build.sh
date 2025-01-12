@@ -4,4 +4,4 @@ set -e
 pushd ./shaders
 ./compile.sh
 popd
-make build
+make debug

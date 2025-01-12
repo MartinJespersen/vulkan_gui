@@ -1,39 +1,13 @@
-#include <GL/gl.h>
-#include <ft2build.h>
-#include <set>
-#include <vulkan/vulkan_core.h>
-#include FT_FREETYPE_H
-#include "stb_image_wrapper.hpp"
-
-#include <cstdio>
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include <algorithm> // Necessary for std::clamp
-
-#include <cstdint> // Necessary for uint32_t
-#include <cstdlib>
-#include <cstring>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <iostream>
-#include <limits> // Necessary for std::numeric_limits
-
-#include <stdexcept>
-
-// profiler
-#include "profiler/tracy/Tracy.hpp"
-#include "profiler/tracy/TracyVulkan.hpp"
-
 // domain: hpp
 #include "entrypoint.hpp"
 
 // domain: cpp
 #include "base/base.cpp"
-#include "box.cpp"
-#include "button.cpp"
-#include "fonts.cpp"
 #include "ui/ui.cpp"
-#include "vulkan_helpers.cpp"
+
+// profiler
+#include "profiler/tracy/Tracy.hpp"
+#include "profiler/tracy/TracyVulkan.hpp"
 
 VkResult
 CreateDebugUtilsMessengerEXT(VkInstance instance,
@@ -673,7 +647,7 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     (void)pUserData;
     (void)messageType;
     (void)messageSeverity;
-    std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+    printf("validation layer: %s", pCallbackData->pMessage);
 
     return VK_FALSE;
 }
