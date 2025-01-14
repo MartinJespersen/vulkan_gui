@@ -647,7 +647,7 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     (void)pUserData;
     (void)messageType;
     (void)messageSeverity;
-    printf("validation layer: %s", pCallbackData->pMessage);
+    printf("validation layer: %s\n", pCallbackData->pMessage);
 
     return VK_FALSE;
 }
