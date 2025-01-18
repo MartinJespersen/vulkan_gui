@@ -1,6 +1,6 @@
 // Arenas
 Arena*
-AllocArena(u64 size)
+ArenaAlloc(u64 size)
 {
     void* block = memAlloc(size);
     Arena* arena = (Arena*)block;
@@ -47,7 +47,7 @@ ArenaPop(Arena* arena, u64 pos)
 }
 
 void
-DeallocArena(Arena* arena)
+ArenaDealloc(Arena* arena)
 {
     memFree(arena, arena->max);
 }
@@ -97,3 +97,28 @@ memFree(void* ptr, u64 freeSize)
 #else
 #error "Unsupported OS"
 #endif
+
+// scratch arena
+
+per_thread ThreadCtx g_ThreadCtx;
+
+__attribute__((constructor)) void
+thread_init()
+{
+    g_ThreadCtx.scratchArena = ArenaAlloc(GIGABYTE(4));
+}
+
+__attribute__((destructor)) void
+thread_exit()
+{
+    ArenaDealloc(g_ThreadCtx.scratchArena);
+}
+
+ArenaTemp
+ArenaScratchBegin()
+{
+    ArenaTemp temp = {};
+    temp.pos = g_ThreadCtx.scratchArena->pos;
+    temp.arena = g_ThreadCtx.scratchArena;
+    return temp;
+}

@@ -329,10 +329,10 @@ cleanupFontResources(GlyphAtlas* glyphAtlas, VkDevice device)
 }
 
 void
-createGlyphAtlasImage(Arena* arena, Font* font, VkPhysicalDevice physicalDevice, VkDevice device,
+createGlyphAtlasImage(Font* font, VkPhysicalDevice physicalDevice, VkDevice device,
                       VkCommandPool commandPool, VkQueue graphicsQueue)
 {
-    ArenaTemp scratchArena = ArenaTempBegin(arena);
+    ArenaTemp scratchArena = ArenaScratchBegin();
     u32 texWidth, texHeight;
     unsigned char* pixels = initGlyphs(scratchArena.arena, font, &texWidth, &texHeight);
     VkDeviceSize imageSize = (u32)texWidth * (u32)texHeight * 4;

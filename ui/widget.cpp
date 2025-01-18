@@ -114,8 +114,8 @@ AddButton(String8 widgetName, UI_State* uiState, Arena* arena, Box* box, VkExten
 
     addText(arena, font, text, glyphPos, pos0PxActual, pos1PxActual, textDimPx.y);
 
-    BoxInstance* boxInstance = PushStruct(arena, BoxInstance);
-    StackPush(box->boxInstanceList, boxInstance);
+    BoxInstance* boxInstance = PushStructZero(arena, BoxInstance);
+    StackPush(box->instances, boxInstance);
 
     // reacting to last frame input
     boxInstance->pos0 = pos0Norm;

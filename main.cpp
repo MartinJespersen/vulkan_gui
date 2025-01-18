@@ -21,7 +21,7 @@
 void (*drawFrameLib)(Context*);
 void (*cleanupLib)(Context*);
 void (*initVulkanLib)(Context*);
-ThreadCtx (*InitContextLib)(Context*);
+void (*InitContextLib)(Context*);
 void (*DeleteContextLib)(Context*);
 
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
@@ -138,7 +138,7 @@ loadLibrary()
     }
 
     {
-        InitContextLib = (ThreadCtx(*)(Context*))dlsym(entryHandle, "InitContext");
+        InitContextLib = (void (*)(Context*))dlsym(entryHandle, "InitContext");
         if (!InitContextLib)
         {
             printf("Failed to load InitContext: %s", dlerror());
@@ -283,10 +283,10 @@ run()
     UI_IO input = {};
     UI_State uiState = {};
     Context context = {
-        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, 0, &uiState, 0, 0, 0};
+        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, &uiState, 0, 0, 0};
 
     initWindow(&context);
-    context.threadCtx = InitContextLib(&context);
+    InitContextLib(&context);
     initVulkanLib(&context);
 
     while (!glfwWindowShouldClose(vulkanContext.window))

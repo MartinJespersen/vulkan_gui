@@ -6,9 +6,9 @@
 #error thread context not implemented for os
 #endif
 
-#define KILOBYTE(n) ((n) * 1024)
-#define MEGABYTE(n) (KILOBYTE(n) * 1024)
-#define GIGABYTE(n) (MEGABYTE(n) * 1024)
+#define KILOBYTE(n) ((n) * 1024UL)
+#define MEGABYTE(n) (KILOBYTE(n) * 1024UL)
+#define GIGABYTE(n) (MEGABYTE(n) * 1024UL)
 
 #define ArrayLen(a) (sizeof((a)) / sizeof((a[0])))
 

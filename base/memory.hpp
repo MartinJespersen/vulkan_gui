@@ -23,10 +23,10 @@ struct ArenaTemp
 };
 
 Arena*
-AllocArena(u64 size);
+ArenaAlloc(u64 size);
 
 void
-DeallocArena(Arena* arena);
+ArenaDealloc(Arena* arena);
 
 void
 ArenaClear(Arena* arena);
@@ -45,6 +45,10 @@ ArenaTempBegin(Arena* arena);
 
 void
 ArenaTempEnd(ArenaTemp temp);
+
+// scratch arena
+ArenaTemp
+ArenaScratchBegin();
 
 #define MemoryCopy(dst, src, size) memcpy((dst), (src), (size))
 #define MemorySet(dst, byte, size) memset((dst), (byte), (size))

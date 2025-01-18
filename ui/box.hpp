@@ -86,7 +86,7 @@ struct Box
     Box* next;
     u64 instanceOffset;
     u64 instanceCount;
-    BoxInstance* boxInstanceList;
+    BoxInstance* instances;
 };
 
 struct BoxContext

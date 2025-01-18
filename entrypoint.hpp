@@ -43,7 +43,7 @@ extern "C"
         GlyphAtlas* glyphAtlas;
         BoxContext* boxContext;
         UI_IO* io;
-        ThreadCtx threadCtx;
+
         UI_State* uiState;
         u64 frameTickPrev;
         f64 frameRate;
@@ -53,7 +53,7 @@ extern "C"
 
 extern "C"
 {
-    ThreadCtx
+    void
     InitContext(Context* context);
     void
     DeleteContext(Context* context);
@@ -72,62 +72,62 @@ void
 recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame);
 
 void
-recreateSwapChain(Context& context);
+recreateSwapChain(VulkanContext* vulkanContext);
 
 void
-createSyncObjects(Context& context);
+createSyncObjects(VulkanContext* vulkanContext);
 
 void
-createCommandBuffers(Context& context);
+createCommandBuffers(VulkanContext* vulkanContext, ProfilingContext* profilingContext);
 
 void
-createImageViews(Context& context);
+createImageViews(VulkanContext* vulkanContext);
 void
-createCommandPool(Context& context);
+createCommandPool(VulkanContext* vulkanContext);
 
 void
-cleanupColorResources(Context& context);
+cleanupColorResources(VulkanContext* vulkanContext);
 void
-cleanupSwapChain(Context& context);
+cleanupSwapChain(VulkanContext* vulkanContext);
 void
-createInstance(Context& context);
+createInstance(VulkanContext* vulkanContext);
 void
-setupDebugMessenger(Context& context);
+setupDebugMessenger(VulkanContext* vulkanContext);
 void
-createSurface(Context& context);
+createSurface(VulkanContext* vulkanContext);
 void
-pickPhysicalDevice(Context& context);
+pickPhysicalDevice(VulkanContext* vulkanContext);
 void
-createLogicalDevice(Context& context);
+createLogicalDevice(VulkanContext* vulkanContext);
 void
-createSwapChain(Context& context);
+createSwapChain(VulkanContext* vulkanContext);
 
 QueueFamilyIndices
-findQueueFamilies(Context& context, VkPhysicalDevice device);
+findQueueFamilies(VulkanContext* vulkanContext, VkPhysicalDevice device);
 
 SwapChainSupportDetails
-querySwapChainSupport(Context& context, VkPhysicalDevice device);
+querySwapChainSupport(VulkanContext* vulkanContext, VkPhysicalDevice device);
 
 VkExtent2D
-chooseSwapExtent(Context& context, const VkSurfaceCapabilitiesKHR& capabilities);
+chooseSwapExtent(VulkanContext* vulkanContext, const VkSurfaceCapabilitiesKHR& capabilities);
 
 std::vector<const char*>
-getRequiredExtensions(Context& context);
+getRequiredExtensions(VulkanContext* vulkanContext);
 
 void
 populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 
 bool
-isDeviceSuitable(Context& context, VkPhysicalDevice device);
+isDeviceSuitable(VulkanContext* vulkanContext, VkPhysicalDevice device);
 
 VkSampleCountFlagBits
 getMaxUsableSampleCount(VkPhysicalDevice device);
 
 bool
-checkDeviceExtensionSupport(Context& context, VkPhysicalDevice device);
+checkDeviceExtensionSupport(VulkanContext* vulkanContext, VkPhysicalDevice device);
 
 bool
-checkValidationLayerSupport(Context& context);
+checkValidationLayerSupport(VulkanContext* vulkanContext);
 
 VkSurfaceFormatKHR
 chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);

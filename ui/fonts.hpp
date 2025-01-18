@@ -129,7 +129,7 @@ beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, 
                           u32 currentFrame);
 
 void
-createGlyphAtlasImage(Arena* arena, Font* font, VkPhysicalDevice physicalDevice, VkDevice device,
+createGlyphAtlasImage(Font* font, VkPhysicalDevice physicalDevice, VkDevice device,
                       VkCommandPool commandPool, VkQueue graphicsQueue, u32 fontSize);
 void
 createGlyphAtlasImageView(Font* font, VkDevice device);

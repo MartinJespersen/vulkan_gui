@@ -132,7 +132,7 @@ InstanceBufferFromBoxes(Box* boxList, Array<Vulkan_BoxInstance> outBuffer)
     for (Box* boxItem = boxList; !CheckEmpty(boxItem, &g_Box); boxItem = boxItem->next)
     {
         boxItem->instanceOffset = numInstances;
-        BoxInstance* boxInstanceList = boxItem->boxInstanceList;
+        BoxInstance* boxInstanceList = boxItem->instances;
         for (BoxInstance* instance = boxInstanceList; !CheckEmpty(instance, &g_BoxInstance);
              instance = instance->next)
         {

@@ -39,120 +39,113 @@ DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debu
     }
 }
 
-ThreadCtx
+void
 InitContext(Context* context)
 {
     context->cpuFreq = EstimateCPUTimerFreq();
 
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
-    glyphAtlas->fontArena = (Arena*)AllocArena(FONT_ARENA_SIZE);
-    glyphAtlas->fontList = &g_font;
+    glyphAtlas->fontArena = (Arena*)ArenaAlloc(FONT_ARENA_SIZE);
 
     UI_State* uiState = context->uiState;
-    uiState->arena = (Arena*)AllocArena(GIGABYTE(1));
+    uiState->arena = (Arena*)ArenaAlloc(GIGABYTE(1));
     uiState->widgetCacheSize = 1; // 4096;
     uiState->widgetSlot = PushArray(uiState->arena, UI_WidgetSlot, uiState->widgetCacheSize);
     uiState->root = &g_UI_Widget;
-
-    return ThreadContextAlloc();
 }
 
 void
 DeleteContext(Context* context)
 {
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
-    DeallocArena(glyphAtlas->fontArena);
-
-    ThreadContextDealloc(&(context->threadCtx));
+    ArenaDealloc(glyphAtlas->fontArena);
 }
 
 void
 initVulkan(Context* context)
 {
-    VulkanContext* vulkan_context = context->vulkanContext;
+    VulkanContext* vulkanContext = context->vulkanContext;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
     BoxContext* boxContext = context->boxContext;
+    createInstance(vulkanContext);
+    setupDebugMessenger(vulkanContext);
+    createSurface(vulkanContext);
+    pickPhysicalDevice(vulkanContext);
+    createLogicalDevice(vulkanContext);
+    createSwapChain(vulkanContext);
+    createImageViews(vulkanContext);
+    createCommandPool(vulkanContext);
 
-    createInstance(*context);
-    setupDebugMessenger(*context);
-    createSurface(*context);
-    pickPhysicalDevice(*context);
-    createLogicalDevice(*context);
-    createSwapChain(*context);
-    createImageViews(*context);
-    createCommandPool(*context);
-
-    vulkan_context->boxRenderPass = createRenderPass(
-        vulkan_context->device, vulkan_context->swapChainImageFormat, vulkan_context->msaaSamples,
+    vulkanContext->boxRenderPass = createRenderPass(
+        vulkanContext->device, vulkanContext->swapChainImageFormat, vulkanContext->msaaSamples,
         VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-    vulkan_context->fontRenderPass =
-        createRenderPass(vulkan_context->device, vulkan_context->swapChainImageFormat,
-                         vulkan_context->msaaSamples, VK_ATTACHMENT_LOAD_OP_LOAD,
+    vulkanContext->fontRenderPass =
+        createRenderPass(vulkanContext->device, vulkanContext->swapChainImageFormat,
+                         vulkanContext->msaaSamples, VK_ATTACHMENT_LOAD_OP_LOAD,
                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-    vulkan_context->resolutionInfo.offset = 0;
-    vulkan_context->resolutionInfo.size = sizeof(float) * 2;
+    vulkanContext->resolutionInfo.offset = 0;
+    vulkanContext->resolutionInfo.size = sizeof(float) * 2;
 
     auto rectangleObjects = createGraphicsPipeline(
-        vulkan_context->device, vulkan_context->swapChainExtent, vulkan_context->fontRenderPass,
-        VK_NULL_HANDLE, vulkan_context->msaaSamples, Vulkan_BoxInstance::getBindingDescription(),
-        Vulkan_BoxInstance::getAttributeDescriptions(), vulkan_context->resolutionInfo,
+        vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->fontRenderPass,
+        VK_NULL_HANDLE, vulkanContext->msaaSamples, Vulkan_BoxInstance::getBindingDescription(),
+        Vulkan_BoxInstance::getAttributeDescriptions(), vulkanContext->resolutionInfo,
         "shaders/vert.spv", "shaders/frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
     boxContext->pipelineLayout = std::get<0>(rectangleObjects);
     boxContext->graphicsPipeline = std::get<1>(rectangleObjects);
 
-    vulkan_context->colorImageView = createColorResources(
-        vulkan_context->physicalDevice, vulkan_context->device,
-        vulkan_context->swapChainImageFormat, vulkan_context->swapChainExtent,
-        vulkan_context->msaaSamples, vulkan_context->colorImage, vulkan_context->colorImageMemory);
-    vulkan_context->swapChainFramebuffers = createFramebuffers(
-        vulkan_context->device, vulkan_context->colorImageView, vulkan_context->fontRenderPass,
-        vulkan_context->swapChainExtent, vulkan_context->swapChainImageViews);
-    BoxIndexBufferCreate(context->boxContext, vulkan_context->physicalDevice,
-                         vulkan_context->device, vulkan_context->commandPool,
-                         vulkan_context->graphicsQueue, vulkan_context->indices);
+    vulkanContext->colorImageView = createColorResources(
+        vulkanContext->physicalDevice, vulkanContext->device, vulkanContext->swapChainImageFormat,
+        vulkanContext->swapChainExtent, vulkanContext->msaaSamples, vulkanContext->colorImage,
+        vulkanContext->colorImageMemory);
+    vulkanContext->swapChainFramebuffers = createFramebuffers(
+        vulkanContext->device, vulkanContext->colorImageView, vulkanContext->fontRenderPass,
+        vulkanContext->swapChainExtent, vulkanContext->swapChainImageViews);
+    BoxIndexBufferCreate(context->boxContext, vulkanContext->physicalDevice, vulkanContext->device,
+                         vulkanContext->commandPool, vulkanContext->graphicsQueue,
+                         vulkanContext->indices);
 
     {
         u32 test_fontSizes[] = {30, 50};
         u32 numFonts = sizeof(test_fontSizes) / sizeof(u32);
 
-        u32 totalDescSet = vulkan_context->MAX_FRAMES_IN_FLIGHT * numFonts;
-        createFontDescriptorSetLayout(vulkan_context->device, glyphAtlas->descriptorSetLayout);
-        createFontDescriptorPool(vulkan_context->device, totalDescSet, glyphAtlas->descriptorPool);
+        u32 totalDescSet = vulkanContext->MAX_FRAMES_IN_FLIGHT * numFonts;
+        createFontDescriptorSetLayout(vulkanContext->device, glyphAtlas->descriptorSetLayout);
+        createFontDescriptorPool(vulkanContext->device, totalDescSet, glyphAtlas->descriptorPool);
 
         for (u32 fontIndex = 0; fontIndex < numFonts; fontIndex++)
         {
-            Font* font = PushStruct(glyphAtlas->fontArena, Font);
+            Font* font = PushStructZero(glyphAtlas->fontArena, Font);
             StackPush(glyphAtlas->fontList, font);
             FontInit(glyphAtlas->fontArena, font, test_fontSizes[fontIndex], MAX_GLYPHS);
 
-            createGlyphAtlasImage(context->threadCtx.scratchArena, font,
-                                  vulkan_context->physicalDevice, vulkan_context->device,
-                                  vulkan_context->commandPool, vulkan_context->graphicsQueue);
-            createGlyphAtlasImageView(font, vulkan_context->device);
-            createGlyphAtlasTextureSampler(font, vulkan_context->physicalDevice,
-                                           vulkan_context->device);
-            font->descriptorSets = ArrayAlloc<VkDescriptorSet>(
-                glyphAtlas->fontArena, vulkan_context->MAX_FRAMES_IN_FLIGHT);
+            createGlyphAtlasImage(font, vulkanContext->physicalDevice, vulkanContext->device,
+                                  vulkanContext->commandPool, vulkanContext->graphicsQueue);
+            createGlyphAtlasImageView(font, vulkanContext->device);
+            createGlyphAtlasTextureSampler(font, vulkanContext->physicalDevice,
+                                           vulkanContext->device);
+            font->descriptorSets = ArrayAlloc<VkDescriptorSet>(glyphAtlas->fontArena,
+                                                               vulkanContext->MAX_FRAMES_IN_FLIGHT);
             createFontDescriptorSets(font, glyphAtlas->descriptorPool,
-                                     glyphAtlas->descriptorSetLayout, vulkan_context->device,
-                                     vulkan_context->MAX_FRAMES_IN_FLIGHT, font->descriptorSets);
+                                     glyphAtlas->descriptorSetLayout, vulkanContext->device,
+                                     vulkanContext->MAX_FRAMES_IN_FLIGHT, font->descriptorSets);
         }
 
         auto glyphAtlasGraphicsObjects = createGraphicsPipeline(
-            vulkan_context->device, vulkan_context->swapChainExtent, vulkan_context->fontRenderPass,
-            glyphAtlas->descriptorSetLayout, vulkan_context->msaaSamples,
+            vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->fontRenderPass,
+            glyphAtlas->descriptorSetLayout, vulkanContext->msaaSamples,
             Vulkan_GlyphInstance::getBindingDescription(),
-            Vulkan_GlyphInstance::getAttributeDescriptions(), vulkan_context->resolutionInfo,
+            Vulkan_GlyphInstance::getAttributeDescriptions(), vulkanContext->resolutionInfo,
             "shaders/text_vert.spv", "shaders/text_frag.spv", VK_SHADER_STAGE_VERTEX_BIT);
         glyphAtlas->pipelineLayout = std::get<0>(glyphAtlasGraphicsObjects);
         glyphAtlas->graphicsPipeline = std::get<1>(glyphAtlasGraphicsObjects);
-        createGlyphIndexBuffer(glyphAtlas, vulkan_context->physicalDevice, vulkan_context->device);
+        createGlyphIndexBuffer(glyphAtlas, vulkanContext->physicalDevice, vulkanContext->device);
     }
 
-    createCommandBuffers(*context);
-    createSyncObjects(*context);
+    createCommandBuffers(vulkanContext, context->profilingContext);
+    createSyncObjects(vulkanContext);
 }
 
 void
@@ -170,7 +163,7 @@ cleanup(Context* context)
         DestroyDebugUtilsMessengerEXT(vulkanContext->instance, vulkanContext->debugMessenger,
                                       nullptr);
     }
-    cleanupSwapChain(*context);
+    cleanupSwapChain(vulkanContext);
 
     cleanupFontResources(glyphAtlas, vulkanContext->device);
     BoxCleanup(boxContext, vulkanContext->device);
@@ -204,21 +197,17 @@ cleanup(Context* context)
 }
 
 void
-cleanupColorResources(Context& context)
+cleanupColorResources(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
     vkDestroyImageView(vulkanContext->device, vulkanContext->colorImageView, nullptr);
     vkDestroyImage(vulkanContext->device, vulkanContext->colorImage, nullptr);
     vkFreeMemory(vulkanContext->device, vulkanContext->colorImageMemory, nullptr);
 }
 
 void
-cleanupSwapChain(Context& context)
+cleanupSwapChain(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
-    cleanupColorResources(context);
+    cleanupColorResources(vulkanContext);
 
     for (size_t i = 0; i < vulkanContext->swapChainFramebuffers.size(); i++)
     {
@@ -235,9 +224,8 @@ cleanupSwapChain(Context& context)
 }
 
 void
-createSyncObjects(Context& context)
+createSyncObjects(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
     vulkanContext->imageAvailableSemaphores.resize(vulkanContext->MAX_FRAMES_IN_FLIGHT);
     vulkanContext->renderFinishedSemaphores.resize(vulkanContext->MAX_FRAMES_IN_FLIGHT);
     vulkanContext->inFlightFences.resize(vulkanContext->MAX_FRAMES_IN_FLIGHT);
@@ -264,11 +252,8 @@ createSyncObjects(Context& context)
 }
 
 void
-createCommandBuffers(Context& context)
+createCommandBuffers(VulkanContext* vulkanContext, ProfilingContext* profilingContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-    ProfilingContext* profilingContext = context.profilingContext;
-
     vulkanContext->commandBuffers.resize(vulkanContext->swapChainFramebuffers.size());
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -292,11 +277,10 @@ createCommandBuffers(Context& context)
 }
 
 void
-createCommandPool(Context& context)
+createCommandPool(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
     QueueFamilyIndices queueFamilyIndices =
-        findQueueFamilies(context, vulkanContext->physicalDevice);
+        findQueueFamilies(vulkanContext, vulkanContext->physicalDevice);
 
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -311,10 +295,8 @@ createCommandPool(Context& context)
 }
 
 void
-createImageViews(Context& context)
+createImageViews(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
     vulkanContext->swapChainImageViews.resize(vulkanContext->swapChainImages.size());
 
     for (uint32_t i = 0; i < vulkanContext->swapChainImages.size(); i++)
@@ -326,16 +308,14 @@ createImageViews(Context& context)
 }
 
 void
-createSwapChain(Context& context)
+createSwapChain(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
     SwapChainSupportDetails swapChainSupport =
-        querySwapChainSupport(context, vulkanContext->physicalDevice);
+        querySwapChainSupport(vulkanContext, vulkanContext->physicalDevice);
 
     VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
     VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-    VkExtent2D extent = chooseSwapExtent(context, swapChainSupport.capabilities);
+    VkExtent2D extent = chooseSwapExtent(vulkanContext, swapChainSupport.capabilities);
 
     uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
 
@@ -356,7 +336,7 @@ createSwapChain(Context& context)
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    QueueFamilyIndices indices = findQueueFamilies(context, vulkanContext->physicalDevice);
+    QueueFamilyIndices indices = findQueueFamilies(vulkanContext, vulkanContext->physicalDevice);
     uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
     if (indices.graphicsFamily != indices.presentFamily)
@@ -395,10 +375,8 @@ createSwapChain(Context& context)
 }
 
 void
-createSurface(Context& context)
+createSurface(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
     if (glfwCreateWindowSurface(vulkanContext->instance, vulkanContext->window, nullptr,
                                 &vulkanContext->surface) != VK_SUCCESS)
     {
@@ -407,11 +385,9 @@ createSurface(Context& context)
 }
 
 void
-createInstance(Context& context)
+createInstance(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
-    if (vulkanContext->enableValidationLayers && !checkValidationLayerSupport(context))
+    if (vulkanContext->enableValidationLayers && !checkValidationLayerSupport(vulkanContext))
     {
         throw std::runtime_error("validation layers requested, but not available!");
     }
@@ -428,7 +404,7 @@ createInstance(Context& context)
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
 
-    auto extensions = getRequiredExtensions(context);
+    auto extensions = getRequiredExtensions(vulkanContext);
 
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
@@ -468,22 +444,21 @@ createInstance(Context& context)
 }
 
 void
-createLogicalDevice(Context& context)
+createLogicalDevice(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
-    QueueFamilyIndices indices = findQueueFamilies(context, vulkanContext->physicalDevice);
+    QueueFamilyIndices indices = findQueueFamilies(vulkanContext, vulkanContext->physicalDevice);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(),
-                                              indices.presentFamily.value()};
+    const u32 numberOfQueueFamilies = 2;
+    uint32_t uniqueQueueFamilies[numberOfQueueFamilies] = {indices.graphicsFamily.value(),
+                                                           indices.presentFamily.value()};
 
     float queuePriority = 1.0f;
-    for (uint32_t queueFamily : uniqueQueueFamilies)
+    for (u32 i = 0; i < numberOfQueueFamilies; i++)
     {
         VkDeviceQueueCreateInfo queueCreateInfo{};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueCreateInfo.queueFamilyIndex = queueFamily;
+        queueCreateInfo.queueFamilyIndex = uniqueQueueFamilies[i];
         queueCreateInfo.queueCount = 1;
         queueCreateInfo.pQueuePriorities = &queuePriority;
         queueCreateInfos.push_back(queueCreateInfo);
@@ -531,10 +506,8 @@ createLogicalDevice(Context& context)
 }
 
 void
-pickPhysicalDevice(Context& context)
+pickPhysicalDevice(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
     vulkanContext->physicalDevice = VK_NULL_HANDLE;
 
     uint32_t deviceCount = 0;
@@ -550,7 +523,7 @@ pickPhysicalDevice(Context& context)
 
     for (const auto& device : devices)
     {
-        if (isDeviceSuitable(context, device))
+        if (isDeviceSuitable(vulkanContext, device))
         {
             vulkanContext->physicalDevice = device;
             vulkanContext->msaaSamples = getMaxUsableSampleCount(device);
@@ -565,17 +538,17 @@ pickPhysicalDevice(Context& context)
 }
 
 bool
-isDeviceSuitable(Context& context, VkPhysicalDevice device)
+isDeviceSuitable(VulkanContext* vulkanContext, VkPhysicalDevice device)
 {
     // NOTE: This is where you would implement your own checks to see if the
     // device is suitable for your needs
-    QueueFamilyIndices indices = findQueueFamilies(context, device);
-    bool extensionsSupported = checkDeviceExtensionSupport(context, device);
+    QueueFamilyIndices indices = findQueueFamilies(vulkanContext, device);
+    bool extensionsSupported = checkDeviceExtensionSupport(vulkanContext, device);
 
     bool swapChainAdequate = false;
     if (extensionsSupported)
     {
-        SwapChainSupportDetails swapChainSupport = querySwapChainSupport(context, device);
+        SwapChainSupportDetails swapChainSupport = querySwapChainSupport(vulkanContext, device);
         swapChainAdequate =
             !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
     }
@@ -588,10 +561,8 @@ isDeviceSuitable(Context& context, VkPhysicalDevice device)
 }
 
 bool
-checkValidationLayerSupport(Context& context)
+checkValidationLayerSupport(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
@@ -621,10 +592,8 @@ checkValidationLayerSupport(Context& context)
 }
 
 std::vector<const char*>
-getRequiredExtensions(Context& context)
+getRequiredExtensions(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions;
     glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -653,9 +622,8 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 }
 
 void
-setupDebugMessenger(Context& context)
+setupDebugMessenger(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
     if (!vulkanContext->enableValidationLayers)
         return;
     VkDebugUtilsMessengerCreateInfoEXT createInfo;
@@ -685,10 +653,8 @@ populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
 // // supports drawing and presentation in the same queue for improved
 // // performance.
 QueueFamilyIndices
-findQueueFamilies(Context& context, VkPhysicalDevice device)
+findQueueFamilies(VulkanContext* vulkanContext, VkPhysicalDevice device)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
     QueueFamilyIndices indices;
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
@@ -716,10 +682,8 @@ findQueueFamilies(Context& context, VkPhysicalDevice device)
 }
 
 bool
-checkDeviceExtensionSupport(Context& context, VkPhysicalDevice device)
+checkDeviceExtensionSupport(VulkanContext* vulkanContext, VkPhysicalDevice device)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
@@ -739,10 +703,8 @@ checkDeviceExtensionSupport(Context& context, VkPhysicalDevice device)
 }
 
 SwapChainSupportDetails
-querySwapChainSupport(Context& context, VkPhysicalDevice device)
+querySwapChainSupport(VulkanContext* vulkanContext, VkPhysicalDevice device)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
     SwapChainSupportDetails details;
 
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, vulkanContext->surface,
@@ -800,10 +762,8 @@ chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes
 }
 
 VkExtent2D
-chooseSwapExtent(Context& context, const VkSurfaceCapabilitiesKHR& capabilities)
+chooseSwapExtent(VulkanContext* vulkanContext, const VkSurfaceCapabilitiesKHR& capabilities)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
     if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
     {
         return capabilities.currentExtent;
@@ -864,10 +824,10 @@ void
 recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
 {
     ZoneScoped;
-    ArenaTemp frameArena = ArenaTempBegin(context->threadCtx.scratchArena);
+    ArenaTemp frameArena = ArenaScratchBegin();
     for (Font* font = context->glyphAtlas->fontList; !CheckEmpty(font, &g_font); font = font->next)
     {
-        font->instances = &g_GlyphInstance;
+        font->instances = 0;
     }
 
     VulkanContext* vulkanContext = context->vulkanContext;
@@ -883,7 +843,6 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     boxContext->boxList = &g_Box;
     Box* box = PushStructZero(frameArena.arena, Box);
     StackPush(boxContext->boxList, box);
-    box->boxInstanceList = &g_BoxInstance;
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1001,7 +960,7 @@ drawFrame(Context* context)
         vulkanContext->framebufferResized)
     {
         vulkanContext->framebufferResized = 0;
-        recreateSwapChain(*context);
+        recreateSwapChain(vulkanContext);
         return;
     }
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
@@ -1057,7 +1016,7 @@ drawFrame(Context* context)
         vulkanContext->framebufferResized)
     {
         vulkanContext->framebufferResized = 0;
-        recreateSwapChain(*context);
+        recreateSwapChain(vulkanContext);
     }
     else if (result != VK_SUCCESS)
     {
@@ -1069,10 +1028,8 @@ drawFrame(Context* context)
 }
 
 void
-recreateSwapChain(Context& context)
+recreateSwapChain(VulkanContext* vulkanContext)
 {
-    VulkanContext* vulkanContext = context.vulkanContext;
-
     int width = 0, height = 0;
     glfwGetFramebufferSize(vulkanContext->window, &width, &height);
     while (width == 0 || height == 0)
@@ -1082,10 +1039,10 @@ recreateSwapChain(Context& context)
     }
     vkDeviceWaitIdle(vulkanContext->device);
 
-    cleanupSwapChain(context);
+    cleanupSwapChain(vulkanContext);
 
-    createSwapChain(context);
-    createImageViews(context);
+    createSwapChain(vulkanContext);
+    createImageViews(vulkanContext);
     vulkanContext->colorImageView = createColorResources(
         vulkanContext->physicalDevice, vulkanContext->device, vulkanContext->swapChainImageFormat,
         vulkanContext->swapChainExtent, vulkanContext->msaaSamples, vulkanContext->colorImage,
