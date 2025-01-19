@@ -2,3 +2,4 @@
 .vscode
 profiler
 build
+*.o

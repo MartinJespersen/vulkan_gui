@@ -8,6 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <string>
 #include <stdio.h>
+#include <vector>
 
 // user defined headers
 #include "vulkan_helpers.hpp"

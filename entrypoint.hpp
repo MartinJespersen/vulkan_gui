@@ -1,16 +1,13 @@
 #pragma once
 
 #include <vector>
-#include <optional>
-
 // user defined: [hpp]
 #include "base/base.hpp"
 #include "ui/ui.hpp"
 
 // profiler
-#ifdef PROFILE
+#include "profiler/tracy/Tracy.hpp"
 #include "profiler/tracy/TracyVulkan.hpp"
-#endif
 
 const u64 FONT_ARENA_SIZE = MEGABYTE(4);
 const u32 MAX_FONTS_IN_USE = 10;
