@@ -52,7 +52,8 @@ findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter,
         }
     }
 
-    throw std::runtime_error("failed to find suitable memory type!");
+    exitWithError("failed to find suitable memory type!");
+    return 0;
 }
 
 void
@@ -68,7 +69,7 @@ createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size
 
     if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create buffer!");
+        exitWithError("failed to create buffer!");
     }
 
     VkMemoryRequirements memRequirements;
@@ -82,7 +83,7 @@ createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size
 
     if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to allocate buffer memory!");
+        exitWithError("failed to allocate buffer memory!");
     }
 
     vkBindBufferMemory(device, buffer, bufferMemory, 0);
@@ -118,7 +119,7 @@ createImageView(VkDevice device, VkImage image, VkFormat format)
     VkImageView imageView;
     if (vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create texture image view!");
+        exitWithError("failed to create texture image view!");
     }
 
     return imageView;
@@ -164,7 +165,7 @@ transitionImageLayout(VkCommandPool commandPool, VkDevice device, VkQueue graphi
     }
     else
     {
-        throw std::invalid_argument("unsupported layout transition!");
+        exitWithError("unsupported layout transition!");
     }
 
     vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1,
@@ -221,7 +222,7 @@ createImage(VkPhysicalDevice physicalDevice, VkDevice device, u32 width, u32 hei
 
     if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create image!");
+        exitWithError("failed to create image!");
     }
 
     VkMemoryRequirements memRequirements;
@@ -235,7 +236,7 @@ createImage(VkPhysicalDevice physicalDevice, VkDevice device, u32 width, u32 hei
 
     if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to allocate image memory!");
+        exitWithError("failed to allocate image memory!");
     }
 
     vkBindImageMemory(device, image, imageMemory, 0);
@@ -266,13 +267,14 @@ createFramebuffers(VkDevice device, VkImageView colorImageView, VkRenderPass ren
 
     for (size_t i = 0; i < swapChainImageViews.size(); i++)
     {
-        std::array<VkImageView, 2> attachments = {colorImageView, swapChainImageViews[i]};
+        const u32 attachmentCount = 2;
+        VkImageView attachments[attachmentCount] = {colorImageView, swapChainImageViews[i]};
 
         VkFramebufferCreateInfo framebufferInfo{};
         framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebufferInfo.renderPass = renderPass;
-        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-        framebufferInfo.pAttachments = attachments.data();
+        framebufferInfo.attachmentCount = attachmentCount;
+        framebufferInfo.pAttachments = attachments;
         framebufferInfo.width = swapChainExtent.width;
         framebufferInfo.height = swapChainExtent.height;
         framebufferInfo.layers = 1;
@@ -280,26 +282,28 @@ createFramebuffers(VkDevice device, VkImageView colorImageView, VkRenderPass ren
         if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) !=
             VK_SUCCESS)
         {
-            throw std::runtime_error("failed to create framebuffer!");
+            exitWithError("failed to create framebuffer!");
         }
     }
 
     return swapChainFramebuffers;
 }
 
-std::tuple<VkPipelineLayout, VkPipeline>
-createGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass renderPass,
+void
+createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPipeline,
+                       VkDevice device, VkExtent2D swapChainExtent, VkRenderPass renderPass,
                        VkDescriptorSetLayout descriptorSetLayout, VkSampleCountFlagBits msaaSamples,
                        VkVertexInputBindingDescription bindingDescription,
                        std::vector<VkVertexInputAttributeDescription> attributeDescriptions,
                        Vulkan_PushConstantInfo pushConstInfo, std::string vertShaderPath,
                        std::string fragShaderPath, VkShaderStageFlagBits pushConstantStage)
 {
-    auto vertShaderCode = ReadFile(vertShaderPath);
-    auto fragShaderCode = ReadFile(fragShaderPath);
+    ArenaTemp scratchArena = ArenaScratchBegin();
+    Buffer vertShaderBuffer = ReadFile(scratchArena.arena, vertShaderPath);
+    Buffer fragShaderBuffer = ReadFile(scratchArena.arena, fragShaderPath);
 
-    VkShaderModule vertShaderModule = createShaderModule(device, vertShaderCode);
-    VkShaderModule fragShaderModule = createShaderModule(device, fragShaderCode);
+    VkShaderModule vertShaderModule = ShaderModuleCreate(device, vertShaderBuffer);
+    VkShaderModule fragShaderModule = ShaderModuleCreate(device, fragShaderBuffer);
 
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
     vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -418,10 +422,9 @@ createGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
     pipelineLayoutInfo.pushConstantRangeCount = 1;   // Optional
     pipelineLayoutInfo.pPushConstantRanges = &range; // Optional
 
-    VkPipelineLayout pipelineLayout;
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, pipelineLayout) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create pipeline layout!");
+        exitWithError("failed to create pipeline layout!");
     }
 
     VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -436,24 +439,24 @@ createGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
     pipelineInfo.pDepthStencilState = nullptr; // Optional
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState; // Optional
-    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.layout = *pipelineLayout;
     pipelineInfo.renderPass = renderPass;
     pipelineInfo.subpass = 0;
 
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
     pipelineInfo.basePipelineIndex = -1;              // Optional
 
-    VkPipeline graphicsPipeline;
     if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
-                                  &graphicsPipeline) != VK_SUCCESS)
+                                  graphicsPipeline) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create graphics pipeline!");
+        exitWithError("failed to create graphics pipeline!");
     }
 
     vkDestroyShaderModule(device, fragShaderModule, nullptr);
     vkDestroyShaderModule(device, vertShaderModule, nullptr);
 
-    return std::make_tuple(pipelineLayout, graphicsPipeline);
+    ArenaTempEnd(scratchArena);
+    return;
 }
 
 VkRenderPass
@@ -505,12 +508,14 @@ createRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFl
     dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-    std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, colorAttachmentResolve};
+    const u32 attachmentsCount = 2;
+    VkAttachmentDescription attachments[attachmentsCount] = {colorAttachment,
+                                                             colorAttachmentResolve};
 
     VkRenderPassCreateInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-    renderPassInfo.pAttachments = attachments.data();
+    renderPassInfo.attachmentCount = attachmentsCount;
+    renderPassInfo.pAttachments = attachments;
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
     renderPassInfo.dependencyCount = 1;
@@ -519,24 +524,24 @@ createRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFl
     VkRenderPass renderPass;
     if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create render pass!");
+        exitWithError("failed to create render pass!");
     }
 
     return renderPass;
 }
 
 VkShaderModule
-createShaderModule(VkDevice device, const std::vector<char>& code)
+ShaderModuleCreate(VkDevice device, Buffer buffer)
 {
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = code.size();
-    createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+    createInfo.codeSize = buffer.size;
+    createInfo.pCode = reinterpret_cast<const u32*>(buffer.data);
 
     VkShaderModule shaderModule;
     if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create shader module!");
+        exitWithError("failed to create shader module!");
     }
 
     return shaderModule;

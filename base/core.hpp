@@ -49,6 +49,13 @@
 #define DLLInsert(f, l, p, n) DLLInsert_NPZ(f, l, p, n, next, prev, CheckNull, SetNull)
 #define DLLRemove(f, l, n) DLLRemove_NPZ(f, l, n, next, prev, CheckNull, SetNull)
 
+// buffer
+struct Buffer
+{
+    u8* data;
+    u64 size;
+};
+
 // tread context
 #include "memory.hpp"
 

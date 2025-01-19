@@ -6,5 +6,5 @@ struct UI_IO
     bool leftClicked;
 };
 
-std::vector<char>
-ReadFile(const std::string& filename);
+Buffer
+ReadFile(Arena* arena, const std::string& filename);

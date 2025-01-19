@@ -89,14 +89,12 @@ initVulkan(Context* context)
     vulkanContext->resolutionInfo.offset = 0;
     vulkanContext->resolutionInfo.size = sizeof(float) * 2;
 
-    auto rectangleObjects = createGraphicsPipeline(
-        vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->fontRenderPass,
-        VK_NULL_HANDLE, vulkanContext->msaaSamples, Vulkan_BoxInstance::getBindingDescription(),
+    createGraphicsPipeline(
+        &boxContext->pipelineLayout, &boxContext->graphicsPipeline, vulkanContext->device,
+        vulkanContext->swapChainExtent, vulkanContext->fontRenderPass, VK_NULL_HANDLE,
+        vulkanContext->msaaSamples, Vulkan_BoxInstance::getBindingDescription(),
         Vulkan_BoxInstance::getAttributeDescriptions(), vulkanContext->resolutionInfo,
         "shaders/vert.spv", "shaders/frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-
-    boxContext->pipelineLayout = std::get<0>(rectangleObjects);
-    boxContext->graphicsPipeline = std::get<1>(rectangleObjects);
 
     vulkanContext->colorImageView = createColorResources(
         vulkanContext->physicalDevice, vulkanContext->device, vulkanContext->swapChainImageFormat,
@@ -135,14 +133,13 @@ initVulkan(Context* context)
                                      vulkanContext->MAX_FRAMES_IN_FLIGHT, font->descriptorSets);
         }
 
-        auto glyphAtlasGraphicsObjects = createGraphicsPipeline(
-            vulkanContext->device, vulkanContext->swapChainExtent, vulkanContext->fontRenderPass,
+        createGraphicsPipeline(
+            &glyphAtlas->pipelineLayout, &glyphAtlas->graphicsPipeline, vulkanContext->device,
+            vulkanContext->swapChainExtent, vulkanContext->fontRenderPass,
             glyphAtlas->descriptorSetLayout, vulkanContext->msaaSamples,
             Vulkan_GlyphInstance::getBindingDescription(),
             Vulkan_GlyphInstance::getAttributeDescriptions(), vulkanContext->resolutionInfo,
             "shaders/text_vert.spv", "shaders/text_frag.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        glyphAtlas->pipelineLayout = std::get<0>(glyphAtlasGraphicsObjects);
-        glyphAtlas->graphicsPipeline = std::get<1>(glyphAtlasGraphicsObjects);
         createGlyphIndexBuffer(glyphAtlas, vulkanContext->physicalDevice, vulkanContext->device);
     }
 
@@ -249,7 +246,7 @@ createSyncObjects(VulkanContext* vulkanContext)
             vkCreateFence(vulkanContext->device, &fenceInfo, nullptr,
                           &vulkanContext->inFlightFences[i]) != VK_SUCCESS)
         {
-            throw std::runtime_error("failed to create synchronization objects for a frame!");
+            exitWithError("failed to create synchronization objects for a frame!");
         }
     }
 }
@@ -269,7 +266,7 @@ createCommandBuffers(Context* context)
     if (vkAllocateCommandBuffers(vulkanContext->device, &allocInfo,
                                  vulkanContext->commandBuffers.data()) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to allocate command buffers!");
+        exitWithError("failed to allocate command buffers!");
     }
 
 #ifdef PROFILE
@@ -297,7 +294,7 @@ createCommandPool(VulkanContext* vulkanContext)
     if (vkCreateCommandPool(vulkanContext->device, &poolInfo, nullptr,
                             &vulkanContext->commandPool) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create command pool!");
+        exitWithError("failed to create command pool!");
     }
 }
 
@@ -369,7 +366,7 @@ createSwapChain(VulkanContext* vulkanContext)
     if (vkCreateSwapchainKHR(vulkanContext->device, &createInfo, nullptr,
                              &vulkanContext->swapChain) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create swap chain!");
+        exitWithError("failed to create swap chain!");
     }
 
     vkGetSwapchainImagesKHR(vulkanContext->device, vulkanContext->swapChain, &imageCount, nullptr);
@@ -387,7 +384,7 @@ createSurface(VulkanContext* vulkanContext)
     if (glfwCreateWindowSurface(vulkanContext->instance, vulkanContext->window, nullptr,
                                 &vulkanContext->surface) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create window surface!");
+        exitWithError("failed to create window surface!");
     }
 }
 
@@ -396,7 +393,7 @@ createInstance(VulkanContext* vulkanContext)
 {
     if (vulkanContext->enableValidationLayers && !checkValidationLayerSupport(vulkanContext))
     {
-        throw std::runtime_error("validation layers requested, but not available!");
+        exitWithError("validation layers requested, but not available!");
     }
 
     VkApplicationInfo appInfo{};
@@ -446,7 +443,7 @@ createInstance(VulkanContext* vulkanContext)
 
     if (vkCreateInstance(&createInfo, nullptr, &vulkanContext->instance) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create instance!");
+        exitWithError("failed to create instance!");
     }
 }
 
@@ -502,7 +499,7 @@ createLogicalDevice(VulkanContext* vulkanContext)
     if (vkCreateDevice(vulkanContext->physicalDevice, &createInfo, nullptr,
                        &vulkanContext->device) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create logical device!");
+        exitWithError("failed to create logical device!");
     }
 
     vkGetDeviceQueue(vulkanContext->device, indices.graphicsFamily.value(), 0,
@@ -521,7 +518,7 @@ pickPhysicalDevice(VulkanContext* vulkanContext)
 
     if (deviceCount == 0)
     {
-        throw std::runtime_error("failed to find GPUs with Vulkan support!");
+        exitWithError("failed to find GPUs with Vulkan support!");
     }
 
     std::vector<VkPhysicalDevice> devices(deviceCount);
@@ -539,7 +536,7 @@ pickPhysicalDevice(VulkanContext* vulkanContext)
 
     if (vulkanContext->physicalDevice == VK_NULL_HANDLE)
     {
-        throw std::runtime_error("failed to find a suitable GPU!");
+        exitWithError("failed to find a suitable GPU!");
     }
 }
 
@@ -637,7 +634,7 @@ setupDebugMessenger(VulkanContext* vulkanContext)
     if (CreateDebugUtilsMessengerEXT(vulkanContext->instance, &createInfo, nullptr,
                                      &vulkanContext->debugMessenger) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to set up debug messenger!");
+        exitWithError("failed to set up debug messenger!");
     }
 }
 
@@ -912,7 +909,7 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
 
     if (vkBeginCommandBuffer(vulkanContext->commandBuffers[currentFrame], &beginInfo) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to begin recording command buffer!");
+        exitWithError("failed to begin recording command buffer!");
     }
 
     TracyVkCollect(profilingContext->tracyContexts[currentFrame],
@@ -931,7 +928,7 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
 
     if (vkEndCommandBuffer(vulkanContext->commandBuffers[currentFrame]) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to record command buffer!");
+        exitWithError("failed to record command buffer!");
     }
     ArenaTempEnd(frameArena);
 }
@@ -976,7 +973,7 @@ drawFrame(Context* context)
     }
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
     {
-        throw std::runtime_error("failed to acquire swap chain image!");
+        exitWithError("failed to acquire swap chain image!");
     }
 
     vkResetFences(vulkanContext->device, 1,
@@ -1004,7 +1001,7 @@ drawFrame(Context* context)
     if (vkQueueSubmit(vulkanContext->graphicsQueue, 1, &submitInfo,
                       vulkanContext->inFlightFences[vulkanContext->currentFrame]) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to submit draw command buffer!");
+        exitWithError("failed to submit draw command buffer!");
     }
 
     VkPresentInfoKHR presentInfo{};
@@ -1031,7 +1028,7 @@ drawFrame(Context* context)
     }
     else if (result != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to present swap chain image!");
+        exitWithError("failed to present swap chain image!");
     }
 
     vulkanContext->currentFrame =

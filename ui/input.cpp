@@ -1,18 +1,20 @@
-std::vector<char>
-ReadFile(const std::string& filename)
+Buffer
+ReadFile(Arena* arena, const std::string& filename)
 {
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-    if (!file.is_open())
+    Buffer buffer = {0};
+    FILE* file = fopen(filename.data(), "rb");
+    if (file == NULL)
     {
-        throw std::runtime_error("failed to open file!");
+        exitWithError("failed to open file!");
     }
 
-    i64 fileSize = (i64)file.tellg();
-    std::vector<char> buffer((u64)fileSize);
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
+    fseek(file, 0, SEEK_END);
+    buffer.size = (u64)ftell(file);
+    fseek(file, 0, SEEK_SET);
 
+    buffer.data = PushArray(arena, u8, buffer.size);
+    fread(buffer.data, sizeof(u8), buffer.size, file);
+
+    fclose(file);
     return buffer;
 }

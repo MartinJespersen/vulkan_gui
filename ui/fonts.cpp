@@ -168,10 +168,10 @@ InstanceBufferFromFontBuffers(Array<Vulkan_GlyphInstance> outBuffer, Font* fonts
         for (GlyphInstance* instance = glyphInstanceList; !CheckEmpty(instance, &g_GlyphInstance);
              instance = instance->next)
         {
-            outBuffer[numInstances].pos0 = glm::vec2(instance->pos0.x, instance->pos0.y);
-            outBuffer[numInstances].pos1 = glm::vec2(instance->pos1.x, instance->pos1.y);
+            outBuffer[numInstances].pos0 = Vec2(instance->pos0.x, instance->pos0.y);
+            outBuffer[numInstances].pos1 = Vec2(instance->pos1.x, instance->pos1.y);
             outBuffer[numInstances].glyphOffset =
-                glm::vec2(instance->glyphOffset.x, instance->glyphOffset.y);
+                Vec2(instance->glyphOffset.x, instance->glyphOffset.y);
             numInstances++;
         }
         font->instanceCount = numInstances - font->instanceOffset;
@@ -339,7 +339,7 @@ createGlyphAtlasImage(Font* font, VkPhysicalDevice physicalDevice, VkDevice devi
 
     if (!pixels)
     {
-        throw std::runtime_error("failed to load texture image!");
+        exitWithError("failed to load texture image!");
     }
 
     VkBuffer stagingBuffer;
@@ -416,7 +416,7 @@ createGlyphAtlasTextureSampler(Font* font, VkPhysicalDevice physicalDevice, VkDe
     // The sampler is not attached to a image so it can be applied to any image
     if (vkCreateSampler(device, &samplerInfo, nullptr, &font->textureSampler) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create texture sampler!");
+        exitWithError("failed to create texture sampler!");
     }
 }
 
@@ -435,7 +435,7 @@ createFontDescriptorSets(Font* font, VkDescriptorPool descriptorPool,
 
     if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to allocate descriptor sets!");
+        exitWithError("failed to allocate descriptor sets!");
     }
 
     VkDescriptorImageInfo imageInfo = {};
@@ -464,19 +464,20 @@ void
 createFontDescriptorPool(VkDevice device, const u32 MAX_FRAMES_IN_FLIGHT,
                          VkDescriptorPool& descriptorPool)
 {
-    std::array<VkDescriptorPoolSize, 1> poolSizes{};
+    const u32 poolCount = 1;
+    VkDescriptorPoolSize poolSizes[poolCount] = {};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-    poolInfo.pPoolSizes = poolSizes.data();
+    poolInfo.poolSizeCount = poolCount;
+    poolInfo.pPoolSizes = &poolSizes[0];
     poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create descriptor pool!");
+        exitWithError("failed to create descriptor pool!");
     }
 }
 
@@ -490,16 +491,17 @@ createFontDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout& descriptor
     samplerLayoutBinding.pImmutableSamplers = nullptr;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::array<VkDescriptorSetLayoutBinding, 1> bindings = {samplerLayoutBinding};
+    const u32 bindingsCount = 1;
+    VkDescriptorSetLayoutBinding bindings[bindingsCount] = {samplerLayoutBinding};
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-    layoutInfo.pBindings = bindings.data();
+    layoutInfo.bindingCount = bindingsCount;
+    layoutInfo.pBindings = bindings;
 
     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) !=
         VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create descriptor set layout!");
+        exitWithError("failed to create descriptor set layout!");
     }
 }

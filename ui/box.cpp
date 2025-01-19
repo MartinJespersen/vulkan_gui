@@ -46,12 +46,13 @@ BoxRenderPassBegin(BoxContext* boxContext, VulkanContext* vulkanContext, u32 ima
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = swapChainExtent;
 
-    std::array<VkClearValue, 2> clearValues{};
+    const u32 clearValueCount = 2;
+    VkClearValue clearValues[clearValueCount] = {0};
     clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
     clearValues[1].depthStencil = {1.0f, 0};
 
-    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-    renderPassInfo.pClearValues = clearValues.data();
+    renderPassInfo.clearValueCount = clearValueCount;
+    renderPassInfo.pClearValues = &clearValues[0];
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -136,11 +137,10 @@ InstanceBufferFromBoxes(Box* boxList, Array<Vulkan_BoxInstance> outBuffer)
         for (BoxInstance* instance = boxInstanceList; !CheckEmpty(instance, &g_BoxInstance);
              instance = instance->next)
         {
-            outBuffer[numInstances].pos0 = glm::vec2(instance->pos0.x, instance->pos0.y);
-            outBuffer[numInstances].pos1 = glm::vec2(instance->pos1.x, instance->pos1.y);
-            outBuffer[numInstances].color =
-                glm::vec4(instance->color.data[0], instance->color.data[1], instance->color.data[2],
-                          instance->color.data[3]);
+            outBuffer[numInstances].pos0 = Vec2(instance->pos0.x, instance->pos0.y);
+            outBuffer[numInstances].pos1 = Vec2(instance->pos1.x, instance->pos1.y);
+            outBuffer[numInstances].color = {instance->color.data[0], instance->color.data[1],
+                                             instance->color.data[2], instance->color.data[3]};
             outBuffer[numInstances].borderThickness = instance->borderThickness;
             outBuffer[numInstances].cornerRadius = instance->cornerRadius;
             outBuffer[numInstances].softness = instance->softness;

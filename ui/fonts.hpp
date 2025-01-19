@@ -20,9 +20,9 @@ struct Text
 
 struct Vulkan_GlyphInstance
 {
-    glm::vec2 pos0;
-    glm::vec2 pos1;
-    glm::vec2 glyphOffset;
+    Vec2<f32> pos0;
+    Vec2<f32> pos1;
+    Vec2<f32> glyphOffset;
 
     static VkVertexInputBindingDescription
     getBindingDescription()

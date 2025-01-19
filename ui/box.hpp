@@ -8,12 +8,12 @@ enum BoxAttributes
 
 struct Vulkan_BoxInstance
 {
-    glm::vec2 pos0;
-    glm::vec2 pos1;
-    glm::vec4 color;
-    glm::f32 softness;
-    glm::f32 borderThickness;
-    glm::f32 cornerRadius;
+    Vec2<f32> pos0;
+    Vec2<f32> pos1;
+    F32Vec4 color;
+    f32 softness;
+    f32 borderThickness;
+    f32 cornerRadius;
     u32 attributes;
 
     static VkVertexInputBindingDescription

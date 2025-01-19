@@ -111,8 +111,9 @@ std::vector<VkFramebuffer>
 createFramebuffers(VkDevice device, VkImageView colorImageView, VkRenderPass renderPass,
                    VkExtent2D swapChainExtent, std::vector<VkImageView> swapChainImageViews);
 
-std::tuple<VkPipelineLayout, VkPipeline>
-createGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass renderPass,
+void
+createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPipeline,
+                       VkDevice device, VkExtent2D swapChainExtent, VkRenderPass renderPass,
                        VkDescriptorSetLayout descriptorSetLayout, VkSampleCountFlagBits msaaSamples,
                        VkVertexInputBindingDescription bindingDescription,
                        std::vector<VkVertexInputAttributeDescription> attributeDescriptions,
@@ -124,4 +125,4 @@ createRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFl
                  VkAttachmentLoadOp loadOp, VkImageLayout initialLayout, VkImageLayout finalLayout);
 
 VkShaderModule
-createShaderModule(VkDevice device, const std::vector<char>& code);
+ShaderModuleCreate(VkDevice device, Buffer buffer);
