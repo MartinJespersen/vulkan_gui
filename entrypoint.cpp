@@ -67,6 +67,8 @@ initVulkan(Context* context)
     VulkanContext* vulkanContext = context->vulkanContext;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
     BoxContext* boxContext = context->boxContext;
+    vulkanContext->arena = ArenaAlloc(GIGABYTE(4));
+
     createInstance(vulkanContext);
     setupDebugMessenger(vulkanContext);
     createSurface(vulkanContext);
@@ -477,9 +479,8 @@ createLogicalDevice(VulkanContext* vulkanContext)
 
     createInfo.pEnabledFeatures = &deviceFeatures;
 
-    createInfo.enabledExtensionCount =
-        static_cast<uint32_t>(vulkanContext->deviceExtensions.size());
-    createInfo.ppEnabledExtensionNames = vulkanContext->deviceExtensions.data();
+    createInfo.enabledExtensionCount = vulkanContext->deviceExtensionCount;
+    createInfo.ppEnabledExtensionNames = vulkanContext->deviceExtensions;
 
     // NOTE: This if statement is no longer necessary on newer versions
     if (vulkanContext->enableValidationLayers)
@@ -691,15 +692,20 @@ checkDeviceExtensionSupport(VulkanContext* vulkanContext, VkPhysicalDevice devic
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
                                          availableExtensions.data());
 
-    std::set<std::string> requiredExtensions(vulkanContext->deviceExtensions.begin(),
-                                             vulkanContext->deviceExtensions.end());
-
+    u64 numberOfRequiredExtenstions = vulkanContext->deviceExtensionCount;
     for (const auto& extension : availableExtensions)
     {
-        requiredExtensions.erase(extension.extensionName);
+        for (u32 i = 0; i < vulkanContext->deviceExtensionCount; i++)
+        {
+            if (CStrEqual(vulkanContext->deviceExtensions[i], extension.extensionName))
+            {
+                numberOfRequiredExtenstions--;
+                break;
+            }
+        }
     }
 
-    return requiredExtensions.empty();
+    return numberOfRequiredExtenstions == 0;
 }
 
 SwapChainSupportDetails
@@ -858,14 +864,14 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
         {
             exitWithError("Font has not been loaded");
         }
-        String8 name = str8(frameArena.arena, "test_name");
+        String8 name = Str8(frameArena.arena, "test_name");
         F32Vec4 positions = {0.2f, 0.2f, 0.8f, 0.4f};
         F32Vec4 color = {0.0f, 0.8f, 0.8f, 0.1f};
         UI_WidgetFlags flags = UI_WidgetFlag_Clickable;
         AddButton(name, context->uiState, frameArena.arena, box, vulkanContext->swapChainExtent,
                   font, color, "Press Yes or No", 1.0f, 10.0f, 5.0f, context->io, positions, flags);
 
-        name = str8(frameArena.arena, "test_name_2");
+        name = Str8(frameArena.arena, "test_name_2");
         positions = {0.2f, 0.6f, 0.8f, 0.8f};
         color = {0.8f, 0.8f, 0.0f, 0.2f};
         flags = 0;

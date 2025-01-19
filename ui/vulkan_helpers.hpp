@@ -15,12 +15,16 @@ struct SwapChainSupportDetails
 
 struct VulkanContext
 {
+    Arena* arena;
+
     const u32 WIDTH = 800;
     const u32 HEIGHT = 600;
     const u32 MAX_FRAMES_IN_FLIGHT = 2;
 
     const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-    const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+    static const u64 deviceExtensionCount = 1;
+    const char* const deviceExtensions[deviceExtensionCount] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 #ifdef NDEBUG
     const u8 enableValidationLayers = 0;

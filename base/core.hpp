@@ -10,7 +10,7 @@
 #define MEGABYTE(n) (KILOBYTE(n) * 1024UL)
 #define GIGABYTE(n) (MEGABYTE(n) * 1024UL)
 
-#define ArrayLen(a) (sizeof((a)) / sizeof((a[0])))
+#define ArrayCount(a) (sizeof((a)) / sizeof((a[0])))
 
 // linked list helpers
 #define CheckEmpty(p, o) ((p) == 0 || (p) == (o))
@@ -65,6 +65,7 @@ ThreadContextDealloc(ThreadCtx* ctx);
 
 // Strings
 
+#define CStrEqual(a, b) (!strcmp((a), (b)))
 struct String8
 {
     u64 size;
@@ -84,4 +85,4 @@ u8*
 StrFromU128(Arena* arena, u128 num);
 
 String8
-str8(Arena* arena, char* str);
+Str8(Arena* arena, char* str);

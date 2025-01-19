@@ -31,7 +31,7 @@ StrFromU128(Arena* arena, u128 num)
 {
     u64 size = sizeof(u128);
     u8* str = PushArray(arena, u8, size + 1);
-    for (u32 numI = 0; numI < ArrayLen(num.data); numI++)
+    for (u32 numI = 0; numI < ArrayCount(num.data); numI++)
     {
         for (u32 i = 0; i < sizeof(u64); i++)
         {
@@ -44,11 +44,11 @@ StrFromU128(Arena* arena, u128 num)
 }
 
 String8
-str8(Arena* arena, char* str)
+Str8(Arena* arena, const char* str)
 {
     String8 result = {0};
     result.size = 0;
-    for (char* c = str; (*c) != '\0'; c++)
+    for (const char* c = str; (*c) != '\0'; c++)
     {
         result.size += 1;
     }

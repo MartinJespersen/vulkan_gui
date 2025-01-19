@@ -4,6 +4,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <stdlib.h>
+#include <stdio.h>
 #include <sys/time.h>
 #include <x86intrin.h>
 
