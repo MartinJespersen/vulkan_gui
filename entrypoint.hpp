@@ -1,7 +1,6 @@
 #pragma once
 
-// #include <set>
-#include <vector>
+// #include <vector>
 #include <optional>
 
 // user defined: [hpp]
@@ -9,7 +8,9 @@
 #include "ui/ui.hpp"
 
 // profiler
+#ifdef PROFILE
 #include "profiler/tracy/TracyVulkan.hpp"
+#endif
 
 const u64 FONT_ARENA_SIZE = MEGABYTE(4);
 const u32 MAX_FONTS_IN_USE = 10;
@@ -32,8 +33,10 @@ extern "C"
 
     struct ProfilingContext
     {
+#ifdef PROFILE
         // tracy profiling context
         std::vector<TracyVkCtx> tracyContexts;
+#endif
     };
 
     struct Context
@@ -78,7 +81,7 @@ void
 createSyncObjects(VulkanContext* vulkanContext);
 
 void
-createCommandBuffers(VulkanContext* vulkanContext, ProfilingContext* profilingContext);
+createCommandBuffers(Context* context);
 
 void
 createImageViews(VulkanContext* vulkanContext);

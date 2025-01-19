@@ -146,7 +146,7 @@ initVulkan(Context* context)
         createGlyphIndexBuffer(glyphAtlas, vulkanContext->physicalDevice, vulkanContext->device);
     }
 
-    createCommandBuffers(vulkanContext, context->profilingContext);
+    createCommandBuffers(context);
     createSyncObjects(vulkanContext);
 }
 
@@ -154,7 +154,6 @@ void
 cleanup(Context* context)
 {
     VulkanContext* vulkanContext = context->vulkanContext;
-    ProfilingContext* profilingContext = context->profilingContext;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
     BoxContext* boxContext = context->boxContext;
 
@@ -173,10 +172,12 @@ cleanup(Context* context)
     vkDestroyRenderPass(vulkanContext->device, vulkanContext->boxRenderPass, nullptr);
     vkDestroyRenderPass(vulkanContext->device, vulkanContext->fontRenderPass, nullptr);
 
-    for (u32 i = 0; i < profilingContext->tracyContexts.size(); i++)
+#ifdef PROFILE
+    for (u32 i = 0; i < context->profilingContext->tracyContexts.size(); i++)
     {
-        TracyVkDestroy(profilingContext->tracyContexts[i]);
+        TracyVkDestroy(context->profilingContext->tracyContexts[i]);
     }
+#endif
     vkDestroyCommandPool(vulkanContext->device, vulkanContext->commandPool, nullptr);
 
     vkDestroySurfaceKHR(vulkanContext->instance, vulkanContext->surface, nullptr);
@@ -254,8 +255,10 @@ createSyncObjects(VulkanContext* vulkanContext)
 }
 
 void
-createCommandBuffers(VulkanContext* vulkanContext, ProfilingContext* profilingContext)
+createCommandBuffers(Context* context)
 {
+    VulkanContext* vulkanContext = context->vulkanContext;
+
     vulkanContext->commandBuffers.resize(vulkanContext->swapChainFramebuffers.size());
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -269,13 +272,15 @@ createCommandBuffers(VulkanContext* vulkanContext, ProfilingContext* profilingCo
         throw std::runtime_error("failed to allocate command buffers!");
     }
 
-    profilingContext->tracyContexts.resize(vulkanContext->swapChainFramebuffers.size());
+#ifdef PROFILE
+    context->profilingContext->tracyContexts.resize(vulkanContext->swapChainFramebuffers.size());
     for (u32 i = 0; i < vulkanContext->commandBuffers.size(); i++)
     {
-        profilingContext->tracyContexts[i] =
+        context->profilingContext->tracyContexts[i] =
             TracyVkContext(vulkanContext->physicalDevice, vulkanContext->device,
                            vulkanContext->graphicsQueue, vulkanContext->commandBuffers[i]);
     }
+#endif
 }
 
 void
