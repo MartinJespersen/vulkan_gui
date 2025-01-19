@@ -283,13 +283,12 @@ createCommandBuffers(Context* context)
 void
 createCommandPool(VulkanContext* vulkanContext)
 {
-    QueueFamilyIndices queueFamilyIndices =
-        findQueueFamilies(vulkanContext, vulkanContext->physicalDevice);
+    QueueFamilyIndices queueFamilyIndices = vulkanContext->queueFamilyIndices;
 
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+    poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamilyIndex;
 
     if (vkCreateCommandPool(vulkanContext->device, &poolInfo, nullptr,
                             &vulkanContext->commandPool) != VK_SUCCESS)
@@ -314,6 +313,7 @@ createImageViews(VulkanContext* vulkanContext)
 void
 createSwapChain(VulkanContext* vulkanContext)
 {
+    QueueFamilyIndices queueFamilyIndices = vulkanContext->queueFamilyIndices;
     SwapChainSupportDetails swapChainSupport =
         querySwapChainSupport(vulkanContext, vulkanContext->physicalDevice);
 
@@ -340,11 +340,10 @@ createSwapChain(VulkanContext* vulkanContext)
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    QueueFamilyIndices indices = findQueueFamilies(vulkanContext, vulkanContext->physicalDevice);
-    uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
-
-    if (indices.graphicsFamily != indices.presentFamily)
+    if (queueFamilyIndices.graphicsFamilyIndex != queueFamilyIndices.presentFamilyIndex)
     {
+        u32 queueFamilyIndices[] = {vulkanContext->queueFamilyIndices.graphicsFamilyIndex,
+                                    vulkanContext->queueFamilyIndices.presentFamilyIndex};
         createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         createInfo.queueFamilyIndexCount = 2;
         createInfo.pQueueFamilyIndices = queueFamilyIndices;
@@ -450,12 +449,12 @@ createInstance(VulkanContext* vulkanContext)
 void
 createLogicalDevice(VulkanContext* vulkanContext)
 {
-    QueueFamilyIndices indices = findQueueFamilies(vulkanContext, vulkanContext->physicalDevice);
+    QueueFamilyIndices queueFamilyIndicies = vulkanContext->queueFamilyIndices;
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     const u32 numberOfQueueFamilies = 2;
-    uint32_t uniqueQueueFamilies[numberOfQueueFamilies] = {indices.graphicsFamily.value(),
-                                                           indices.presentFamily.value()};
+    u32 uniqueQueueFamilies[numberOfQueueFamilies] = {queueFamilyIndicies.graphicsFamilyIndex,
+                                                      queueFamilyIndicies.presentFamilyIndex};
 
     float queuePriority = 1.0f;
     for (u32 i = 0; i < numberOfQueueFamilies; i++)
@@ -502,9 +501,9 @@ createLogicalDevice(VulkanContext* vulkanContext)
         exitWithError("failed to create logical device!");
     }
 
-    vkGetDeviceQueue(vulkanContext->device, indices.graphicsFamily.value(), 0,
+    vkGetDeviceQueue(vulkanContext->device, queueFamilyIndicies.graphicsFamilyIndex, 0,
                      &vulkanContext->graphicsQueue);
-    vkGetDeviceQueue(vulkanContext->device, indices.presentFamily.value(), 0,
+    vkGetDeviceQueue(vulkanContext->device, queueFamilyIndicies.presentFamilyIndex, 0,
                      &vulkanContext->presentQueue);
 }
 
@@ -526,10 +525,12 @@ pickPhysicalDevice(VulkanContext* vulkanContext)
 
     for (const auto& device : devices)
     {
-        if (isDeviceSuitable(vulkanContext, device))
+        QueueFamilyIndexBits familyIndexBits = QueueFamiliesFind(vulkanContext, device);
+        if (isDeviceSuitable(vulkanContext, device, familyIndexBits))
         {
             vulkanContext->physicalDevice = device;
             vulkanContext->msaaSamples = getMaxUsableSampleCount(device);
+            vulkanContext->queueFamilyIndices = QueueFamilyIndicesFromBitFields(familyIndexBits);
             break;
         }
     }
@@ -541,11 +542,12 @@ pickPhysicalDevice(VulkanContext* vulkanContext)
 }
 
 bool
-isDeviceSuitable(VulkanContext* vulkanContext, VkPhysicalDevice device)
+isDeviceSuitable(VulkanContext* vulkanContext, VkPhysicalDevice device,
+                 QueueFamilyIndexBits indexBits)
 {
     // NOTE: This is where you would implement your own checks to see if the
     // device is suitable for your needs
-    QueueFamilyIndices indices = findQueueFamilies(vulkanContext, device);
+
     bool extensionsSupported = checkDeviceExtensionSupport(vulkanContext, device);
 
     bool swapChainAdequate = false;
@@ -559,7 +561,7 @@ isDeviceSuitable(VulkanContext* vulkanContext, VkPhysicalDevice device)
     VkPhysicalDeviceFeatures supportedFeatures;
     vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
 
-    return indices.isComplete() && extensionsSupported && swapChainAdequate &&
+    return QueueFamilyIsComplete(indexBits) && extensionsSupported && swapChainAdequate &&
            supportedFeatures.samplerAnisotropy;
 }
 
@@ -650,38 +652,6 @@ populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
                              VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
                              VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
     createInfo.pfnUserCallback = debugCallback;
-}
-
-// // NOTE: you could add logic to explicitly prefer a physical device that
-// // supports drawing and presentation in the same queue for improved
-// // performance.
-QueueFamilyIndices
-findQueueFamilies(VulkanContext* vulkanContext, VkPhysicalDevice device)
-{
-    QueueFamilyIndices indices;
-    uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-
-    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
-    // Logic to find queue family indices to populate struct with
-    u32 i = 0;
-    for (const auto& queueFamily : queueFamilies)
-    {
-        if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-        {
-            indices.graphicsFamily = i;
-        }
-
-        VkBool32 presentSupport = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, vulkanContext->surface, &presentSupport);
-        if (presentSupport)
-        {
-            indices.presentFamily = i;
-        }
-        i++;
-    }
-    return indices;
 }
 
 bool

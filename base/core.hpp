@@ -49,6 +49,13 @@
 #define DLLInsert(f, l, p, n) DLLInsert_NPZ(f, l, p, n, next, prev, CheckNull, SetNull)
 #define DLLRemove(f, l, n) DLLRemove_NPZ(f, l, n, next, prev, CheckNull, SetNull)
 
+// bit arithmetic
+#ifdef __GNUC__
+#define LSBIndex(n) (__builtin_ffs((n)) - 1)
+#else
+#error compiler not supported
+#endif
+
 // buffer
 struct Buffer
 {

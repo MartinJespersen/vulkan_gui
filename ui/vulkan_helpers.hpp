@@ -13,6 +13,20 @@ struct SwapChainSupportDetails
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+// queue family
+struct QueueFamilyIndexBits
+{
+    u32 graphicsFamilyIndexBits;
+    u32 presentFamilyIndexBits;
+};
+
+struct QueueFamilyIndices
+{
+    u32 graphicsFamilyIndex;
+    u32 presentFamilyIndex;
+};
+
+// vulkan context
 struct VulkanContext
 {
     Arena* arena;
@@ -68,6 +82,9 @@ struct VulkanContext
 
     Vulkan_PushConstantInfo resolutionInfo;
     const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
+
+    // queue
+    QueueFamilyIndices queueFamilyIndices;
 };
 
 VkCommandBuffer
@@ -126,3 +143,14 @@ createRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFl
 
 VkShaderModule
 ShaderModuleCreate(VkDevice device, Buffer buffer);
+
+// queue family
+
+bool
+QueueFamilyIsComplete(QueueFamilyIndexBits queueFamily);
+
+QueueFamilyIndices
+QueueFamilyIndicesFromBitFields(QueueFamilyIndexBits queueFamilyBits);
+
+QueueFamilyIndexBits
+QueueFamiliesFind(VulkanContext* vulkanContext, VkPhysicalDevice device);

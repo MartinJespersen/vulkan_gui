@@ -546,3 +546,79 @@ ShaderModuleCreate(VkDevice device, Buffer buffer)
 
     return shaderModule;
 }
+
+// queue family
+bool
+QueueFamilyIsComplete(QueueFamilyIndexBits queueFamily)
+{
+    if ((!queueFamily.graphicsFamilyIndexBits) || (!queueFamily.presentFamilyIndexBits))
+    {
+        return false;
+    }
+    return true;
+}
+
+QueueFamilyIndices
+QueueFamilyIndicesFromBitFields(QueueFamilyIndexBits queueFamilyBits)
+{
+    if (!QueueFamilyIsComplete(queueFamilyBits))
+    {
+        exitWithError(
+            "Queue family is not complete either graphics or present queue is not supported");
+    }
+
+    QueueFamilyIndices indices = {0};
+    indices.graphicsFamilyIndex = (u32)LSBIndex((i32)queueFamilyBits.graphicsFamilyIndexBits);
+    indices.presentFamilyIndex = (u32)LSBIndex((i32)queueFamilyBits.presentFamilyIndexBits);
+
+    return indices;
+}
+
+// // NOTE: you could add logic to explicitly prefer a physical device that
+// // supports drawing and presentation in the same queue for improved
+// // performance.
+QueueFamilyIndexBits
+QueueFamiliesFind(VulkanContext* vulkanContext, VkPhysicalDevice device)
+{
+    ArenaTemp scratchArena = ArenaScratchBegin();
+    QueueFamilyIndexBits indices = {0};
+    u32 queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+    if (queueFamilyCount > sizeof(u32))
+    {
+        exitWithError("Too many queue families for current implmentation");
+    }
+
+    VkQueueFamilyProperties* queueFamilies =
+        PushArray(scratchArena.arena, VkQueueFamilyProperties, queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies);
+    // Logic to find queue family indices to populate struct with
+    for (u32 i = 0; i < queueFamilyCount; i++)
+    {
+        if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        {
+            indices.graphicsFamilyIndexBits |= (1 << i);
+        }
+
+        VkBool32 presentSupport = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, vulkanContext->surface, &presentSupport);
+        if (presentSupport)
+        {
+            indices.presentFamilyIndexBits |= (1 << i);
+        }
+    }
+
+    u32 sameFamily = indices.graphicsFamilyIndexBits & indices.presentFamilyIndexBits;
+    if (sameFamily)
+    {
+        sameFamily &= ((~sameFamily) + 1);
+        indices.graphicsFamilyIndexBits = sameFamily;
+        indices.presentFamilyIndexBits = sameFamily;
+    }
+
+    indices.graphicsFamilyIndexBits &= (~indices.graphicsFamilyIndexBits) + 1;
+    indices.presentFamilyIndexBits &= (~indices.presentFamilyIndexBits) + 1;
+
+    ArenaTempEnd(scratchArena);
+    return indices;
+}

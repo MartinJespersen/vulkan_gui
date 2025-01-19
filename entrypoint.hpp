@@ -19,18 +19,6 @@ const u64 MAX_BOX_INSTANCES = 1000;
 
 extern "C"
 {
-    struct QueueFamilyIndices
-    {
-        std::optional<uint32_t> graphicsFamily;
-        std::optional<uint32_t> presentFamily;
-
-        bool
-        isComplete()
-        {
-            return graphicsFamily.has_value() && presentFamily.has_value();
-        }
-    };
-
     struct ProfilingContext
     {
 #ifdef PROFILE
@@ -105,9 +93,6 @@ createLogicalDevice(VulkanContext* vulkanContext);
 void
 createSwapChain(VulkanContext* vulkanContext);
 
-QueueFamilyIndices
-findQueueFamilies(VulkanContext* vulkanContext, VkPhysicalDevice device);
-
 SwapChainSupportDetails
 querySwapChainSupport(VulkanContext* vulkanContext, VkPhysicalDevice device);
 
@@ -121,7 +106,8 @@ void
 populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 
 bool
-isDeviceSuitable(VulkanContext* vulkanContext, VkPhysicalDevice device);
+isDeviceSuitable(VulkanContext* vulkanContext, VkPhysicalDevice device,
+                 QueueFamilyIndexBits indexBits);
 
 VkSampleCountFlagBits
 getMaxUsableSampleCount(VkPhysicalDevice device);
