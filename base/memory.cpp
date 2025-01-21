@@ -68,11 +68,7 @@ ArenaTempEnd(ArenaTemp temp)
 // allocations
 
 #ifdef __linux__
-#include <string.h>
 #include <sys/mman.h>
-
-#include "error.hpp"
-#include "types.hpp"
 
 void*
 memAlloc(u64 size)

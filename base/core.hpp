@@ -49,6 +49,9 @@
 #define DLLInsert(f, l, p, n) DLLInsert_NPZ(f, l, p, n, next, prev, CheckNull, SetNull)
 #define DLLRemove(f, l, n) DLLRemove_NPZ(f, l, n, next, prev, CheckNull, SetNull)
 
+// string manipulation helpers
+#define CStrEqual(a, b) (!strcmp((a), (b)))
+
 // bit arithmetic
 #ifdef __GNUC__
 #define LSBIndex(n) (__builtin_ffs((n)) - 1)
@@ -56,15 +59,7 @@
 #error compiler not supported
 #endif
 
-// buffer
-struct Buffer
-{
-    u8* data;
-    u64 size;
-};
-
 // tread context
-#include "memory.hpp"
 
 struct ThreadCtx
 {
@@ -79,7 +74,6 @@ ThreadContextDealloc(ThreadCtx* ctx);
 
 // Strings
 
-#define CStrEqual(a, b) (!strcmp((a), (b)))
 struct String8
 {
     u64 size;

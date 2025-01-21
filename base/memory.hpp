@@ -61,3 +61,27 @@ ArenaScratchBegin();
 #define PushStruct(arena, type) PushArray((arena), type, 1)
 #define PushArrayZero(arena, type, count) ((type*)ArenaPushZero((arena), sizeof(type) * (count)))
 #define PushStructZero(arena, type) PushArrayZero((arena), type, 1)
+
+// Buffer impl and macros
+#define BufferDec(type)                                                                            \
+    struct type##_Buffer                                                                           \
+    {                                                                                              \
+        type* data;                                                                                \
+        u64 size;                                                                                  \
+    };                                                                                             \
+    type##_Buffer type##_Buffer_Alloc(Arena* arena, u64 count)
+
+#define BufferImpl(type)                                                                           \
+    type##_Buffer type##_Buffer_Alloc(Arena* arena, u64 count)                                     \
+    {                                                                                              \
+        type##_Buffer buffer = {0};                                                                \
+        buffer.data = PushArray(arena, type, count);                                               \
+        buffer.size = count;                                                                       \
+        return buffer;                                                                             \
+    }
+
+struct Buffer
+{
+    u8* data;
+    u64 size;
+};

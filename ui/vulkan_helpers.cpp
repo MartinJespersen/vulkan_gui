@@ -1,3 +1,7 @@
+// buffers
+BufferImpl(VkSurfaceFormatKHR);
+BufferImpl(VkPresentModeKHR);
+
 VkCommandBuffer
 beginSingleTimeCommands(VkDevice device, VkCommandPool commandPool)
 {
@@ -621,4 +625,37 @@ QueueFamiliesFind(VulkanContext* vulkanContext, VkPhysicalDevice device)
 
     ArenaTempEnd(scratchArena);
     return indices;
+}
+
+// swap chain
+SwapChainSupportDetails
+querySwapChainSupport(Arena* arena, VulkanContext* vulkanContext, VkPhysicalDevice device)
+{
+    SwapChainSupportDetails details;
+
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, vulkanContext->surface,
+                                              &details.capabilities);
+
+    u32 formatCount;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, vulkanContext->surface, &formatCount, nullptr);
+
+    if (formatCount != 0)
+    {
+        details.formats = VkSurfaceFormatKHR_Buffer_Alloc(arena, formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, vulkanContext->surface, &formatCount,
+                                             details.formats.data);
+    }
+
+    u32 presentModeCount;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, vulkanContext->surface, &presentModeCount,
+                                              nullptr);
+
+    if (presentModeCount != 0)
+    {
+        details.presentModes = VkPresentModeKHR_Buffer_Alloc(arena, presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, vulkanContext->surface, &presentModeCount,
+                                                  details.presentModes.data);
+    }
+
+    return details;
 }

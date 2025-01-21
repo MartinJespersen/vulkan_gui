@@ -90,9 +90,6 @@ createLogicalDevice(VulkanContext* vulkanContext);
 void
 createSwapChain(VulkanContext* vulkanContext);
 
-SwapChainSupportDetails
-querySwapChainSupport(VulkanContext* vulkanContext, VkPhysicalDevice device);
-
 VkExtent2D
 chooseSwapExtent(VulkanContext* vulkanContext, const VkSurfaceCapabilitiesKHR& capabilities);
 
@@ -116,7 +113,7 @@ bool
 checkValidationLayerSupport(VulkanContext* vulkanContext);
 
 VkSurfaceFormatKHR
-chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+chooseSwapSurfaceFormat(VkSurfaceFormatKHR_Buffer availableFormats);
 
 VkPresentModeKHR
-chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+chooseSwapPresentMode(VkPresentModeKHR_Buffer availablePresentModes);

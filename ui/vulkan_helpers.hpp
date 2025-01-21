@@ -1,5 +1,8 @@
 #pragma once
 
+BufferDec(VkSurfaceFormatKHR);
+BufferDec(VkPresentModeKHR);
+
 struct Vulkan_PushConstantInfo
 {
     uint32_t offset;
@@ -9,8 +12,8 @@ struct Vulkan_PushConstantInfo
 struct SwapChainSupportDetails
 {
     VkSurfaceCapabilitiesKHR capabilities;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
+    VkSurfaceFormatKHR_Buffer formats;
+    VkPresentModeKHR_Buffer presentModes;
 };
 
 // queue family
@@ -154,3 +157,7 @@ QueueFamilyIndicesFromBitFields(QueueFamilyIndexBits queueFamilyBits);
 
 QueueFamilyIndexBits
 QueueFamiliesFind(VulkanContext* vulkanContext, VkPhysicalDevice device);
+
+// swap chain
+SwapChainSupportDetails
+querySwapChainSupport(Arena* arena, VulkanContext* vulkanContext, VkPhysicalDevice device);

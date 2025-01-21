@@ -313,9 +313,11 @@ createImageViews(VulkanContext* vulkanContext)
 void
 createSwapChain(VulkanContext* vulkanContext)
 {
+    ArenaTemp scratchArena = ArenaScratchBegin();
+
     QueueFamilyIndices queueFamilyIndices = vulkanContext->queueFamilyIndices;
     SwapChainSupportDetails swapChainSupport =
-        querySwapChainSupport(vulkanContext, vulkanContext->physicalDevice);
+        querySwapChainSupport(scratchArena.arena, vulkanContext, vulkanContext->physicalDevice);
 
     VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
     VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
@@ -375,6 +377,8 @@ createSwapChain(VulkanContext* vulkanContext)
 
     vulkanContext->swapChainImageFormat = surfaceFormat.format;
     vulkanContext->swapChainExtent = extent;
+
+    ArenaTempEnd(scratchArena);
 }
 
 void
@@ -553,9 +557,9 @@ isDeviceSuitable(VulkanContext* vulkanContext, VkPhysicalDevice device,
     bool swapChainAdequate = false;
     if (extensionsSupported)
     {
-        SwapChainSupportDetails swapChainSupport = querySwapChainSupport(vulkanContext, device);
-        swapChainAdequate =
-            !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+        SwapChainSupportDetails swapChainDetails =
+            querySwapChainSupport(vulkanContext->arena, vulkanContext, device);
+        swapChainAdequate = swapChainDetails.formats.size && swapChainDetails.presentModes.size;
     }
 
     VkPhysicalDeviceFeatures supportedFeatures;
@@ -680,60 +684,28 @@ checkDeviceExtensionSupport(VulkanContext* vulkanContext, VkPhysicalDevice devic
     return numberOfRequiredExtenstions == 0;
 }
 
-SwapChainSupportDetails
-querySwapChainSupport(VulkanContext* vulkanContext, VkPhysicalDevice device)
-{
-    SwapChainSupportDetails details;
-
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, vulkanContext->surface,
-                                              &details.capabilities);
-
-    uint32_t formatCount;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, vulkanContext->surface, &formatCount, nullptr);
-
-    if (formatCount != 0)
-    {
-        details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, vulkanContext->surface, &formatCount,
-                                             details.formats.data());
-    }
-
-    uint32_t presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, vulkanContext->surface, &presentModeCount,
-                                              nullptr);
-
-    if (presentModeCount != 0)
-    {
-        details.presentModes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, vulkanContext->surface, &presentModeCount,
-                                                  details.presentModes.data());
-    }
-
-    return details;
-}
-
 VkSurfaceFormatKHR
-chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
+chooseSwapSurfaceFormat(VkSurfaceFormatKHR_Buffer availableFormats)
 {
-    for (const auto& availableFormat : availableFormats)
+    for (u32 i = 0; i < availableFormats.size; i++)
     {
-        if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB &&
-            availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+        if (availableFormats.data[i].format == VK_FORMAT_B8G8R8A8_SRGB &&
+            availableFormats.data[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
         {
-            return availableFormat;
+            return availableFormats.data[i];
         }
     }
-    return availableFormats[0];
+    return availableFormats.data[0];
 }
 
 VkPresentModeKHR
-chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
+chooseSwapPresentMode(VkPresentModeKHR_Buffer availablePresentModes)
 {
-    for (const auto& availablePresentMode : availablePresentModes)
+    for (u32 i = 0; i < availablePresentModes.size; i++)
     {
-        if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+        if (availablePresentModes.data[i] == VK_PRESENT_MODE_MAILBOX_KHR)
         {
-            return availablePresentMode;
+            return availablePresentModes.data[i];
         }
     }
     return VK_PRESENT_MODE_FIFO_KHR;
