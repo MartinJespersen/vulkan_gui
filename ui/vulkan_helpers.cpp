@@ -270,14 +270,11 @@ createColorResources(VkPhysicalDevice physicalDevice, VkDevice device,
     return createImageView(device, colorImage, colorFormat);
 }
 
-VkFramebuffer_Buffer
-createFramebuffers(Arena* arena, VkDevice device, VkImageView colorImageView,
+void
+createFramebuffers(VkFramebuffer_Buffer framebuffers, VkDevice device, VkImageView colorImageView,
                    VkRenderPass renderPass, VkExtent2D swapChainExtent,
                    VkImageView_Buffer swapChainImageViews)
 {
-    VkFramebuffer_Buffer swapChainFramebuffers =
-        VkFramebuffer_Buffer_Alloc(arena, swapChainImageViews.size);
-
     for (size_t i = 0; i < swapChainImageViews.size; i++)
     {
         const u32 attachmentCount = 2;
@@ -292,14 +289,12 @@ createFramebuffers(Arena* arena, VkDevice device, VkImageView colorImageView,
         framebufferInfo.height = swapChainExtent.height;
         framebufferInfo.layers = 1;
 
-        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr,
-                                &swapChainFramebuffers.data[i]) != VK_SUCCESS)
+        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &framebuffers.data[i]) !=
+            VK_SUCCESS)
         {
             exitWithError("failed to create framebuffer!");
         }
     }
-
-    return swapChainFramebuffers;
 }
 
 void

@@ -93,8 +93,17 @@ initVulkan(Context* context)
     createSurface(vulkanContext);
     pickPhysicalDevice(vulkanContext);
     createLogicalDevice(vulkanContext);
-    createSwapChain(vulkanContext);
-    createImageViews(vulkanContext);
+    SwapChainInfo swapChainInfo = SwapChainCreate(vulkanContext);
+    u32 swapChainImageCount = SwapChainImageCountGet(vulkanContext);
+    vulkanContext->swapChainImages =
+        VkImage_Buffer_Alloc(vulkanContext->arena, (u64)swapChainImageCount);
+    vulkanContext->swapChainImageViews =
+        VkImageView_Buffer_Alloc(vulkanContext->arena, (u64)swapChainImageCount);
+    vulkanContext->swapChainFramebuffers =
+        VkFramebuffer_Buffer_Alloc(vulkanContext->arena, (u64)swapChainImageCount);
+
+    SwapChainImagesCreate(vulkanContext, swapChainInfo, swapChainImageCount);
+    SwapChainImageViewsCreate(vulkanContext);
     createCommandPool(vulkanContext);
 
     vulkanContext->boxRenderPass = createRenderPass(
@@ -120,10 +129,9 @@ initVulkan(Context* context)
         vulkanContext->physicalDevice, vulkanContext->device, vulkanContext->swapChainImageFormat,
         vulkanContext->swapChainExtent, vulkanContext->msaaSamples, vulkanContext->colorImage,
         vulkanContext->colorImageMemory);
-    vulkanContext->swapChainFramebuffers =
-        createFramebuffers(vulkanContext->arena, vulkanContext->device,
-                           vulkanContext->colorImageView, vulkanContext->fontRenderPass,
-                           vulkanContext->swapChainExtent, vulkanContext->swapChainImageViews);
+    createFramebuffers(vulkanContext->swapChainFramebuffers, vulkanContext->device,
+                       vulkanContext->colorImageView, vulkanContext->fontRenderPass,
+                       vulkanContext->swapChainExtent, vulkanContext->swapChainImageViews);
     BoxIndexBufferCreate(context->boxContext, vulkanContext->physicalDevice, vulkanContext->device,
                          vulkanContext->commandPool, vulkanContext->graphicsQueue,
                          vulkanContext->indices);
@@ -326,11 +334,8 @@ createCommandPool(VulkanContext* vulkanContext)
 }
 
 void
-createImageViews(VulkanContext* vulkanContext)
+SwapChainImageViewsCreate(VulkanContext* vulkanContext)
 {
-    vulkanContext->swapChainImageViews =
-        VkImageView_Buffer_Alloc(vulkanContext->arena, vulkanContext->swapChainImages.size);
-
     for (uint32_t i = 0; i < vulkanContext->swapChainImages.size; i++)
     {
         vulkanContext->swapChainImageViews.data[i] =
@@ -340,34 +345,54 @@ createImageViews(VulkanContext* vulkanContext)
 }
 
 void
-createSwapChain(VulkanContext* vulkanContext)
+SwapChainImagesCreate(VulkanContext* vulkanContext, SwapChainInfo swapChainInfo, u32 imageCount)
 {
+    vkGetSwapchainImagesKHR(vulkanContext->device, vulkanContext->swapChain, &imageCount,
+                            vulkanContext->swapChainImages.data);
+
+    vulkanContext->swapChainImageFormat = swapChainInfo.surfaceFormat.format;
+    vulkanContext->swapChainExtent = swapChainInfo.extent;
+}
+
+u32
+SwapChainImageCountGet(VulkanContext* vulkanContext)
+{
+    u32 imageCount = {0};
+    vkGetSwapchainImagesKHR(vulkanContext->device, vulkanContext->swapChain, &imageCount, nullptr);
+    return imageCount;
+}
+
+SwapChainInfo
+SwapChainCreate(VulkanContext* vulkanContext)
+{
+    SwapChainInfo swapChainInfo = {0};
     ArenaTemp scratchArena = ArenaScratchBegin();
 
-    QueueFamilyIndices queueFamilyIndices = vulkanContext->queueFamilyIndices;
-    SwapChainSupportDetails swapChainSupport =
+    swapChainInfo.swapChainSupport =
         querySwapChainSupport(scratchArena.arena, vulkanContext, vulkanContext->physicalDevice);
 
-    VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-    VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-    VkExtent2D extent = chooseSwapExtent(vulkanContext, swapChainSupport.capabilities);
+    swapChainInfo.surfaceFormat = chooseSwapSurfaceFormat(swapChainInfo.swapChainSupport.formats);
+    swapChainInfo.presentMode = chooseSwapPresentMode(swapChainInfo.swapChainSupport.presentModes);
+    swapChainInfo.extent =
+        chooseSwapExtent(vulkanContext, swapChainInfo.swapChainSupport.capabilities);
 
-    uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+    u32 imageCount = swapChainInfo.swapChainSupport.capabilities.minImageCount + 1;
 
-    if (swapChainSupport.capabilities.maxImageCount > 0 &&
-        imageCount > swapChainSupport.capabilities.maxImageCount)
+    if (swapChainInfo.swapChainSupport.capabilities.maxImageCount > 0 &&
+        imageCount > swapChainInfo.swapChainSupport.capabilities.maxImageCount)
     {
-        imageCount = swapChainSupport.capabilities.maxImageCount;
+        imageCount = swapChainInfo.swapChainSupport.capabilities.maxImageCount;
     }
 
+    QueueFamilyIndices queueFamilyIndices = vulkanContext->queueFamilyIndices;
     VkSwapchainCreateInfoKHR createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     createInfo.surface = vulkanContext->surface;
 
     createInfo.minImageCount = imageCount;
-    createInfo.imageFormat = surfaceFormat.format;
-    createInfo.imageColorSpace = surfaceFormat.colorSpace;
-    createInfo.imageExtent = extent;
+    createInfo.imageFormat = swapChainInfo.surfaceFormat.format;
+    createInfo.imageColorSpace = swapChainInfo.surfaceFormat.colorSpace;
+    createInfo.imageExtent = swapChainInfo.extent;
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
@@ -386,9 +411,9 @@ createSwapChain(VulkanContext* vulkanContext)
         createInfo.pQueueFamilyIndices = nullptr; // Optional
     }
 
-    createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+    createInfo.preTransform = swapChainInfo.swapChainSupport.capabilities.currentTransform;
     createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    createInfo.presentMode = presentMode;
+    createInfo.presentMode = swapChainInfo.presentMode;
     createInfo.clipped = VK_TRUE;
     // It is possible to specify the old swap chain to be replaced by a new one
     createInfo.oldSwapchain = VK_NULL_HANDLE;
@@ -399,15 +424,8 @@ createSwapChain(VulkanContext* vulkanContext)
         exitWithError("failed to create swap chain!");
     }
 
-    vkGetSwapchainImagesKHR(vulkanContext->device, vulkanContext->swapChain, &imageCount, nullptr);
-    vulkanContext->swapChainImages = VkImage_Buffer_Alloc(vulkanContext->arena, imageCount);
-    vkGetSwapchainImagesKHR(vulkanContext->device, vulkanContext->swapChain, &imageCount,
-                            vulkanContext->swapChainImages.data);
-
-    vulkanContext->swapChainImageFormat = surfaceFormat.format;
-    vulkanContext->swapChainExtent = extent;
-
     ArenaTempEnd(scratchArena);
+    return swapChainInfo;
 }
 
 void
@@ -938,6 +956,7 @@ drawFrame(Context* context)
                         UINT64_MAX);
     }
 
+    // TODO: This is not correct as it only looks atttime
     context->frameRate = CalculateFrameRate(&context->frameTickPrev, context->cpuFreq);
 
     uint32_t imageIndex;
@@ -1032,14 +1051,16 @@ recreateSwapChain(VulkanContext* vulkanContext)
 
     cleanupSwapChain(vulkanContext);
 
-    createSwapChain(vulkanContext);
-    createImageViews(vulkanContext);
+    SwapChainInfo swapChainInfo = SwapChainCreate(vulkanContext);
+    u32 swapChainImageCount = SwapChainImageCountGet(vulkanContext);
+    SwapChainImagesCreate(vulkanContext, swapChainInfo, swapChainImageCount);
+
+    SwapChainImageViewsCreate(vulkanContext);
     vulkanContext->colorImageView = createColorResources(
         vulkanContext->physicalDevice, vulkanContext->device, vulkanContext->swapChainImageFormat,
         vulkanContext->swapChainExtent, vulkanContext->msaaSamples, vulkanContext->colorImage,
         vulkanContext->colorImageMemory);
-    vulkanContext->swapChainFramebuffers =
-        createFramebuffers(vulkanContext->arena, vulkanContext->device,
-                           vulkanContext->colorImageView, vulkanContext->fontRenderPass,
-                           vulkanContext->swapChainExtent, vulkanContext->swapChainImageViews);
+    createFramebuffers(vulkanContext->swapChainFramebuffers, vulkanContext->device,
+                       vulkanContext->colorImageView, vulkanContext->fontRenderPass,
+                       vulkanContext->swapChainExtent, vulkanContext->swapChainImageViews);
 }

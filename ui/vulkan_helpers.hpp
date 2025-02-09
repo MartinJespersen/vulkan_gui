@@ -37,6 +37,14 @@ struct QueueFamilyIndices
     u32 presentFamilyIndex;
 };
 
+struct SwapChainInfo
+{
+    SwapChainSupportDetails swapChainSupport;
+    VkSurfaceFormatKHR surfaceFormat;
+    VkPresentModeKHR presentMode;
+    VkExtent2D extent;
+};
+
 // vulkan context
 struct VulkanContext
 {
@@ -134,8 +142,8 @@ createColorResources(VkPhysicalDevice physicalDevice, VkDevice device,
                      VkSampleCountFlagBits msaaSamples, VkImage& colorImage,
                      VkDeviceMemory& colorImageMemory);
 
-VkFramebuffer_Buffer
-createFramebuffers(Arena* arena, VkDevice device, VkImageView colorImageView,
+void
+createFramebuffers(VkFramebuffer_Buffer framebuffers, VkDevice device, VkImageView colorImageView,
                    VkRenderPass renderPass, VkExtent2D swapChainExtent,
                    VkImageView_Buffer swapChainImageViews);
 

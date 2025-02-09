@@ -70,7 +70,7 @@ void
 createCommandBuffers(Context* context);
 
 void
-createImageViews(VulkanContext* vulkanContext);
+SwapChainImageViewsCreate(VulkanContext* vulkanContext);
 void
 createCommandPool(VulkanContext* vulkanContext);
 
@@ -88,8 +88,13 @@ void
 pickPhysicalDevice(VulkanContext* vulkanContext);
 void
 createLogicalDevice(VulkanContext* vulkanContext);
+
+SwapChainInfo
+SwapChainCreate(VulkanContext* vulkanContext);
+u32
+SwapChainImageCountGet(VulkanContext* vulkanContext);
 void
-createSwapChain(VulkanContext* vulkanContext);
+SwapChainImagesCreate(VulkanContext* vulkanContext, SwapChainInfo swapChainInfo, u32 imageCount);
 
 VkExtent2D
 chooseSwapExtent(VulkanContext* vulkanContext, const VkSurfaceCapabilitiesKHR& capabilities);
