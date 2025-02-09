@@ -7,45 +7,6 @@ memAlloc(u64 size);
 void
 memFree(void* ptr, u64 freeSize);
 
-// Arena
-struct Arena
-{
-    void* ptr;
-    u64 pos;
-    u64 max;
-    u64 align;
-};
-
-struct ArenaTemp
-{
-    Arena* arena;
-    u64 pos;
-};
-
-Arena*
-ArenaAlloc(u64 size);
-
-void
-ArenaDealloc(Arena* arena);
-
-void
-ArenaClear(Arena* arena);
-
-void*
-ArenaPush(Arena* arena, u64 size);
-
-void*
-ArenaPushZero(Arena* arena, u64 size);
-
-void
-ArenaPop(Arena* arena, u64 pos);
-
-ArenaTemp
-ArenaTempBegin(Arena* arena);
-
-void
-ArenaTempEnd(ArenaTemp temp);
-
 // scratch arena
 ArenaTemp
 ArenaScratchBegin();
@@ -62,7 +23,7 @@ ArenaScratchBegin();
 #define PushArrayZero(arena, type, count) ((type*)ArenaPushZero((arena), sizeof(type) * (count)))
 #define PushStructZero(arena, type) PushArrayZero((arena), type, 1)
 
-// Buffer impl and macros
+// Buffers
 #define BufferDec(type)                                                                            \
     struct type##_Buffer                                                                           \
     {                                                                                              \
@@ -85,3 +46,6 @@ struct Buffer
     u8* data;
     u64 size;
 };
+
+BufferDec(u16);
+BufferDec(String8);

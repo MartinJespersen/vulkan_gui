@@ -27,5 +27,5 @@ popd
 
 mkdir -p ${profile_dir} 
 g++ -c -fPIC ${cflags} -o ${tracy_lib_full_path} ${tracy_full_path} ${tracy_ldflags} -DTRACY_ENABLE 	
-g++ ${cflags} -shared -fPIC -o ${entrypoint_lib_full_path} ${entrypoint_file_name} ${tracy_lib_full_path} ${entrypoint_ldflags} -DTRACY_ENABLE
+g++ ${cflags} -shared -fPIC -o ${entrypoint_lib_full_path} ${entrypoint_file_name} ${tracy_lib_full_path} ${entrypoint_ldflags} -DTRACY_ENABLE -DPROFILING_ENABLE
 g++ -o ${exec_full_path} ${main_file_name} ${entrypoint_lib_full_path} ${cflags} ${exec_ldflags} -DPROFILING_ENABLE

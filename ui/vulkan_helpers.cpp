@@ -1,6 +1,14 @@
 // buffers
 BufferImpl(VkSurfaceFormatKHR);
 BufferImpl(VkPresentModeKHR);
+BufferImpl(VkImage);
+BufferImpl(VkImageView);
+BufferImpl(VkFramebuffer);
+BufferImpl(VkCommandBuffer);
+BufferImpl(VkSemaphore);
+BufferImpl(VkFence);
+BufferImpl(VkVertexInputAttributeDescription);
+BufferImpl(VkDescriptorSetLayout);
 
 VkCommandBuffer
 beginSingleTimeCommands(VkDevice device, VkCommandPool commandPool)
@@ -262,17 +270,18 @@ createColorResources(VkPhysicalDevice physicalDevice, VkDevice device,
     return createImageView(device, colorImage, colorFormat);
 }
 
-std::vector<VkFramebuffer>
-createFramebuffers(VkDevice device, VkImageView colorImageView, VkRenderPass renderPass,
-                   VkExtent2D swapChainExtent, std::vector<VkImageView> swapChainImageViews)
+VkFramebuffer_Buffer
+createFramebuffers(Arena* arena, VkDevice device, VkImageView colorImageView,
+                   VkRenderPass renderPass, VkExtent2D swapChainExtent,
+                   VkImageView_Buffer swapChainImageViews)
 {
-    std::vector<VkFramebuffer> swapChainFramebuffers = {};
-    swapChainFramebuffers.resize(swapChainImageViews.size());
+    VkFramebuffer_Buffer swapChainFramebuffers =
+        VkFramebuffer_Buffer_Alloc(arena, swapChainImageViews.size);
 
-    for (size_t i = 0; i < swapChainImageViews.size(); i++)
+    for (size_t i = 0; i < swapChainImageViews.size; i++)
     {
         const u32 attachmentCount = 2;
-        VkImageView attachments[attachmentCount] = {colorImageView, swapChainImageViews[i]};
+        VkImageView attachments[attachmentCount] = {colorImageView, swapChainImageViews.data[i]};
 
         VkFramebufferCreateInfo framebufferInfo{};
         framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -283,8 +292,8 @@ createFramebuffers(VkDevice device, VkImageView colorImageView, VkRenderPass ren
         framebufferInfo.height = swapChainExtent.height;
         framebufferInfo.layers = 1;
 
-        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) !=
-            VK_SUCCESS)
+        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr,
+                                &swapChainFramebuffers.data[i]) != VK_SUCCESS)
         {
             exitWithError("failed to create framebuffer!");
         }
@@ -298,7 +307,7 @@ createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPip
                        VkDevice device, VkExtent2D swapChainExtent, VkRenderPass renderPass,
                        VkDescriptorSetLayout descriptorSetLayout, VkSampleCountFlagBits msaaSamples,
                        VkVertexInputBindingDescription bindingDescription,
-                       std::vector<VkVertexInputAttributeDescription> attributeDescriptions,
+                       VkVertexInputAttributeDescription_Buffer attributeDescriptions,
                        Vulkan_PushConstantInfo pushConstInfo, std::string vertShaderPath,
                        std::string fragShaderPath, VkShaderStageFlagBits pushConstantStage)
 {
@@ -323,13 +332,12 @@ createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPip
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
-    std::vector<VkDynamicState> dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT,
-                                                 VK_DYNAMIC_STATE_SCISSOR};
+    VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
-    dynamicState.pDynamicStates = dynamicStates.data();
+    dynamicState.dynamicStateCount = (u32)(ArrayCount(dynamicStates));
+    dynamicState.pDynamicStates = dynamicStates;
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -339,10 +347,9 @@ createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPip
     vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
 
     vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.vertexAttributeDescriptionCount =
-        static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.vertexAttributeDescriptionCount = (u32)(attributeDescriptions.size);
     vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data;
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;

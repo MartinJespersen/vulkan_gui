@@ -7,7 +7,7 @@
                 "/home/martin/libraries/stb"
             ],
             "defines": [
-                "PROFILING_ENABLE"
+                // "PROFILING_ENABLE"
             ],
             "compilerPath": "/usr/bin/g++",
             "cStandard": "c17",

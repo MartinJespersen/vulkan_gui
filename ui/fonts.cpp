@@ -8,13 +8,13 @@ beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, 
                           u32 currentFrame)
 {
     VkExtent2D swapChainExtent = vulkanContext->swapChainExtent;
-    VkCommandBuffer commandBuffer = vulkanContext->commandBuffers[currentFrame];
+    VkCommandBuffer commandBuffer = vulkanContext->commandBuffers.data[currentFrame];
     Vulkan_PushConstantInfo pushConstantInfo = vulkanContext->resolutionInfo;
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass = vulkanContext->fontRenderPass;
-    renderPassInfo.framebuffer = vulkanContext->swapChainFramebuffers[imageIndex];
+    renderPassInfo.framebuffer = vulkanContext->swapChainFramebuffers.data[imageIndex];
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = swapChainExtent;
 
@@ -210,7 +210,7 @@ mapGlyphInstancesToBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevic
 void
 createGlyphIndexBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device)
 {
-    VkDeviceSize bufferSize = sizeof(glyphAtlas->indices[0]) * glyphAtlas->indices.size();
+    VkDeviceSize bufferSize = sizeof(glyphAtlas->indices.data[0]) * glyphAtlas->indices.size;
 
     createBuffer(
         physicalDevice, device, bufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
@@ -222,7 +222,7 @@ createGlyphIndexBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevice, 
 
     void* data;
     vkMapMemory(device, glyphAtlas->glyphIndexMemoryBuffer, 0, bufferSize, 0, &data);
-    MemoryCopy(data, glyphAtlas->indices.data(), (size_t)bufferSize);
+    MemoryCopy(data, glyphAtlas->indices.data, (size_t)bufferSize);
     vkUnmapMemory(device, glyphAtlas->glyphIndexMemoryBuffer);
 }
 
@@ -425,13 +425,19 @@ createFontDescriptorSets(Font* font, VkDescriptorPool descriptorPool,
                          VkDescriptorSetLayout descriptorSetLayout, VkDevice device,
                          const u32 MAX_FRAMES_IN_FLIGHT, Array<VkDescriptorSet> descriptorSets)
 {
-    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
+    ArenaTemp scratchArena = ArenaScratchBegin();
+    VkDescriptorSetLayout_Buffer layouts =
+        VkDescriptorSetLayout_Buffer_Alloc(scratchArena.arena, MAX_FRAMES_IN_FLIGHT);
+    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        layouts.data[i] = descriptorSetLayout;
+    }
 
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = descriptorPool;
-    allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-    allocInfo.pSetLayouts = layouts.data();
+    allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
+    allocInfo.pSetLayouts = layouts.data;
 
     if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data) != VK_SUCCESS)
     {
@@ -491,12 +497,11 @@ createFontDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout& descriptor
     samplerLayoutBinding.pImmutableSamplers = nullptr;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    const u32 bindingsCount = 1;
-    VkDescriptorSetLayoutBinding bindings[bindingsCount] = {samplerLayoutBinding};
+    VkDescriptorSetLayoutBinding bindings[] = {samplerLayoutBinding};
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = bindingsCount;
+    layoutInfo.bindingCount = ArrayCount(bindings);
     layoutInfo.pBindings = bindings;
 
     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) !=

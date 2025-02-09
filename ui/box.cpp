@@ -3,10 +3,9 @@ BoxInstance g_BoxInstance = {.next = &g_BoxInstance};
 
 void
 BoxIndexBufferCreate(BoxContext* boxContext, VkPhysicalDevice physicalDevice, VkDevice device,
-                     VkCommandPool commandPool, VkQueue graphicsQueue,
-                     std::vector<uint16_t> indices)
+                     VkCommandPool commandPool, VkQueue graphicsQueue, u16_Buffer indices)
 {
-    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+    VkDeviceSize bufferSize = sizeof(indices.data[0]) * indices.size;
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -16,7 +15,7 @@ BoxIndexBufferCreate(BoxContext* boxContext, VkPhysicalDevice physicalDevice, Vk
 
     void* data;
     vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    MemoryCopy(data, indices.data(), (size_t)bufferSize);
+    MemoryCopy(data, indices.data, (size_t)bufferSize);
     vkUnmapMemory(device, stagingBufferMemory);
 
     createBuffer(physicalDevice, device, bufferSize,
@@ -36,13 +35,13 @@ BoxRenderPassBegin(BoxContext* boxContext, VulkanContext* vulkanContext, u32 ima
                    u32 currentFrame)
 {
     VkExtent2D swapChainExtent = vulkanContext->swapChainExtent;
-    VkCommandBuffer commandBuffer = vulkanContext->commandBuffers[currentFrame];
+    VkCommandBuffer commandBuffer = vulkanContext->commandBuffers.data[currentFrame];
     Vulkan_PushConstantInfo pushContextInfo = vulkanContext->resolutionInfo;
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass = vulkanContext->boxRenderPass;
-    renderPassInfo.framebuffer = vulkanContext->swapChainFramebuffers[imageIndex];
+    renderPassInfo.framebuffer = vulkanContext->swapChainFramebuffers.data[imageIndex];
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = swapChainExtent;
 

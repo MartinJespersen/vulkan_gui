@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vector>
 // user defined: [hpp]
 #include "base/base.hpp"
 #include "ui/ui.hpp"
@@ -13,14 +12,17 @@ const u64 FONT_ARENA_SIZE = MEGABYTE(4);
 const u32 MAX_FONTS_IN_USE = 10;
 const u64 MAX_GLYPH_INSTANCES = 1000;
 const u64 MAX_BOX_INSTANCES = 1000;
+#ifdef PROFILING_ENABLE
+BufferDec(TracyVkCtx);
+#endif
 
 extern "C"
 {
     struct ProfilingContext
     {
-#ifdef PROFILE
+#ifdef PROFILING_ENABLE
         // tracy profiling context
-        std::vector<TracyVkCtx> tracyContexts;
+        TracyVkCtx_Buffer tracyContexts;
 #endif
     };
 
@@ -93,7 +95,7 @@ createSwapChain(VulkanContext* vulkanContext);
 VkExtent2D
 chooseSwapExtent(VulkanContext* vulkanContext, const VkSurfaceCapabilitiesKHR& capabilities);
 
-std::vector<const char*>
+String8_Buffer
 getRequiredExtensions(VulkanContext* vulkanContext);
 
 void

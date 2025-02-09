@@ -25,45 +25,45 @@ struct Vulkan_BoxInstance
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
         return bindingDescription;
     }
-    static std::vector<VkVertexInputAttributeDescription>
-    getAttributeDescriptions()
+    static VkVertexInputAttributeDescription_Buffer
+    getAttributeDescriptions(Arena* arena)
     {
-        std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
-        attributeDescriptions.resize(7);
-        attributeDescriptions[0].binding = 0;
-        attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[0].offset = offsetof(Vulkan_BoxInstance, pos0);
+        VkVertexInputAttributeDescription_Buffer attributeDescriptions =
+            VkVertexInputAttributeDescription_Buffer_Alloc(arena, 7);
+        attributeDescriptions.data[0].binding = 0;
+        attributeDescriptions.data[0].location = 0;
+        attributeDescriptions.data[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions.data[0].offset = offsetof(Vulkan_BoxInstance, pos0);
 
-        attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vulkan_BoxInstance, pos1);
+        attributeDescriptions.data[1].binding = 0;
+        attributeDescriptions.data[1].location = 1;
+        attributeDescriptions.data[1].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions.data[1].offset = offsetof(Vulkan_BoxInstance, pos1);
 
-        attributeDescriptions[2].binding = 0;
-        attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vulkan_BoxInstance, color);
+        attributeDescriptions.data[2].binding = 0;
+        attributeDescriptions.data[2].location = 2;
+        attributeDescriptions.data[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        attributeDescriptions.data[2].offset = offsetof(Vulkan_BoxInstance, color);
 
-        attributeDescriptions[3].binding = 0;
-        attributeDescriptions[3].location = 3;
-        attributeDescriptions[3].format = VK_FORMAT_R32_SFLOAT;
-        attributeDescriptions[3].offset = offsetof(Vulkan_BoxInstance, softness);
+        attributeDescriptions.data[3].binding = 0;
+        attributeDescriptions.data[3].location = 3;
+        attributeDescriptions.data[3].format = VK_FORMAT_R32_SFLOAT;
+        attributeDescriptions.data[3].offset = offsetof(Vulkan_BoxInstance, softness);
 
-        attributeDescriptions[4].binding = 0;
-        attributeDescriptions[4].location = 4;
-        attributeDescriptions[4].format = VK_FORMAT_R32_SFLOAT;
-        attributeDescriptions[4].offset = offsetof(Vulkan_BoxInstance, borderThickness);
+        attributeDescriptions.data[4].binding = 0;
+        attributeDescriptions.data[4].location = 4;
+        attributeDescriptions.data[4].format = VK_FORMAT_R32_SFLOAT;
+        attributeDescriptions.data[4].offset = offsetof(Vulkan_BoxInstance, borderThickness);
 
-        attributeDescriptions[5].binding = 0;
-        attributeDescriptions[5].location = 5;
-        attributeDescriptions[5].format = VK_FORMAT_R32_SFLOAT;
-        attributeDescriptions[5].offset = offsetof(Vulkan_BoxInstance, cornerRadius);
+        attributeDescriptions.data[5].binding = 0;
+        attributeDescriptions.data[5].location = 5;
+        attributeDescriptions.data[5].format = VK_FORMAT_R32_SFLOAT;
+        attributeDescriptions.data[5].offset = offsetof(Vulkan_BoxInstance, cornerRadius);
 
-        attributeDescriptions[6].binding = 0;
-        attributeDescriptions[6].location = 6;
-        attributeDescriptions[6].format = VK_FORMAT_R32_UINT;
-        attributeDescriptions[6].offset = offsetof(Vulkan_BoxInstance, attributes);
+        attributeDescriptions.data[6].binding = 0;
+        attributeDescriptions.data[6].location = 6;
+        attributeDescriptions.data[6].format = VK_FORMAT_R32_UINT;
+        attributeDescriptions.data[6].offset = offsetof(Vulkan_BoxInstance, attributes);
 
         return attributeDescriptions;
     }
@@ -107,8 +107,7 @@ struct BoxContext
 
 void
 BoxIndexBufferCreate(BoxContext* boxContext, VkPhysicalDevice physicalDevice, VkDevice device,
-                     VkCommandPool commandPool, VkQueue graphicsQueue,
-                     std::vector<uint16_t> indices);
+                     VkCommandPool commandPool, VkQueue graphicsQueue, u16_Buffer indices);
 
 void
 BoxRenderPassBegin(BoxContext* boxContext, VulkanContext* vulkanContext, u32 imageIndex,

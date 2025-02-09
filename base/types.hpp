@@ -17,6 +17,71 @@ typedef int64_t i64;
 typedef float f32;
 typedef double f64;
 
+// Arena
+struct Arena
+{
+    void* ptr;
+    u64 pos;
+    u64 max;
+    u64 align;
+};
+
+struct ArenaTemp
+{
+    Arena* arena;
+    u64 pos;
+};
+
+Arena*
+ArenaAlloc(u64 size);
+
+void
+ArenaDealloc(Arena* arena);
+
+void
+ArenaClear(Arena* arena);
+
+void*
+ArenaPush(Arena* arena, u64 size);
+
+void*
+ArenaPushZero(Arena* arena, u64 size);
+
+void
+ArenaPop(Arena* arena, u64 pos);
+
+ArenaTemp
+ArenaTempBegin(Arena* arena);
+
+void
+ArenaTempEnd(ArenaTemp temp);
+
+// Strings
+struct String8
+{
+    u64 size;
+    u8* str;
+};
+
+String8
+Str8(u8* str, u64 size);
+
+String8
+Str8Push(Arena* arena, String8 str);
+
+String8
+Str8NullTermFromStr8(String8 str);
+
+u8*
+StrFromU128(Arena* arena, u128 num);
+
+String8
+Str8(Arena* arena, char* str);
+
+char*
+CharFromStr8(String8 str);
+
+// geometry
 enum Axis2
 {
     Axis2_X,

@@ -2,6 +2,14 @@
 
 BufferDec(VkSurfaceFormatKHR);
 BufferDec(VkPresentModeKHR);
+BufferDec(VkImage);
+BufferDec(VkImageView);
+BufferDec(VkFramebuffer);
+BufferDec(VkCommandBuffer);
+BufferDec(VkSemaphore);
+BufferDec(VkFence);
+BufferDec(VkVertexInputAttributeDescription);
+BufferDec(VkDescriptorSetLayout);
 
 struct Vulkan_PushConstantInfo
 {
@@ -38,10 +46,9 @@ struct VulkanContext
     const u32 HEIGHT = 600;
     const u32 MAX_FRAMES_IN_FLIGHT = 2;
 
-    const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
+    char* validationLayers[1] = {"VK_LAYER_KHRONOS_validation"};
 
-    static const u64 deviceExtensionCount = 1;
-    const char* const deviceExtensions[deviceExtensionCount] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    char* deviceExtensions[1] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 #ifdef NDEBUG
     const u8 enableValidationLayers = 0;
@@ -59,19 +66,19 @@ struct VulkanContext
     VkSurfaceKHR surface;
     VkQueue presentQueue;
     VkSwapchainKHR swapChain;
-    std::vector<VkImage> swapChainImages;
+    VkImage_Buffer swapChainImages;
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
-    std::vector<VkImageView> swapChainImageViews;
+    VkImageView_Buffer swapChainImageViews;
 
-    std::vector<VkFramebuffer> swapChainFramebuffers;
+    VkFramebuffer_Buffer swapChainFramebuffers;
     VkCommandPool commandPool;
-    std::vector<VkCommandBuffer> commandBuffers;
+    VkCommandBuffer_Buffer commandBuffers;
 
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-    std::vector<VkFence> inFlightFences;
-    uint32_t currentFrame = 0;
+    VkSemaphore_Buffer imageAvailableSemaphores;
+    VkSemaphore_Buffer renderFinishedSemaphores;
+    VkFence_Buffer inFlightFences;
+    u32 currentFrame = 0;
 
     // TODO: add descriptor set layout and descriptor set to glyph atlas and rectangle
 
@@ -84,7 +91,7 @@ struct VulkanContext
     VkRenderPass fontRenderPass;
 
     Vulkan_PushConstantInfo resolutionInfo;
-    const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
+    u16_Buffer indices;
 
     // queue
     QueueFamilyIndices queueFamilyIndices;
@@ -127,16 +134,17 @@ createColorResources(VkPhysicalDevice physicalDevice, VkDevice device,
                      VkSampleCountFlagBits msaaSamples, VkImage& colorImage,
                      VkDeviceMemory& colorImageMemory);
 
-std::vector<VkFramebuffer>
-createFramebuffers(VkDevice device, VkImageView colorImageView, VkRenderPass renderPass,
-                   VkExtent2D swapChainExtent, std::vector<VkImageView> swapChainImageViews);
+VkFramebuffer_Buffer
+createFramebuffers(Arena* arena, VkDevice device, VkImageView colorImageView,
+                   VkRenderPass renderPass, VkExtent2D swapChainExtent,
+                   VkImageView_Buffer swapChainImageViews);
 
 void
 createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPipeline,
                        VkDevice device, VkExtent2D swapChainExtent, VkRenderPass renderPass,
                        VkDescriptorSetLayout descriptorSetLayout, VkSampleCountFlagBits msaaSamples,
                        VkVertexInputBindingDescription bindingDescription,
-                       std::vector<VkVertexInputAttributeDescription> attributeDescriptions,
+                       VkVertexInputAttributeDescription_Buffer attributeDescriptions,
                        Vulkan_PushConstantInfo pushConstInfo, std::string vertShaderPath,
                        std::string fragShaderPath, VkShaderStageFlagBits pushConstantStage);
 

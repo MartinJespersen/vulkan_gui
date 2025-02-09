@@ -33,25 +33,25 @@ struct Vulkan_GlyphInstance
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
         return bindingDescription;
     }
-    static std::vector<VkVertexInputAttributeDescription>
-    getAttributeDescriptions()
+    static VkVertexInputAttributeDescription_Buffer
+    getAttributeDescriptions(Arena* arena)
     {
-        std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
-        attributeDescriptions.resize(3);
-        attributeDescriptions[0].binding = 0;
-        attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[0].offset = offsetof(Vulkan_GlyphInstance, pos0);
+        VkVertexInputAttributeDescription_Buffer attributeDescriptions =
+            VkVertexInputAttributeDescription_Buffer_Alloc(arena, 3);
+        attributeDescriptions.data[0].binding = 0;
+        attributeDescriptions.data[0].location = 0;
+        attributeDescriptions.data[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions.data[0].offset = offsetof(Vulkan_GlyphInstance, pos0);
 
-        attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vulkan_GlyphInstance, pos1);
+        attributeDescriptions.data[1].binding = 0;
+        attributeDescriptions.data[1].location = 1;
+        attributeDescriptions.data[1].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions.data[1].offset = offsetof(Vulkan_GlyphInstance, pos1);
 
-        attributeDescriptions[2].binding = 0;
-        attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vulkan_GlyphInstance, glyphOffset);
+        attributeDescriptions.data[2].binding = 0;
+        attributeDescriptions.data[2].location = 2;
+        attributeDescriptions.data[2].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions.data[2].offset = offsetof(Vulkan_GlyphInstance, glyphOffset);
 
         return attributeDescriptions;
     }
@@ -89,7 +89,7 @@ struct GlyphAtlas
     Font* fontList;
     Array<Vulkan_GlyphInstance> glyphInstanceBuffer;
     u64 numInstances;
-    const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
+    u16_Buffer indices;
 
     // Vulkan part
     VkBuffer glyphInstBuffer;

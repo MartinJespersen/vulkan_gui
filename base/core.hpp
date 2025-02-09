@@ -59,6 +59,11 @@
 #error compiler not supported
 #endif
 
+// math
+template <typename N>
+N
+Clamp(N d, N min, N max);
+
 // tread context
 
 struct ThreadCtx
@@ -71,26 +76,3 @@ ThreadContextAlloc();
 
 void
 ThreadContextDealloc(ThreadCtx* ctx);
-
-// Strings
-
-struct String8
-{
-    u64 size;
-    u8* str;
-};
-
-String8
-Str8(u8* str, u64 size);
-
-String8
-Str8Push(Arena* arena, String8 str);
-
-String8
-Str8NullTermFromStr8(String8 str);
-
-u8*
-StrFromU128(Arena* arena, u128 num);
-
-String8
-Str8(Arena* arena, char* str);
