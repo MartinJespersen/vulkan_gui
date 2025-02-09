@@ -90,7 +90,7 @@ void
 createLogicalDevice(VulkanContext* vulkanContext);
 
 SwapChainInfo
-SwapChainCreate(VulkanContext* vulkanContext);
+SwapChainCreate(Arena* arena, VulkanContext* vulkanContext);
 u32
 SwapChainImageCountGet(VulkanContext* vulkanContext);
 void

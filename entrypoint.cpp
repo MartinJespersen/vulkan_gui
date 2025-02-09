@@ -82,6 +82,8 @@ IndexBufferAlloc(VulkanContext* vulkanContext, GlyphAtlas* glyphAtlas)
 void
 initVulkan(Context* context)
 {
+    ArenaTemp scratchArena = ArenaScratchBegin();
+
     VulkanContext* vulkanContext = context->vulkanContext;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
     BoxContext* boxContext = context->boxContext;
@@ -93,7 +95,7 @@ initVulkan(Context* context)
     createSurface(vulkanContext);
     pickPhysicalDevice(vulkanContext);
     createLogicalDevice(vulkanContext);
-    SwapChainInfo swapChainInfo = SwapChainCreate(vulkanContext);
+    SwapChainInfo swapChainInfo = SwapChainCreate(scratchArena.arena, vulkanContext);
     u32 swapChainImageCount = SwapChainImageCountGet(vulkanContext);
     vulkanContext->swapChainImages =
         VkImage_Buffer_Alloc(vulkanContext->arena, (u64)swapChainImageCount);
@@ -175,6 +177,8 @@ initVulkan(Context* context)
 
     createCommandBuffers(context);
     createSyncObjects(vulkanContext);
+
+    ArenaTempEnd(scratchArena);
 }
 
 void
@@ -363,13 +367,12 @@ SwapChainImageCountGet(VulkanContext* vulkanContext)
 }
 
 SwapChainInfo
-SwapChainCreate(VulkanContext* vulkanContext)
+SwapChainCreate(Arena* arena, VulkanContext* vulkanContext)
 {
     SwapChainInfo swapChainInfo = {0};
-    ArenaTemp scratchArena = ArenaScratchBegin();
 
     swapChainInfo.swapChainSupport =
-        querySwapChainSupport(scratchArena.arena, vulkanContext, vulkanContext->physicalDevice);
+        querySwapChainSupport(arena, vulkanContext, vulkanContext->physicalDevice);
 
     swapChainInfo.surfaceFormat = chooseSwapSurfaceFormat(swapChainInfo.swapChainSupport.formats);
     swapChainInfo.presentMode = chooseSwapPresentMode(swapChainInfo.swapChainSupport.presentModes);
@@ -424,7 +427,6 @@ SwapChainCreate(VulkanContext* vulkanContext)
         exitWithError("failed to create swap chain!");
     }
 
-    ArenaTempEnd(scratchArena);
     return swapChainInfo;
 }
 
@@ -965,14 +967,12 @@ drawFrame(Context* context)
         vulkanContext->imageAvailableSemaphores.data[vulkanContext->currentFrame], VK_NULL_HANDLE,
         &imageIndex);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
-        vulkanContext->framebufferResized)
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
     {
-        vulkanContext->framebufferResized = 0;
         recreateSwapChain(vulkanContext);
         return;
     }
-    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+    else if (result != VK_SUCCESS)
     {
         exitWithError("failed to acquire swap chain image!");
     }
@@ -1040,6 +1040,7 @@ drawFrame(Context* context)
 void
 recreateSwapChain(VulkanContext* vulkanContext)
 {
+    ArenaTemp scratchArena = ArenaScratchBegin();
     int width = 0, height = 0;
     glfwGetFramebufferSize(vulkanContext->window, &width, &height);
     while (width == 0 || height == 0)
@@ -1051,7 +1052,7 @@ recreateSwapChain(VulkanContext* vulkanContext)
 
     cleanupSwapChain(vulkanContext);
 
-    SwapChainInfo swapChainInfo = SwapChainCreate(vulkanContext);
+    SwapChainInfo swapChainInfo = SwapChainCreate(scratchArena.arena, vulkanContext);
     u32 swapChainImageCount = SwapChainImageCountGet(vulkanContext);
     SwapChainImagesCreate(vulkanContext, swapChainInfo, swapChainImageCount);
 
@@ -1063,4 +1064,5 @@ recreateSwapChain(VulkanContext* vulkanContext)
     createFramebuffers(vulkanContext->swapChainFramebuffers, vulkanContext->device,
                        vulkanContext->colorImageView, vulkanContext->fontRenderPass,
                        vulkanContext->swapChainExtent, vulkanContext->swapChainImageViews);
+    ArenaTempEnd(scratchArena);
 }
