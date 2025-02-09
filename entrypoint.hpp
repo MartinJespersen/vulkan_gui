@@ -47,7 +47,6 @@ extern "C"
     InitContext(Context* context);
     void
     DeleteContext(Context* context);
-
     void
     initWindow(Context* context);
     void

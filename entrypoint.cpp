@@ -191,7 +191,7 @@ cleanup(Context* context)
     vkDestroyRenderPass(vulkanContext->device, vulkanContext->boxRenderPass, nullptr);
     vkDestroyRenderPass(vulkanContext->device, vulkanContext->fontRenderPass, nullptr);
 
-#ifdef PROFILE
+#ifdef PROFILING_ENABLE
     for (u32 i = 0; i < context->profilingContext->tracyContexts.size; i++)
     {
         TracyVkDestroy(context->profilingContext->tracyContexts.data[i]);
@@ -296,7 +296,7 @@ createCommandBuffers(Context* context)
         exitWithError("failed to allocate command buffers!");
     }
 
-#ifdef PROFILE
+#ifdef PROFILING_ENABLE
     context->profilingContext->tracyContexts =
         TracyVkCtx_Buffer_Alloc(vulkanContext->arena, vulkanContext->swapChainFramebuffers.size);
     for (u32 i = 0; i < vulkanContext->commandBuffers.size; i++)

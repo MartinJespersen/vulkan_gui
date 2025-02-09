@@ -16,7 +16,7 @@ entrypoint_lib_full_path="${profile_dir}/${lib_name}"
 tracy_lib_full_path="${profile_dir}/${tracy_lib_name}"
 
 cflags="-std=c++20 -O3 -Wno-write-strings -Wno-unused-result -maes -msse4 -DNDEBUG"
-cwd_ldflags="-I. -I${stb_include_path} -DPROFILE"
+cwd_ldflags="-I. -I${stb_include_path}"
 entrypoint_ldflags="-lglfw -lvulkan -lpthread -lX11 -lXxf86vm -lXrandr -lXi -lfreetype ${cwd_ldflags}"
 exec_ldflags="-lglfw -ldl ${cwd_ldflags}"
 tracy_ldflags="${cwd_ldflags}"
