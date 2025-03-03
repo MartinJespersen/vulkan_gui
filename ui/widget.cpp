@@ -50,7 +50,7 @@ UI_Widget_Allocate(UI_State* uiState)
 bool
 UI_WidgetSlot_IsNull(UI_WidgetSlot* slot)
 {
-    return slot == nullptr || slot == &g_UI_WidgetSlot;
+    return slot == nullptr;
 }
 
 UI_Widget*
@@ -89,9 +89,10 @@ UI_Key_IsNull(UI_Key key)
 // Button impl
 
 void
-AddButton(String8 widgetName, UI_State* uiState, Arena* arena, Box* box, VkExtent2D swapChainExtent,
-          Font* font, const F32Vec4 color, const std::string text, f32 softness,
-          f32 borderThickness, f32 cornerRadius, UI_IO* io, F32Vec4 positions, UI_WidgetFlags flags)
+AddButton(String8 widgetName, UI_State* uiState, GlyphAtlas* glyphAtlas, Arena* arena, Box* box,
+          VkExtent2D swapChainExtent, const F32Vec4 color, const std::string text, f32 softness,
+          f32 borderThickness, f32 cornerRadius, UI_IO* io, F32Vec4 positions, UI_WidgetFlags flags,
+          u32 fontSize)
 {
     UI_Key key = UI_Key_Calculate(widgetName);
     UI_Widget* widget = UI_Widget_FromKey(uiState, key);
@@ -108,6 +109,7 @@ AddButton(String8 widgetName, UI_State* uiState, Arena* arena, Box* box, VkExten
 
     // Reaction to previous render pass
 
+    Font* font = FontFindOrCreate(glyphAtlas, fontSize);
     Vec2<f32> textDimPx = calculateTextDimensions(font, text);
     Vec2 diffDim = pos1Px - pos0Px - textDimPx;
     Vec2 glyphPos = pos0Px + diffDim / 2.0f;

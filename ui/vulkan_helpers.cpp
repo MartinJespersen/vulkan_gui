@@ -590,10 +590,6 @@ QueueFamiliesFind(VulkanContext* vulkanContext, VkPhysicalDevice device)
     QueueFamilyIndexBits indices = {0};
     u32 queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-    if (queueFamilyCount > sizeof(u32))
-    {
-        exitWithError("Too many queue families for current implmentation");
-    }
 
     VkQueueFamilyProperties* queueFamilies =
         PushArray(scratchArena.arena, VkQueueFamilyProperties, queueFamilyCount);

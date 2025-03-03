@@ -20,7 +20,7 @@
 
 void (*drawFrameLib)(Context*);
 void (*cleanupLib)(Context*);
-void (*initVulkanLib)(Context*);
+void (*VulkanInitLib)(Context*);
 void (*InitContextLib)(Context*);
 void (*DeleteContextLib)(Context*);
 
@@ -109,10 +109,10 @@ loadLibrary()
         exit(EXIT_FAILURE);
     }
 
-    initVulkanLib = (void (*)(Context*))dlsym(entryHandle, "initVulkan");
-    if (!initVulkanLib)
+    VulkanInitLib = (void (*)(Context*))dlsym(entryHandle, "VulkanInit");
+    if (!VulkanInitLib)
     {
-        printf("Failed to load initVulkan: %s", dlerror());
+        printf("Failed to load VulkanInit: %s", dlerror());
         exit(EXIT_FAILURE);
     }
 
@@ -268,7 +268,7 @@ run()
     }
 
 #else
-    initVulkanLib = initVulkan;
+    VulkanInitLib = VulkanInit;
     drawFrameLib = drawFrame;
     cleanupLib = cleanup;
     InitContextLib = InitContext;
@@ -287,7 +287,7 @@ run()
 
     initWindow(&context);
     InitContextLib(&context);
-    initVulkanLib(&context);
+    VulkanInitLib(&context);
 
     while (!glfwWindowShouldClose(vulkanContext.window))
     {

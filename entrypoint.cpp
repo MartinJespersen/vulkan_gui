@@ -80,7 +80,7 @@ IndexBufferAlloc(VulkanContext* vulkanContext, GlyphAtlas* glyphAtlas)
 }
 
 void
-initVulkan(Context* context)
+VulkanInit(Context* context)
 {
     ArenaTemp scratchArena = ArenaScratchBegin();
 
@@ -137,43 +137,6 @@ initVulkan(Context* context)
     BoxIndexBufferCreate(context->boxContext, vulkanContext->physicalDevice, vulkanContext->device,
                          vulkanContext->commandPool, vulkanContext->graphicsQueue,
                          vulkanContext->indices);
-
-    {
-        u32 test_fontSizes[] = {30, 50};
-        u32 numFonts = sizeof(test_fontSizes) / sizeof(u32);
-
-        u32 totalDescSet = vulkanContext->MAX_FRAMES_IN_FLIGHT * numFonts;
-        createFontDescriptorSetLayout(vulkanContext->device, glyphAtlas->descriptorSetLayout);
-        createFontDescriptorPool(vulkanContext->device, totalDescSet, glyphAtlas->descriptorPool);
-
-        for (u32 fontIndex = 0; fontIndex < numFonts; fontIndex++)
-        {
-            Font* font = PushStructZero(glyphAtlas->fontArena, Font);
-            StackPush(glyphAtlas->fontList, font);
-            FontInit(glyphAtlas->fontArena, font, test_fontSizes[fontIndex], MAX_GLYPHS);
-
-            createGlyphAtlasImage(font, vulkanContext->physicalDevice, vulkanContext->device,
-                                  vulkanContext->commandPool, vulkanContext->graphicsQueue);
-            createGlyphAtlasImageView(font, vulkanContext->device);
-            createGlyphAtlasTextureSampler(font, vulkanContext->physicalDevice,
-                                           vulkanContext->device);
-            font->descriptorSets = ArrayAlloc<VkDescriptorSet>(glyphAtlas->fontArena,
-                                                               vulkanContext->MAX_FRAMES_IN_FLIGHT);
-            createFontDescriptorSets(font, glyphAtlas->descriptorPool,
-                                     glyphAtlas->descriptorSetLayout, vulkanContext->device,
-                                     vulkanContext->MAX_FRAMES_IN_FLIGHT, font->descriptorSets);
-        }
-
-        createGraphicsPipeline(&glyphAtlas->pipelineLayout, &glyphAtlas->graphicsPipeline,
-                               vulkanContext->device, vulkanContext->swapChainExtent,
-                               vulkanContext->fontRenderPass, glyphAtlas->descriptorSetLayout,
-                               vulkanContext->msaaSamples,
-                               Vulkan_GlyphInstance::getBindingDescription(),
-                               Vulkan_GlyphInstance::getAttributeDescriptions(vulkanContext->arena),
-                               vulkanContext->resolutionInfo, "shaders/text_vert.spv",
-                               "shaders/text_frag.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        createGlyphIndexBuffer(glyphAtlas, vulkanContext->physicalDevice, vulkanContext->device);
-    }
 
     createCommandBuffers(context);
     createSyncObjects(vulkanContext);
@@ -495,9 +458,14 @@ createLogicalDevice(VulkanContext* vulkanContext)
 {
     QueueFamilyIndices queueFamilyIndicies = vulkanContext->queueFamilyIndices;
 
-    const u32 uniqueQueueFamiliesCount = 2;
-    u32 uniqueQueueFamilies[uniqueQueueFamiliesCount] = {queueFamilyIndicies.graphicsFamilyIndex,
-                                                         queueFamilyIndicies.presentFamilyIndex};
+    u32 uniqueQueueFamiliesCount = 1;
+    if (queueFamilyIndicies.graphicsFamilyIndex != queueFamilyIndicies.presentFamilyIndex)
+    {
+        uniqueQueueFamiliesCount++;
+    }
+
+    u32 uniqueQueueFamilies[] = {queueFamilyIndicies.graphicsFamilyIndex,
+                                 queueFamilyIndicies.presentFamilyIndex};
 
     VkDeviceQueueCreateInfo queueCreateInfos[uniqueQueueFamiliesCount];
     float queuePriority = 1.0f;
@@ -834,10 +802,6 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
 {
     ZoneScoped;
     ArenaTemp frameArena = ArenaScratchBegin();
-    for (Font* font = context->glyphAtlas->fontList; !CheckEmpty(font, &g_font); font = font->next)
-    {
-        font->instances = 0;
-    }
 
     VulkanContext* vulkanContext = context->vulkanContext;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
@@ -862,24 +826,21 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     {
         ZoneScopedN("Create Buttom");
         // temporary way of choosing font
-        Font* font;
-        if (!FontExists(glyphAtlas->fontList, 50, &font))
-        {
-            exitWithError("Font has not been loaded");
-        }
         String8 name = Str8(frameArena.arena, "test_name");
         F32Vec4 positions = {0.2f, 0.2f, 0.8f, 0.4f};
         F32Vec4 color = {0.0f, 0.8f, 0.8f, 0.1f};
         UI_WidgetFlags flags = UI_WidgetFlag_Clickable;
-        AddButton(name, context->uiState, frameArena.arena, box, vulkanContext->swapChainExtent,
-                  font, color, "Press Yes or No", 1.0f, 10.0f, 5.0f, context->io, positions, flags);
+        AddButton(name, context->uiState, glyphAtlas, frameArena.arena, box,
+                  vulkanContext->swapChainExtent, color, "Press Yes or No", 1.0f, 10.0f, 5.0f,
+                  context->io, positions, flags, 30);
 
         name = Str8(frameArena.arena, "test_name_2");
         positions = {0.2f, 0.6f, 0.8f, 0.8f};
         color = {0.8f, 0.8f, 0.0f, 0.2f};
         flags = 0;
-        AddButton(name, context->uiState, frameArena.arena, box, vulkanContext->swapChainExtent,
-                  font, color, "Press Yes or No", 1.0f, 10.0f, 5.0f, context->io, positions, flags);
+        AddButton(name, context->uiState, glyphAtlas, frameArena.arena, box,
+                  vulkanContext->swapChainExtent, color, "Press Yes or No", 1.0f, 10.0f, 5.0f,
+                  context->io, positions, flags, 50);
     }
     // recording rectangles
     {
@@ -893,17 +854,12 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     {
         ZoneScopedN("Text CPU");
         Text texts[] = {{"testing", 0, 0}, {"more testing", 300, 400}};
-        Font* font;
-        u32 fontSize = 50;
-        if (!FontExists(glyphAtlas->fontList, fontSize, &font))
-        {
-            exitWithError("the font size specified is not loaded");
-        }
 
-        addTexts(frameArena.arena, font, texts, sizeof(texts) / sizeof(texts[0]),
+        u32 fontSize = 30;
+        addTexts(frameArena.arena, glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]), fontSize,
                  Vec2<f32>(0.0f, 0.0f), Vec2<f32>(800.0f, 800.0f));
         glyphAtlas->numInstances =
-            InstanceBufferFromFontBuffers(glyphAtlas->glyphInstanceBuffer, glyphAtlas->fontList);
+            InstanceBufferFromFontBuffers(glyphAtlas->glyphInstanceBuffer, glyphAtlas->fontLL);
         mapGlyphInstancesToBuffer(glyphAtlas, vulkanContext->physicalDevice, vulkanContext->device,
                                   vulkanContext->graphicsQueue);
     }
@@ -932,6 +888,7 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     {
         exitWithError("failed to record command buffer!");
     }
+    FontFrameReset(glyphAtlas);
     ArenaTempEnd(frameArena);
 }
 
@@ -958,7 +915,7 @@ drawFrame(Context* context)
                         UINT64_MAX);
     }
 
-    // TODO: This is not correct as it only looks atttime
+    // TODO: This is not correct as it only looks at cpu time
     context->frameRate = CalculateFrameRate(&context->frameTickPrev, context->cpuFreq);
 
     uint32_t imageIndex;

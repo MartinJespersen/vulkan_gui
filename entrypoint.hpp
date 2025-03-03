@@ -50,7 +50,7 @@ extern "C"
     void
     initWindow(Context* context);
     void
-    initVulkan(Context* context);
+    VulkanInit(Context* context);
     void
     cleanup(Context* context);
     void

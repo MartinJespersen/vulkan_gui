@@ -70,10 +70,12 @@ struct Font
     Font* next;
     Font* prev;
     u32 fontSize;
+
     u64 instanceOffset;
     u64 instanceCount;
     GlyphInstance* instances;
     Array<Character> characters;
+    static const u32 MAX_GLYPHS = 126;
 
     // vulkan
     VkImage textureImage;
@@ -83,10 +85,20 @@ struct Font
     Array<VkDescriptorSet> descriptorSets;
 };
 
+struct FontLL
+{
+    Font* first;
+    Font* last;
+};
+
 struct GlyphAtlas
 {
     Arena* fontArena;
-    Font* fontList;
+    FontLL fontLL;
+    Font* fontFreeList;
+    u32 fontCount;
+    bool loaded;
+
     Array<Vulkan_GlyphInstance> glyphInstanceBuffer;
     u64 numInstances;
     u16_Buffer indices;
@@ -119,7 +131,7 @@ mapGlyphInstancesToBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevic
                           VkQueue queue);
 
 void
-addTexts(Arena* arena, Font* font, Text* texts, size_t len, u32 fontSize, Vec2<f32> min,
+addTexts(Arena* arena, GlyphAtlas* glyphAtlas, Text* texts, size_t len, u32 fontSize, Vec2<f32> min,
          Vec2<f32> max);
 void
 addText(Arena* arena, Font* font, std::string text, Vec2<f32> offset, Vec2<f32> pos0,
@@ -149,11 +161,17 @@ createFontDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout& descriptor
 Vec2<float>
 calculateTextDimensions(Font* font, std::string text);
 
-void
-FontInit(Arena* arena, Font* outFont, u32 fontSize, u32 numCharacter);
-
-bool
-FontExists(Font* fonts, u32 fontSize, Font** font);
+Font*
+FontInit(GlyphAtlas* glyphAtlas, u32 fontSize);
 
 u64
 InstanceBufferFromFontBuffers(Array<Vulkan_GlyphInstance> outBuffer, Font* fonts);
+
+Font*
+FontFindOrCreate(GlyphAtlas* glyphAtlas, u32 fontSize);
+
+void
+FontRenderResourcesAlloc(VulkanContext* vulkanContext, GlyphAtlas* glyphAtlas, Font* font);
+
+void
+FontFrameReset(GlyphAtlas* glyphAtlas);
