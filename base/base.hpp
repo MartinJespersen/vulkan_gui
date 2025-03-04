@@ -7,6 +7,9 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <x86intrin.h>
+#include <stdint.h>
+#include <cstring>
+#include <cassert>
 
 // user defined
 #include "error.hpp"

@@ -55,7 +55,6 @@ InitContext(Context* context)
     uiState->arena = (Arena*)ArenaAlloc(GIGABYTE(1));
     uiState->widgetCacheSize = 1; // 4096;
     uiState->widgetSlot = PushArray(uiState->arena, UI_WidgetSlot, uiState->widgetCacheSize);
-    uiState->root = &g_UI_Widget;
 }
 
 void
@@ -741,7 +740,7 @@ chooseSwapPresentMode(VkPresentModeKHR_Buffer availablePresentModes)
 VkExtent2D
 chooseSwapExtent(VulkanContext* vulkanContext, const VkSurfaceCapabilitiesKHR& capabilities)
 {
-    if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
+    if (capabilities.currentExtent.width != UINT32_MAX)
     {
         return capabilities.currentExtent;
     }

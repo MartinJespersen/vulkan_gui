@@ -91,8 +91,6 @@ enum Axis2
 
 template <typename T> struct Vec2
 {
-    static_assert(std::is_arithmetic<T>::value, "Divisor must be arithmetic type");
-
     T x;
     T y;
 
@@ -159,34 +157,29 @@ template <typename T> struct Vec2
     inline bool
     operator<(const T& comparator) const
     {
-        static_assert(std::is_floating_point<T>::value, "Divisor must be arithmetic type");
         return (x < comparator && y < comparator);
     }
 
     inline bool
     operator>(const T& comparator) const
     {
-        static_assert(std::is_floating_point<T>::value, "Divisor must be arithmetic type");
         return (x > comparator && y > comparator);
     }
 
     inline bool
     operator<=(const Vec2<T>& comparator) const
     {
-        static_assert(std::is_floating_point<T>::value, "Divisor must be arithmetic type");
         return (x <= comparator.x && y <= comparator.y);
     }
 
     inline bool
     operator>=(const Vec2<T>& comparator) const
     {
-        static_assert(std::is_floating_point<T>::value, "Divisor must be arithmetic type");
         return (x >= comparator.x && y >= comparator.y);
     }
 
     template <typename To> operator Vec2<To>() const
     {
-        static_assert(std::is_floating_point<To>::value, "Divisor must be arithmetic type");
         return Vec2<To>(static_cast<To>(x), static_cast<To>(y));
     }
 };

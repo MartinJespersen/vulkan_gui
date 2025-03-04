@@ -1,18 +1,11 @@
-
-bool
-UI_Widget_IsNull(UI_Widget* widget)
-{
-    return widget == nullptr || widget == &g_UI_Widget;
-}
-
 UI_Widget*
 UI_Widget_FromKey(UI_State* uiState, UI_Key key)
 {
-    UI_Widget* result = &g_UI_Widget;
+    UI_Widget* result = {0};
     u64 slotKey = key.key % uiState->widgetCacheSize;
     UI_WidgetSlot* slot = &uiState->widgetSlot[slotKey];
 
-    for (UI_Widget* widget = slot->first; !UI_Widget_IsNull(widget); widget = widget->hashNext)
+    for (UI_Widget* widget = slot->first; !CheckNull(widget); widget = widget->hashNext)
     {
         if (UI_Key_IsEqual(widget->key, key))
         {
@@ -21,7 +14,7 @@ UI_Widget_FromKey(UI_State* uiState, UI_Key key)
         }
     }
 
-    if (UI_Widget_IsNull(result))
+    if (CheckNull(result))
     {
         result = UI_WidgetSlot_Push(uiState, key);
     }
@@ -59,8 +52,7 @@ UI_WidgetSlot_Push(UI_State* uiState, UI_Key key)
     UI_WidgetSlot* slot = &uiState->widgetSlot[key.key % uiState->widgetCacheSize];
     UI_Widget* widget = UI_Widget_Allocate(uiState);
 
-    DLLPushBack_NPZ(slot->first, slot->last, widget, hashPrev, hashNext, UI_Widget_IsNull,
-                    UI_Widget_SetNULL);
+    DLLPushBack_NPZ(slot->first, slot->last, widget, hashPrev, hashNext, CheckNull, SetNull);
     widget->key = key;
     return widget;
 }

@@ -59,7 +59,8 @@
 #error compiler not supported
 #endif
 
-// math
+// small helpers
+#define Min(a, b) ((a) < (b) ? (a) : (b))
 template <typename N>
 N
 Clamp(N d, N min, N max);

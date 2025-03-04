@@ -108,14 +108,6 @@ UI_Key_IsNull(UI_Key key);
 
 // Widget Cache
 
-UI_Widget g_UI_Widget = {&g_UI_Widget, &g_UI_Widget, &g_UI_Widget, &g_UI_Widget,
-                         &g_UI_Widget, &g_UI_Widget, &g_UI_Widget};
-
-#define UI_Widget_SetNULL(w) ((w) = &g_UI_Widget)
-
-bool
-UI_Widget_IsNull(UI_Widget* widget);
-
 UI_Widget*
 UI_Widget_FromKey(UI_State* uiState, UI_Key key);
 
