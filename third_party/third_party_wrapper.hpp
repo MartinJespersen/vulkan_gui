@@ -10,7 +10,7 @@
 #pragma GCC diagnostic ignored "-Wunused-function"
 
 #include "meow_hash_x64_aesni.h"
-
+#include "stb_sprintf.h"
 #include "stb_image.h"
 // Re-enable warnings for your code
 #pragma GCC diagnostic pop

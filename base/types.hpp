@@ -76,7 +76,7 @@ u8*
 StrFromU128(Arena* arena, u128 num);
 
 String8
-Str8(Arena* arena, char* str);
+Str8(Arena* arena, const char* str, ...);
 
 char*
 CharFromStr8(String8 str);

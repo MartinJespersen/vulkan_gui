@@ -114,16 +114,12 @@ UI_Widget_FromKey(UI_State* uiState, UI_Key key);
 UI_Widget*
 UI_Widget_Allocate(UI_State* uiState);
 
-bool
-UI_WidgetSlot_IsNull(UI_WidgetSlot* slot);
-
 UI_Widget*
 UI_WidgetSlot_Push(UI_State* uiState, UI_Key key);
 
 // Button function
-
 void
-AddButton(String8 widgetName, UI_State* uiState, GlyphAtlas* glyphAtlas, Arena* arena, Box* box,
-          VkExtent2D swapChainExtent, const F32Vec4 color, const std::string text, f32 softness,
-          f32 borderThickness, f32 cornerRadius, UI_IO* io, F32Vec4 positions, UI_WidgetFlags flags,
-          u32 fontSize);
+AddButton(String8 widgetName, UI_State* uiState, GlyphAtlas* glyphAtlas, Arena* arena,
+          BoxContext* boxContext, VkExtent2D swapChainExtent, const F32Vec4 color, String8 text,
+          f32 softness, f32 borderThickness, f32 cornerRadius, UI_IO* io, F32Vec4 positions,
+          UI_WidgetFlags flags, u32 fontSize);

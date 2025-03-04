@@ -13,7 +13,7 @@ struct Character
 
 struct Text
 {
-    std::string text;
+    String8 text;
     float x;
     float y;
 };
@@ -134,8 +134,8 @@ void
 addTexts(Arena* arena, GlyphAtlas* glyphAtlas, Text* texts, size_t len, u32 fontSize, Vec2<f32> min,
          Vec2<f32> max);
 void
-addText(Arena* arena, Font* font, std::string text, Vec2<f32> offset, Vec2<f32> pos0,
-        Vec2<f32> pos1, f32 textHeight);
+addText(Arena* arena, Font* font, String8 text, Vec2<f32> offset, Vec2<f32> pos0, Vec2<f32> pos1,
+        f32 textHeight);
 void
 beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, u32 imageIndex,
                           u32 currentFrame);
@@ -159,7 +159,7 @@ void
 createFontDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout& descriptorSetLayout);
 
 Vec2<float>
-calculateTextDimensions(Font* font, std::string text);
+calculateTextDimensions(Font* font, String8 text);
 
 Font*
 FontInit(GlyphAtlas* glyphAtlas, u32 fontSize);
@@ -174,4 +174,4 @@ void
 FontRenderResourcesAlloc(VulkanContext* vulkanContext, GlyphAtlas* glyphAtlas, Font* font);
 
 void
-FontFrameReset(GlyphAtlas* glyphAtlas);
+FontFrameReset(Arena* arena, GlyphAtlas* glyphAtlas);

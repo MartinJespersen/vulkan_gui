@@ -33,9 +33,32 @@ ArenaPush(Arena* arena, u64 size)
 }
 
 void*
+ArenaPushAlign(Arena* arena, u64 size, u64 align)
+{
+    if ((arena->pos + size + align) > arena->max)
+    {
+        return nullptr;
+    }
+
+    arena->pos += (align - 1);
+    arena->pos -= arena->pos % align;
+    void* result = (void*)((u8*)arena->ptr + arena->pos);
+    arena->pos += size;
+    return result;
+}
+
+void*
 ArenaPushZero(Arena* arena, u64 size)
 {
     void* box = ArenaPush(arena, size);
+    MemoryZero(box, size);
+    return box;
+}
+
+void*
+ArenaPushZeroAlign(Arena* arena, u64 size, u64 align)
+{
+    void* box = ArenaPushAlign(arena, size, align);
     MemoryZero(box, size);
     return box;
 }
@@ -110,22 +133,28 @@ StrFromU128(Arena* arena, u128 num)
     return str;
 }
 
-String8
-Str8(Arena* arena, const char* str)
+static inline String8
+Str8V(Arena* arena, const char* str, va_list args)
 {
     String8 result = {0};
-    result.size = 0;
-    for (const char* c = str; (*c) != '\0'; c++)
-    {
-        result.size += 1;
-    }
+    va_list args2;
+    va_copy(args2, args);
+    u64 sizeWithNullTermination = (u64)stbsp_vsnprintf(0, 0, str, args) + 1UL;
+    result.size = sizeWithNullTermination - 1;
 
-    u64 resultSizeWithNullTermation = result.size + 1;
+    result.str = PushArray(arena, u8, sizeWithNullTermination);
+    stbsp_vsnprintf((char*)result.str, (i32)sizeWithNullTermination, str, args2);
 
-    result.str = PushArray(arena, u8, resultSizeWithNullTermation);
-    MemoryCopy(result.str, str, result.size);
-    result.str[result.size] = '\0';
+    return result;
+}
 
+String8
+Str8(Arena* arena, const char* str, ...)
+{
+    va_list args;
+    va_start(args, str);
+    String8 result = Str8V(arena, str, args);
+    va_end(args);
     return result;
 }
 

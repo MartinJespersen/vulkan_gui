@@ -78,19 +78,19 @@ beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, 
 }
 
 Vec2<float>
-calculateTextDimensions(Font* font, std::string text)
+calculateTextDimensions(Font* font, String8 text)
 {
     Vec2<float> dimensions = {0.0, 0.0};
-    u64 len = (u64)text.size();
+    u64 len = text.size;
 
     for (u32 i = 0; i < len; i++)
     {
-        if ((u32)text[i] >= font->MAX_GLYPHS)
+        if ((u32)text.str[i] >= font->MAX_GLYPHS)
         {
             exitWithError("Character not supported!");
         }
 
-        Character* ch = &font->characters[(u64)text[i]];
+        Character* ch = &font->characters[(u64)text.str[i]];
         dimensions.x += (f32)(ch->advance >> 6);
         dimensions.y = std::max((float)dimensions.y, ch->height);
     }
@@ -99,14 +99,14 @@ calculateTextDimensions(Font* font, std::string text)
 }
 
 void
-addText(Arena* arena, Font* font, std::string text, Vec2<f32> offset, Vec2<f32> pos0,
-        Vec2<f32> pos1, f32 textHeight)
+addText(Arena* arena, Font* font, String8 text, Vec2<f32> offset, Vec2<f32> pos0, Vec2<f32> pos1,
+        f32 textHeight)
 {
     // find largest bearing to find origin
     f32 largestBearingY = 0;
-    for (u32 textIndex = 0; textIndex < text.size(); textIndex++)
+    for (u32 textIndex = 0; textIndex < text.size; textIndex++)
     {
-        Character& ch = font->characters[((u64)text[textIndex])];
+        Character& ch = font->characters[((u64)text.str[textIndex])];
         if (ch.bearingY > largestBearingY)
         {
             largestBearingY = ch.bearingY;
@@ -116,14 +116,14 @@ addText(Arena* arena, Font* font, std::string text, Vec2<f32> offset, Vec2<f32> 
     f32 xOrigin = offset.x;
     f32 yOrigin = offset.y + largestBearingY;
 
-    for (u32 i = 0; i < text.size(); i++)
+    for (u32 i = 0; i < text.size; i++)
     {
-        if ((u32)text[i] >= font->MAX_GLYPHS)
+        if ((u32)text.str[i] >= font->MAX_GLYPHS)
         {
             exitWithError("Character not supported!");
         }
 
-        Character& ch = font->characters[((u64)text[i])];
+        Character& ch = font->characters[((u64)text.str[i])];
 
         f32 xGlyphPos0 = xOrigin + ch.bearingX;
         f32 yGlyphPos0 = yOrigin - ch.bearingY;
@@ -576,8 +576,9 @@ FontRenderResourcesAlloc(VulkanContext* vulkanContext, GlyphAtlas* glyphAtlas, F
 }
 
 void
-FontFrameReset(GlyphAtlas* glyphAtlas)
+FontFrameReset(Arena* arena, GlyphAtlas* glyphAtlas)
 {
+    glyphAtlas->glyphInstanceBuffer = ArrayAlloc<Vulkan_GlyphInstance>(arena, MAX_GLYPH_INSTANCES);
     for (Font* font = glyphAtlas->fontLL.first; !CheckNull(font); font = font->next)
     {
         font->instances = 0;

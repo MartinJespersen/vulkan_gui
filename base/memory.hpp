@@ -23,6 +23,14 @@ ArenaScratchBegin();
 #define PushArrayZero(arena, type, count) ((type*)ArenaPushZero((arena), sizeof(type) * (count)))
 #define PushStructZero(arena, type) PushArrayZero((arena), type, 1)
 
+// align
+#define PushArrayAlign(arena, type, count)                                                         \
+    ((type*)ArenaPushAlign((arena), sizeof(type) * (count), (Max(8, AlignOf(type)))))
+#define PushStructAlign(arena, type) PushArrayAlign((arena), type, 1)
+#define PushArrayZeroAlign(arena, type, count)                                                     \
+    ((type*)ArenaPushZeroAlign((arena), sizeof(type) * (count), (Max(8, AlignOf(type)))))
+#define PushStructZeroAlign(arena, type) PushArrayZeroAlign((arena), type, 1)
+
 // Buffers
 #define BufferDec(type)                                                                            \
     struct type##_Buffer                                                                           \

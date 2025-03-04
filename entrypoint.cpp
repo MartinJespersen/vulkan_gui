@@ -801,6 +801,7 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
 {
     ZoneScoped;
     ArenaTemp frameArena = ArenaScratchBegin();
+    Arena* arena = frameArena.arena;
 
     VulkanContext* vulkanContext = context->vulkanContext;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
@@ -808,13 +809,8 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     ProfilingContext* profilingContext = context->profilingContext;
     (void)profilingContext;
 
-    glyphAtlas->glyphInstanceBuffer =
-        ArrayAlloc<Vulkan_GlyphInstance>(frameArena.arena, MAX_GLYPH_INSTANCES);
-
-    boxContext->boxInstances = ArrayAlloc<Vulkan_BoxInstance>(frameArena.arena, MAX_BOX_INSTANCES);
-    boxContext->boxList = &g_Box;
-    Box* box = PushStructZero(frameArena.arena, Box);
-    StackPush(boxContext->boxList, box);
+    FontFrameReset(arena, glyphAtlas);
+    BoxFrameReset(arena, boxContext);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -825,21 +821,21 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     {
         ZoneScopedN("Create Buttom");
         // temporary way of choosing font
-        String8 name = Str8(frameArena.arena, "test_name");
-        F32Vec4 positions = {0.2f, 0.2f, 0.8f, 0.4f};
+        F32Vec4 positions = {0.2f, 0.2f, 0.3f, 0.3f};
         F32Vec4 color = {0.0f, 0.8f, 0.8f, 0.1f};
         UI_WidgetFlags flags = UI_WidgetFlag_Clickable;
-        AddButton(name, context->uiState, glyphAtlas, frameArena.arena, box,
-                  vulkanContext->swapChainExtent, color, "Press Yes or No", 1.0f, 10.0f, 5.0f,
-                  context->io, positions, flags, 30);
-
-        name = Str8(frameArena.arena, "test_name_2");
-        positions = {0.2f, 0.6f, 0.8f, 0.8f};
-        color = {0.8f, 0.8f, 0.0f, 0.2f};
-        flags = 0;
-        AddButton(name, context->uiState, glyphAtlas, frameArena.arena, box,
-                  vulkanContext->swapChainExtent, color, "Press Yes or No", 1.0f, 10.0f, 5.0f,
-                  context->io, positions, flags, 50);
+        for (u32 btn_i = 0; btn_i < 8; btn_i++)
+        {
+            f32 width = positions.point.p1.x - positions.point.p0.x;
+            positions.point.p0.x += width;
+            positions.point.p1.x += width;
+            color.axis.x = width;
+            String8 name = Str8(arena, "test_name %u", btn_i);
+            String8 text = Str8(arena, "%u", btn_i);
+            AddButton(name, context->uiState, glyphAtlas, arena, boxContext,
+                      vulkanContext->swapChainExtent, color, text, 1.0f, 10.0f, 5.0f, context->io,
+                      positions, flags, 30);
+        }
     }
     // recording rectangles
     {
@@ -852,11 +848,7 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     // recording text
     {
         ZoneScopedN("Text CPU");
-        Text texts[] = {{"testing", 0, 0}, {"more testing", 300, 400}};
 
-        u32 fontSize = 30;
-        addTexts(frameArena.arena, glyphAtlas, texts, sizeof(texts) / sizeof(texts[0]), fontSize,
-                 Vec2<f32>(0.0f, 0.0f), Vec2<f32>(800.0f, 800.0f));
         glyphAtlas->numInstances =
             InstanceBufferFromFontBuffers(glyphAtlas->glyphInstanceBuffer, glyphAtlas->fontLL);
         mapGlyphInstancesToBuffer(glyphAtlas, vulkanContext->physicalDevice, vulkanContext->device,
@@ -887,7 +879,6 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     {
         exitWithError("failed to record command buffer!");
     }
-    FontFrameReset(glyphAtlas);
     ArenaTempEnd(frameArena);
 }
 

@@ -1,6 +1,3 @@
-Box g_Box = {.next = &g_Box};
-BoxInstance g_BoxInstance = {.next = &g_BoxInstance};
-
 void
 BoxIndexBufferCreate(BoxContext* boxContext, VkPhysicalDevice physicalDevice, VkDevice device,
                      VkCommandPool commandPool, VkQueue graphicsQueue, u16_Buffer indices)
@@ -129,24 +126,24 @@ u64
 InstanceBufferFromBoxes(Box* boxList, Array<Vulkan_BoxInstance> outBuffer)
 {
     u64 numInstances = 0;
-    for (Box* boxItem = boxList; !CheckEmpty(boxItem, &g_Box); boxItem = boxItem->next)
+    for (Box* box = boxList; !CheckNull(box); box = box->next)
     {
-        boxItem->instanceOffset = numInstances;
-        BoxInstance* boxInstanceList = boxItem->instances;
-        for (BoxInstance* instance = boxInstanceList; !CheckEmpty(instance, &g_BoxInstance);
-             instance = instance->next)
-        {
-            outBuffer[numInstances].pos0 = Vec2(instance->pos0.x, instance->pos0.y);
-            outBuffer[numInstances].pos1 = Vec2(instance->pos1.x, instance->pos1.y);
-            outBuffer[numInstances].color = {instance->color.data[0], instance->color.data[1],
-                                             instance->color.data[2], instance->color.data[3]};
-            outBuffer[numInstances].borderThickness = instance->borderThickness;
-            outBuffer[numInstances].cornerRadius = instance->cornerRadius;
-            outBuffer[numInstances].softness = instance->softness;
-            outBuffer[numInstances].attributes = instance->attributes;
-            numInstances++;
-        }
-        boxItem->instanceCount = numInstances - boxItem->instanceOffset;
+        outBuffer[numInstances].pos0 = Vec2(box->pos0.x, box->pos0.y);
+        outBuffer[numInstances].pos1 = Vec2(box->pos1.x, box->pos1.y);
+        outBuffer[numInstances].color = {box->color.data[0], box->color.data[1], box->color.data[2],
+                                         box->color.data[3]};
+        outBuffer[numInstances].borderThickness = box->borderThickness;
+        outBuffer[numInstances].cornerRadius = box->cornerRadius;
+        outBuffer[numInstances].softness = box->softness;
+        outBuffer[numInstances].attributes = box->attributes;
+        numInstances++;
     }
     return numInstances;
+}
+
+void
+BoxFrameReset(Arena* arena, BoxContext* boxContext)
+{
+    boxContext->boxInstances = ArrayAlloc<Vulkan_BoxInstance>(arena, boxContext->MAX_BOX_INSTANCES);
+    boxContext->boxList = NULL;
 }

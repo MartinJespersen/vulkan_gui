@@ -52,15 +52,22 @@
 // string manipulation helpers
 #define CStrEqual(a, b) (!strcmp((a), (b)))
 
-// bit arithmetic
+// compiler specifics
 #ifdef __GNUC__
 #define LSBIndex(n) (__builtin_ffs((n)) - 1)
 #else
 #error compiler not supported
 #endif
 
+#ifdef __GNUC__
+#define AlignOf(n) __alignof__(n)
+#else
+#error compiler not supported
+#endif
+
 // small helpers
 #define Min(a, b) ((a) < (b) ? (a) : (b))
+#define Max(a, b) ((a) > (b) ? (a) : (b))
 template <typename N>
 N
 Clamp(N d, N min, N max);

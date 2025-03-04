@@ -69,9 +69,9 @@ struct Vulkan_BoxInstance
     }
 };
 
-struct BoxInstance
+struct Box
 {
-    BoxInstance* next;
+    Box* next;
     Vec2<f32> pos0;
     Vec2<f32> pos1;
     F32Vec4 color;
@@ -81,19 +81,12 @@ struct BoxInstance
     u32 attributes;
 };
 
-struct Box
-{
-    Box* next;
-    u64 instanceOffset;
-    u64 instanceCount;
-    BoxInstance* instances;
-};
-
 struct BoxContext
 {
     Array<Vulkan_BoxInstance> boxInstances;
     Box* boxList;
     u64 numInstances;
+    static const u64 MAX_BOX_INSTANCES = 1000;
 
     // vulkan part
     VkBuffer instBuffer;
@@ -122,3 +115,6 @@ InstanceBufferFillFromBoxes(BoxContext* boxContext, VkPhysicalDevice physicalDev
 
 u64
 InstanceBufferFromBoxes(Box* boxList, Array<Vulkan_BoxInstance> outBuffer);
+
+void
+BoxFrameReset(Arena* arena, BoxContext* boxContext);

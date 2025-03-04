@@ -39,20 +39,13 @@ UI_Widget_Allocate(UI_State* uiState)
 }
 
 // UI_WidgetSlot
-
-bool
-UI_WidgetSlot_IsNull(UI_WidgetSlot* slot)
-{
-    return slot == nullptr;
-}
-
 UI_Widget*
 UI_WidgetSlot_Push(UI_State* uiState, UI_Key key)
 {
     UI_WidgetSlot* slot = &uiState->widgetSlot[key.key % uiState->widgetCacheSize];
     UI_Widget* widget = UI_Widget_Allocate(uiState);
 
-    DLLPushBack_NPZ(slot->first, slot->last, widget, hashPrev, hashNext, CheckNull, SetNull);
+    DLLPushBack_NPZ(slot->first, slot->last, widget, hashNext, hashPrev, CheckNull, SetNull);
     widget->key = key;
     return widget;
 }
@@ -81,10 +74,10 @@ UI_Key_IsNull(UI_Key key)
 // Button impl
 
 void
-AddButton(String8 widgetName, UI_State* uiState, GlyphAtlas* glyphAtlas, Arena* arena, Box* box,
-          VkExtent2D swapChainExtent, const F32Vec4 color, const std::string text, f32 softness,
-          f32 borderThickness, f32 cornerRadius, UI_IO* io, F32Vec4 positions, UI_WidgetFlags flags,
-          u32 fontSize)
+AddButton(String8 widgetName, UI_State* uiState, GlyphAtlas* glyphAtlas, Arena* arena,
+          BoxContext* boxContext, VkExtent2D swapChainExtent, const F32Vec4 color, String8 text,
+          f32 softness, f32 borderThickness, f32 cornerRadius, UI_IO* io, F32Vec4 positions,
+          UI_WidgetFlags flags, u32 fontSize)
 {
     UI_Key key = UI_Key_Calculate(widgetName);
     UI_Widget* widget = UI_Widget_FromKey(uiState, key);
@@ -108,25 +101,26 @@ AddButton(String8 widgetName, UI_State* uiState, GlyphAtlas* glyphAtlas, Arena* 
 
     addText(arena, font, text, glyphPos, pos0PxActual, pos1PxActual, textDimPx.y);
 
-    BoxInstance* boxInstance = PushStructZero(arena, BoxInstance);
-    StackPush(box->instances, boxInstance);
+    Box* box = PushStructZero(arena, Box);
+    StackPush(boxContext->boxList, box);
 
     // reacting to last frame input
-    boxInstance->pos0 = pos0Norm;
-    boxInstance->pos1 = pos1Norm;
-    boxInstance->color = color;
-    boxInstance->softness = softness;
-    boxInstance->borderThickness = borderThickness;
-    boxInstance->cornerRadius = cornerRadius;
-    boxInstance->attributes = 0;
+    box->pos0 = pos0Norm;
+    box->pos1 = pos1Norm;
+    box->color = color;
+    box->softness = softness;
+    box->borderThickness = borderThickness;
+    box->cornerRadius = cornerRadius;
+    box->attributes = 0;
+
     if (widget->flags & UI_WidgetFlag_Clickable)
     {
         if (widget->hot_t)
         {
-            boxInstance->attributes |= BoxAttributes::HOT;
+            box->attributes |= BoxAttributes::HOT;
             if (widget->active_t)
             {
-                boxInstance->attributes |= BoxAttributes::ACTIVE;
+                box->attributes |= BoxAttributes::ACTIVE;
             }
         }
         // Setting action for next render pass

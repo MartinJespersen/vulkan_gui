@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <cstring>
 #include <cassert>
+#include <cstdarg>
 
 // user defined
 #include "error.hpp"

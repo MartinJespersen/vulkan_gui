@@ -11,7 +11,6 @@
 const u64 FONT_ARENA_SIZE = MEGABYTE(4);
 const u32 MAX_FONTS_IN_USE = 10;
 const u64 MAX_GLYPH_INSTANCES = 1000;
-const u64 MAX_BOX_INSTANCES = 1000;
 #ifdef PROFILING_ENABLE
 BufferDec(TracyVkCtx);
 #endif
