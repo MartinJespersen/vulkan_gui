@@ -124,7 +124,7 @@ VulkanInit(Context* context)
                            vulkanContext->msaaSamples, Vulkan_BoxInstance::getBindingDescription(),
                            Vulkan_BoxInstance::getAttributeDescriptions(vulkanContext->arena),
                            vulkanContext->resolutionInfo, "shaders/vert.spv", "shaders/frag.spv",
-                           VK_SHADER_STAGE_FRAGMENT_BIT);
+                           VK_SHADER_STAGE_VERTEX_BIT);
 
     vulkanContext->colorImageView = createColorResources(
         vulkanContext->physicalDevice, vulkanContext->device, vulkanContext->swapChainImageFormat,
@@ -821,7 +821,7 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     {
         ZoneScopedN("Create Buttom");
         // temporary way of choosing font
-        F32Vec4 positions = {0.2f, 0.2f, 0.3f, 0.3f};
+        F32Vec4 positions = {50.0f, 50.0f, 100.0f, 80.0f};
         F32Vec4 color = {0.0f, 0.8f, 0.8f, 0.1f};
         UI_WidgetFlags flags = UI_WidgetFlag_Clickable;
         for (u32 btn_i = 0; btn_i < 8; btn_i++)
@@ -829,12 +829,11 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
             f32 width = positions.point.p1.x - positions.point.p0.x;
             positions.point.p0.x += width;
             positions.point.p1.x += width;
-            color.axis.x = width;
+            color.axis.x += 0.1f;
             String8 name = Str8(arena, "test_name %u", btn_i);
             String8 text = Str8(arena, "%u", btn_i);
-            AddButton(name, context->uiState, glyphAtlas, arena, boxContext,
-                      vulkanContext->swapChainExtent, color, text, 1.0f, 10.0f, 5.0f, context->io,
-                      positions, flags, 30);
+            AddButton(name, context->uiState, glyphAtlas, arena, boxContext, color, text, 1.0f,
+                      1.0f, 5.0f, context->io, positions, flags, 30);
         }
     }
     // recording rectangles

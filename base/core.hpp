@@ -76,7 +76,7 @@ Clamp(N d, N min, N max);
 
 struct ThreadCtx
 {
-    Arena* scratchArena;
+    Arena* scratchArenas[2];
 };
 
 ThreadCtx

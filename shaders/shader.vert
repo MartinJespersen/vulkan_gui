@@ -20,11 +20,15 @@ layout(location = 7) out uint outAttributes;
 const vec2[4] vertices = vec2[4](vec2(-1.0, -1.0), vec2(1.0, -1.0), vec2(1.0, 1.0), vec2(-1.0, 1.0));
 const vec2[4] uvs = vec2[4](vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(1.0, 1.0), vec2(0.0, 1.0));
 
+layout(push_constant) uniform PushConstants {
+    vec2 resolution;
+} pushConstants;
+
 void main() {
     vec2 halfSize = (pos1 - pos0) / 2;
     vec2 center = (pos0 + pos1) / 2;
     vec2 position = center + (vertices[gl_VertexIndex] * halfSize);
-    gl_Position = vec4(2 * position.x - 1, 2 * position.y - 1, 0.0, 1.0);
+    gl_Position = vec4(2 * (position.x) / pushConstants.resolution.x - 1, 2 * (position.y / pushConstants.resolution.y) - 1, 0.0, 1.0);
 
     outPos = position;
     outCenter = center;

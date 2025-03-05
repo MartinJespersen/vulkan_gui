@@ -75,7 +75,7 @@ BoxRenderPassBegin(BoxContext* boxContext, VulkanContext* vulkanContext, u32 ima
 
     vkCmdBindIndexBuffer(commandBuffer, boxContext->indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-    vkCmdPushConstants(commandBuffer, boxContext->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT,
+    vkCmdPushConstants(commandBuffer, boxContext->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                        pushContextInfo.offset, pushContextInfo.size, resolutionData);
 
     vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(boxContext->numInstances), 0, 0, 0);

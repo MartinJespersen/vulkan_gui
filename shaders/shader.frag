@@ -11,10 +11,6 @@ layout(location = 7) flat in uint inAttributes;
 
 layout(location = 0) out vec4 outColor;    // Output color
 
-layout(push_constant) uniform PushConstants {
-    vec2 resolution;
-} pushConstants;
-
 float borderFactor = 1.0;
 
 const uint hot_t = (1u << 0);
@@ -32,9 +28,9 @@ float RoundedRectSDF(
     return min(max(d2.x, d2.y), 0.0) + length(max(d2, 0.0)) - r;
 }
 void main() {
-    vec2 centerPosPx = inCenter * pushConstants.resolution;
-    vec2 halfSizePx = inHalfSize * pushConstants.resolution;
-    vec2 posPx = inPos * pushConstants.resolution;
+    vec2 centerPosPx = inCenter;
+    vec2 halfSizePx = inHalfSize;
+    vec2 posPx = inPos;
     float transparency = fragColor.a;
 
     vec2 softnessPadding = vec2(max(0, softness * 2 - 1), max(0, softness * 2 - 1));

@@ -10,6 +10,8 @@ memFree(void* ptr, u64 freeSize);
 // scratch arena
 ArenaTemp
 ArenaScratchBegin();
+ArenaTemp
+ArenaScratchGet(Arena** conflicts, u64 conflict_count);
 
 #define MemoryCopy(dst, src, size) memcpy((dst), (src), (size))
 #define MemorySet(dst, byte, size) memset((dst), (byte), (size))
