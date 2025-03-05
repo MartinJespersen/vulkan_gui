@@ -15,8 +15,6 @@
 // user defined
 #include "error.hpp"
 #include "third_party/third_party_wrapper.hpp"
-#include "types.hpp"
-#include "memory.hpp"
 #include "core.hpp"
 #include "time.hpp"
 #include "algos.hpp"

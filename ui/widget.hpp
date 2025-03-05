@@ -118,7 +118,7 @@ UI_Widget*
 UI_WidgetSlot_Push(UI_State* uiState, UI_Key key);
 
 // Button function
-void
+root_function void
 AddButton(String8 widgetName, UI_State* uiState, GlyphAtlas* glyphAtlas, Arena* arena,
           BoxContext* boxContext, const F32Vec4 color, String8 text, f32 softness,
           f32 borderThickness, f32 cornerRadius, UI_IO* io, F32Vec4 positions, UI_WidgetFlags flags,

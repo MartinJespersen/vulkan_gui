@@ -26,6 +26,6 @@ pushd ./shaders
 popd
 
 mkdir -p ${profile_dir} 
-g++ -c -fPIC ${cflags} -o ${tracy_lib_full_path} ${tracy_full_path} ${tracy_ldflags} -DTRACY_ENABLE 	
+g++ -c ${cflags} -o ${tracy_lib_full_path} ${tracy_full_path} ${tracy_ldflags} -DTRACY_ENABLE 	
 g++ -c ${cflags} -o ${entrypoint_lib_full_path}  ${entrypoint_file_name} ${entrypoint_ldflags} -DTRACY_ENABLE -DPROFILING_ENABLE
 g++ -o ${exec_full_path} ${main_file_name} ${entrypoint_lib_full_path} ${tracy_lib_full_path} ${cflags} ${exec_ldflags} ${entrypoint_ldflags} -DPROFILING_ENABLE

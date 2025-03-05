@@ -1,7 +1,5 @@
 #include "algos.cpp"
 #include "algos.hpp"
 #include "core.cpp"
-#include "memory.cpp"
 #include "time.cpp"
-#include "types.cpp"
 #include "third_party/third_party_wrapper.cpp"
