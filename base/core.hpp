@@ -98,8 +98,15 @@ enum Axis2
 
 template <typename T> struct Vec2
 {
-    T x;
-    T y;
+    union
+    {
+        struct
+        {
+            T x;
+            T y;
+        };
+        T data[2];
+    };
 
     Vec2() : x(0), y(0)
     {
@@ -189,6 +196,12 @@ template <typename T> struct Vec2
     {
         return Vec2<To>(static_cast<To>(x), static_cast<To>(y));
     }
+
+    inline T&
+    operator[](const u32 i)
+    {
+        return data[i];
+    }
 };
 
 union F32Vec4
@@ -257,7 +270,7 @@ memFree(void* ptr, u64 freeSize);
 
 // scratch arena
 root_function ArenaTemp
-ArenaScratchBegin();
+ArenaScratchGet();
 root_function ArenaTemp
 ArenaScratchGet(Arena** conflicts, u64 conflict_count);
 
@@ -322,7 +335,7 @@ BufferDec(String8);
 
 // linked list helpers
 #define CheckEmpty(p, o) ((p) == 0 || (p) == (o))
-#define CheckNull(p) ((p) == 0)
+#define IsNull(p) ((p) == 0)
 #define SetNull(p) ((p) = 0)
 
 #define QueuePush_NZ(f, l, n, next, zchk, zset)                                                    \
@@ -347,15 +360,15 @@ BufferDec(String8);
                     : ((zchk((n)->next) ? (0) : ((n)->next->prev = (n)->prev)),                    \
                        (zchk((n)->prev) ? (0) : ((n)->prev->next = (n)->next))))
 
-#define QueuePush(f, l, n) QueuePush_NZ(f, l, n, next, CheckNull, SetNull)
-#define QueuePushFront(f, l, n) QueuePushFront_NZ(f, l, n, next, CheckNull, SetNull)
+#define QueuePush(f, l, n) QueuePush_NZ(f, l, n, next, IsNull, SetNull)
+#define QueuePushFront(f, l, n) QueuePushFront_NZ(f, l, n, next, IsNull, SetNull)
 #define QueuePop(f, l) QueuePop_NZ(f, l, next, SetNull)
 #define StackPush(f, n) StackPush_N(f, n, next)
-#define StackPop(f) StackPop_NZ(f, next, CheckNull)
-#define DLLPushBack(f, l, n) DLLPushBack_NPZ(f, l, n, next, prev, CheckNull, SetNull)
-#define DLLPushFront(f, l, n) DLLPushBack_NPZ(l, f, n, prev, next, CheckNull, SetNull)
-#define DLLInsert(f, l, p, n) DLLInsert_NPZ(f, l, p, n, next, prev, CheckNull, SetNull)
-#define DLLRemove(f, l, n) DLLRemove_NPZ(f, l, n, next, prev, CheckNull, SetNull)
+#define StackPop(f) StackPop_NZ(f, next, IsNull)
+#define DLLPushBack(f, l, n) DLLPushBack_NPZ(f, l, n, next, prev, IsNull, SetNull)
+#define DLLPushFront(f, l, n) DLLPushBack_NPZ(l, f, n, prev, next, IsNull, SetNull)
+#define DLLInsert(f, l, p, n) DLLInsert_NPZ(f, l, p, n, next, prev, IsNull, SetNull)
+#define DLLRemove(f, l, n) DLLRemove_NPZ(f, l, n, next, prev, IsNull, SetNull)
 
 // string manipulation helpers
 #define CStrEqual(a, b) (!strcmp((a), (b)))

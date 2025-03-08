@@ -81,10 +81,16 @@ struct Box
     u32 attributes;
 };
 
+struct BoxQueue
+{
+    Box* first;
+    Box* last;
+};
+
 struct BoxContext
 {
     Array<Vulkan_BoxInstance> boxInstances;
-    Box* boxList;
+    BoxQueue boxQueue;
     u64 numInstances;
     static const u64 MAX_BOX_INSTANCES = 1000;
 
@@ -114,7 +120,7 @@ InstanceBufferFillFromBoxes(BoxContext* boxContext, VkPhysicalDevice physicalDev
                             VkDevice device);
 
 u64
-InstanceBufferFromBoxes(Box* boxList, Array<Vulkan_BoxInstance> outBuffer);
+InstanceBufferFromBoxes(Box* first, Array<Vulkan_BoxInstance> outBuffer);
 
 void
 BoxFrameReset(Arena* arena, BoxContext* boxContext);

@@ -69,6 +69,16 @@ struct UI_Widget
 
     bool hot_t;
     bool active_t;
+
+    // layout
+    F32Vec4 color;
+    f32 softness;
+    f32 borderThickness;
+    f32 cornerRadius;
+    u32 fontSize;
+    Font* font;
+    String8 text;
+    Vec2<f32> textSize;
 };
 
 typedef u32 UI_Comm;
@@ -87,7 +97,11 @@ struct UI_WidgetSlot
 struct UI_State
 {
     Arena* arena;
-    UI_Widget* root;
+
+    // frame state
+    UI_Widget* current; // current widget
+    UI_Widget* parent;  // current parent node
+    UI_Widget* root;    // root of tree structure
 
     // ui cache size
     u64 widgetCacheSize;
@@ -117,9 +131,40 @@ UI_Widget_Allocate(UI_State* uiState);
 UI_Widget*
 UI_WidgetSlot_Push(UI_State* uiState, UI_Key key);
 
-// Button function
+// Widget functions
+
+inline_function b32
+UI_Widget_IsEmpty(UI_Widget* widget);
+
+inline_function void
+UI_Widget_SetEmpty(UI_Widget** widget);
+
 root_function void
-AddButton(String8 widgetName, UI_State* uiState, GlyphAtlas* glyphAtlas, Arena* arena,
-          BoxContext* boxContext, const F32Vec4 color, String8 text, f32 softness,
-          f32 borderThickness, f32 cornerRadius, UI_IO* io, F32Vec4 positions, UI_WidgetFlags flags,
-          u32 fontSize);
+UI_Widget_Add(String8 widgetName, UI_State* uiState, const F32Vec4 color, String8 text,
+              f32 softness, f32 borderThickness, f32 cornerRadius, UI_IO* io, UI_WidgetFlags flags,
+              u32 fontSize, UI_Size semanticSizeX, UI_Size semanticSizeY);
+
+root_function void
+UI_Widget_SizeAndRelativePositionCalculate(GlyphAtlas* glyphAtlas, UI_State* uiState);
+
+root_function UI_Widget*
+UI_Widget_DepthFirstPreOrder(UI_Widget* widget);
+
+inline_function UI_Widget*
+UI_Widget_TreeLeftMostFind(UI_Widget* root);
+
+root_function void
+UI_Widget_AbsolutePositionCalculate(UI_State* uiState, F32Vec4 posAbs);
+
+root_function void
+UI_Widget_DrawPrepare(Arena* arena, UI_State* uiState, BoxContext* boxContext);
+
+// Layout functions
+inline_function void
+UI_PushLayout(UI_State* uiState, UI_Widget* widget);
+
+inline_function void
+UI_PopLayout(UI_State* uiState);
+
+inline_function void
+UI_State_FrameReset(UI_State* uiState);

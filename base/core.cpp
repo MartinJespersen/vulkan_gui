@@ -228,7 +228,7 @@ thread_exit()
 }
 
 root_function ArenaTemp
-ArenaScratchBegin()
+ArenaScratchGet()
 {
     ArenaTemp temp = {};
     temp.pos = g_ThreadCtx.scratchArenas[0]->pos;

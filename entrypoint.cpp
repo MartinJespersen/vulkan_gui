@@ -81,7 +81,7 @@ IndexBufferAlloc(VulkanContext* vulkanContext, GlyphAtlas* glyphAtlas)
 void
 VulkanInit(Context* context)
 {
-    ArenaTemp scratchArena = ArenaScratchBegin();
+    ArenaTemp scratchArena = ArenaScratchGet();
 
     VulkanContext* vulkanContext = context->vulkanContext;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
@@ -405,7 +405,7 @@ createSurface(VulkanContext* vulkanContext)
 void
 createInstance(VulkanContext* vulkanContext)
 {
-    ArenaTemp scratchArena = ArenaScratchBegin();
+    ArenaTemp scratchArena = ArenaScratchGet();
     if (vulkanContext->enableValidationLayers && !checkValidationLayerSupport(vulkanContext))
     {
         exitWithError("validation layers requested, but not available!");
@@ -520,7 +520,7 @@ createLogicalDevice(VulkanContext* vulkanContext)
 void
 pickPhysicalDevice(VulkanContext* vulkanContext)
 {
-    ArenaTemp scratchArena = ArenaScratchBegin();
+    ArenaTemp scratchArena = ArenaScratchGet();
 
     vulkanContext->physicalDevice = VK_NULL_HANDLE;
 
@@ -582,7 +582,7 @@ isDeviceSuitable(VulkanContext* vulkanContext, VkPhysicalDevice device,
 bool
 checkValidationLayerSupport(VulkanContext* vulkanContext)
 {
-    ArenaTemp scratchArena = ArenaScratchBegin();
+    ArenaTemp scratchArena = ArenaScratchGet();
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
@@ -686,7 +686,7 @@ populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
 bool
 checkDeviceExtensionSupport(VulkanContext* vulkanContext, VkPhysicalDevice device)
 {
-    ArenaTemp scratchArena = ArenaScratchBegin();
+    ArenaTemp scratchArena = ArenaScratchGet();
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
@@ -800,17 +800,19 @@ void
 recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
 {
     ZoneScoped;
-    ArenaTemp frameArena = ArenaScratchBegin();
+    ArenaTemp frameArena = ArenaScratchGet();
     Arena* arena = frameArena.arena;
 
     VulkanContext* vulkanContext = context->vulkanContext;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
     BoxContext* boxContext = context->boxContext;
     ProfilingContext* profilingContext = context->profilingContext;
+    UI_State* uiState = context->uiState;
     (void)profilingContext;
 
     FontFrameReset(arena, glyphAtlas);
     BoxFrameReset(arena, boxContext);
+    UI_State_FrameReset(uiState);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -818,29 +820,43 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     beginInfo.pInheritanceInfo = nullptr; // Optional
 
     // add buttom that is only a rectangle and text at the moment
+    F32Vec4 color = {0.0f, 0.0f, 1.0f, 1.0f};
+    String8 text = Str8(arena, "");
+    UI_WidgetFlags flags = UI_WidgetFlag_DrawBackground;
+    UI_Size semanticSizeX = {.kind = UI_SizeKind_ChildrenSum, .value = 0, .strictness = 0};
+    UI_Size semanticSizeY = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
+    UI_Widget_Add(Str8(arena, "Div"), uiState, color, text, 1.0f, 1.0f, 5.0f, context->io, flags,
+                  30, semanticSizeX, semanticSizeY);
+
     {
-        ZoneScopedN("Create Buttom");
+        ZoneScopedN("Create Button row");
+        UI_PushLayout(uiState);
         // temporary way of choosing font
-        F32Vec4 positions = {50.0f, 50.0f, 100.0f, 80.0f};
         F32Vec4 color = {0.0f, 0.8f, 0.8f, 0.1f};
-        UI_WidgetFlags flags = UI_WidgetFlag_Clickable;
-        for (u32 btn_i = 0; btn_i < 8; btn_i++)
+        UI_WidgetFlags flags =
+            UI_WidgetFlag_Clickable | UI_WidgetFlag_DrawBackground | UI_WidgetFlag_DrawText;
+        UI_Size semanticSizeX = {.kind = UI_SizeKind_TextContent, .value = 0, .strictness = 0};
+        UI_Size semanticSizeY = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
+        for (u32 btn_i = 0; btn_i < 2; btn_i++)
         {
-            f32 width = positions.point.p1.x - positions.point.p0.x;
-            positions.point.p0.x += width;
-            positions.point.p1.x += width;
             color.axis.x += 0.1f;
             String8 name = Str8(arena, "test_name %u", btn_i);
             String8 text = Str8(arena, "%u", btn_i);
-            AddButton(name, context->uiState, glyphAtlas, arena, boxContext, color, text, 1.0f,
-                      1.0f, 5.0f, context->io, positions, flags, 30);
+            UI_Widget_Add(name, uiState, color, text, 1.0f, 1.0f, 5.0f, context->io, flags, 50,
+                          semanticSizeX, semanticSizeY);
         }
+        UI_PopLayout(uiState);
     }
+    UI_Widget_SizeAndRelativePositionCalculate(glyphAtlas, uiState);
+    F32Vec4 rootWindowRect = {0.0f, 0.0f, 400.0f, 400.0f};
+    UI_Widget_AbsolutePositionCalculate(uiState, rootWindowRect);
+    UI_Widget_DrawPrepare(arena, uiState, boxContext);
+
     // recording rectangles
     {
         ZoneScopedN("Rectangle CPU");
         boxContext->numInstances =
-            InstanceBufferFromBoxes(boxContext->boxList, boxContext->boxInstances);
+            InstanceBufferFromBoxes(boxContext->boxQueue.first, boxContext->boxInstances);
         InstanceBufferFillFromBoxes(boxContext, vulkanContext->physicalDevice,
                                     vulkanContext->device);
     }
@@ -986,7 +1002,7 @@ drawFrame(Context* context)
 void
 recreateSwapChain(VulkanContext* vulkanContext)
 {
-    ArenaTemp scratchArena = ArenaScratchBegin();
+    ArenaTemp scratchArena = ArenaScratchGet();
     int width = 0, height = 0;
     glfwGetFramebufferSize(vulkanContext->window, &width, &height);
     while (width == 0 || height == 0)

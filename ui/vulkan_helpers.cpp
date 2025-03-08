@@ -306,7 +306,7 @@ createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPip
                        Vulkan_PushConstantInfo pushConstInfo, std::string vertShaderPath,
                        std::string fragShaderPath, VkShaderStageFlagBits pushConstantStage)
 {
-    ArenaTemp scratchArena = ArenaScratchBegin();
+    ArenaTemp scratchArena = ArenaScratchGet();
     Buffer vertShaderBuffer = ReadFile(scratchArena.arena, vertShaderPath);
     Buffer fragShaderBuffer = ReadFile(scratchArena.arena, fragShaderPath);
 
@@ -586,7 +586,7 @@ QueueFamilyIndicesFromBitFields(QueueFamilyIndexBits queueFamilyBits)
 QueueFamilyIndexBits
 QueueFamiliesFind(VulkanContext* vulkanContext, VkPhysicalDevice device)
 {
-    ArenaTemp scratchArena = ArenaScratchBegin();
+    ArenaTemp scratchArena = ArenaScratchGet();
     QueueFamilyIndexBits indices = {0};
     u32 queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);

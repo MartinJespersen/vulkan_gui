@@ -8,7 +8,7 @@ beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, 
         u32 totalDescSets = glyphAtlas->fontCount + vulkanContext->MAX_FRAMES_IN_FLIGHT;
         createFontDescriptorPool(vulkanContext->device, totalDescSets, glyphAtlas->descriptorPool);
         createFontDescriptorSetLayout(vulkanContext->device, glyphAtlas->descriptorSetLayout);
-        for (Font* font = glyphAtlas->fontLL.first; !CheckNull(font); font = font->next)
+        for (Font* font = glyphAtlas->fontLL.first; !IsNull(font); font = font->next)
         {
             FontRenderResourcesAlloc(vulkanContext, glyphAtlas, font);
         }
@@ -61,7 +61,7 @@ beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, 
 
     f32 resolutionData[2] = {(f32)swapChainExtent.width, (f32)swapChainExtent.height};
 
-    for (Font* font = glyphAtlas->fontLL.first; !CheckNull(font); font = font->next)
+    for (Font* font = glyphAtlas->fontLL.first; !IsNull(font); font = font->next)
     {
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 glyphAtlas->pipelineLayout, 0, 1,
@@ -92,7 +92,7 @@ calculateTextDimensions(Font* font, String8 text)
 
         Character* ch = &font->characters[(u64)text.str[i]];
         dimensions.x += (f32)(ch->advance >> 6);
-        dimensions.y = std::max((float)dimensions.y, ch->height);
+        dimensions.y = Max((float)dimensions.y, ch->height);
     }
 
     return dimensions;
@@ -166,11 +166,11 @@ u64
 InstanceBufferFromFontBuffers(Array<Vulkan_GlyphInstance> outBuffer, FontLL fontLL)
 {
     u64 numInstances = 0;
-    for (Font* font = fontLL.first; !CheckNull(font); font = font->next)
+    for (Font* font = fontLL.first; !IsNull(font); font = font->next)
     {
         font->instanceOffset = numInstances;
         GlyphInstance* glyphInstanceList = font->instances;
-        for (GlyphInstance* instance = glyphInstanceList; !CheckNull(instance);
+        for (GlyphInstance* instance = glyphInstanceList; !IsNull(instance);
              instance = instance->next)
         {
             outBuffer[numInstances].pos0 = Vec2(instance->pos0.x, instance->pos0.y);
@@ -336,7 +336,7 @@ initGlyphs(Arena* arena, Font* font, u32* width, u32* height)
 void
 cleanupFontResources(GlyphAtlas* glyphAtlas, VkDevice device)
 {
-    for (Font* font = glyphAtlas->fontLL.first; !CheckNull(font); font = font->next)
+    for (Font* font = glyphAtlas->fontLL.first; !IsNull(font); font = font->next)
     {
         vkFreeMemory(device, font->textureImageMemory, nullptr);
         vkDestroyImage(device, font->textureImage, nullptr);
@@ -360,7 +360,7 @@ void
 createGlyphAtlasImage(Font* font, VkPhysicalDevice physicalDevice, VkDevice device,
                       VkCommandPool commandPool, VkQueue graphicsQueue)
 {
-    ArenaTemp scratchArena = ArenaScratchBegin();
+    ArenaTemp scratchArena = ArenaScratchGet();
     u32 texWidth, texHeight;
     unsigned char* pixels = initGlyphs(scratchArena.arena, font, &texWidth, &texHeight);
     VkDeviceSize imageSize = (u32)texWidth * (u32)texHeight * 4;
@@ -453,7 +453,7 @@ createFontDescriptorSets(Font* font, VkDescriptorPool descriptorPool,
                          VkDescriptorSetLayout descriptorSetLayout, VkDevice device,
                          const u32 MAX_FRAMES_IN_FLIGHT, Array<VkDescriptorSet> descriptorSets)
 {
-    ArenaTemp scratchArena = ArenaScratchBegin();
+    ArenaTemp scratchArena = ArenaScratchGet();
     VkDescriptorSetLayout_Buffer layouts =
         VkDescriptorSetLayout_Buffer_Alloc(scratchArena.arena, MAX_FRAMES_IN_FLIGHT);
     for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -543,7 +543,7 @@ FontFindOrCreate(GlyphAtlas* glyphAtlas, u32 fontSize)
 {
     bool fontExists = false;
     Font* font = glyphAtlas->fontLL.first;
-    for (; !CheckNull(font); font = font->next)
+    for (; !IsNull(font); font = font->next)
     {
         if (font->fontSize == fontSize)
         {
@@ -579,7 +579,7 @@ void
 FontFrameReset(Arena* arena, GlyphAtlas* glyphAtlas)
 {
     glyphAtlas->glyphInstanceBuffer = ArrayAlloc<Vulkan_GlyphInstance>(arena, MAX_GLYPH_INSTANCES);
-    for (Font* font = glyphAtlas->fontLL.first; !CheckNull(font); font = font->next)
+    for (Font* font = glyphAtlas->fontLL.first; !IsNull(font); font = font->next)
     {
         font->instances = 0;
     }

@@ -123,10 +123,10 @@ InstanceBufferFillFromBoxes(BoxContext* boxContext, VkPhysicalDevice physicalDev
 }
 
 u64
-InstanceBufferFromBoxes(Box* boxList, Array<Vulkan_BoxInstance> outBuffer)
+InstanceBufferFromBoxes(Box* first, Array<Vulkan_BoxInstance> outBuffer)
 {
     u64 numInstances = 0;
-    for (Box* box = boxList; !CheckNull(box); box = box->next)
+    for (Box* box = first; !IsNull(box); box = box->next)
     {
         outBuffer[numInstances].pos0 = Vec2(box->pos0.x, box->pos0.y);
         outBuffer[numInstances].pos1 = Vec2(box->pos1.x, box->pos1.y);
@@ -145,5 +145,5 @@ void
 BoxFrameReset(Arena* arena, BoxContext* boxContext)
 {
     boxContext->boxInstances = ArrayAlloc<Vulkan_BoxInstance>(arena, boxContext->MAX_BOX_INSTANCES);
-    boxContext->boxList = NULL;
+    boxContext->boxQueue = {0};
 }
