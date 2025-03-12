@@ -102,6 +102,7 @@ struct GlyphAtlas
     Array<Vulkan_GlyphInstance> glyphInstanceBuffer;
     u64 numInstances;
     u16_Buffer indices;
+    static const u64 MAX_GLYPH_INSTANCES = 1000;
 
     // Vulkan part
     VkBuffer glyphInstBuffer;
@@ -118,60 +119,67 @@ struct GlyphAtlas
     VkPipelineLayout pipelineLayout;
 };
 
-void
-cleanupFontResources(GlyphAtlas* glyphAtlas, VkDevice device);
-
-unsigned char*
-initGlyphs(Arena* arena, Font* font, u32* width, u32* height);
-void
-createGlyphIndexBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device);
-
-void
-mapGlyphInstancesToBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device,
-                          VkQueue queue);
-
-void
-addTexts(Arena* arena, GlyphAtlas* glyphAtlas, Text* texts, size_t len, u32 fontSize, Vec2<f32> min,
-         Vec2<f32> max);
-void
-addText(Arena* arena, Font* font, String8 text, Vec2<f32> offset, Vec2<f32> pos0, Vec2<f32> pos1,
-        f32 textHeight);
-void
+root_function void
 beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, u32 imageIndex,
                           u32 currentFrame);
 
-void
+root_function Vec2<float>
+calculateTextDimensions(Font* font, String8 text);
+
+root_function void
+addText(Arena* arena, Font* font, String8 text, Vec2<f32> offset, Vec2<f32> pos0, Vec2<f32> pos1,
+        f32 textHeight);
+
+root_function void
+addTexts(Arena* arena, GlyphAtlas* glyphAtlas, Text* texts, size_t len, u32 fontSize, Vec2<f32> min,
+         Vec2<f32> max);
+
+root_function u64
+InstanceBufferFromFontBuffers(Array<Vulkan_GlyphInstance> outBuffer, FontLL fontLL);
+
+root_function void
+mapGlyphInstancesToBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device,
+                          VkQueue queue);
+
+root_function void
+createGlyphIndexBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevice, VkDevice device);
+
+root_function Font*
+FontAlloc(Arena* arena, Font* freeList);
+
+root_function Font*
+FontInit(GlyphAtlas* glyphAtlas, u32 fontSize);
+
+root_function unsigned char*
+initGlyphs(Arena* arena, Font* font, u32* width, u32* height);
+
+root_function void
+cleanupFontResources(GlyphAtlas* glyphAtlas, VkDevice device);
+
+root_function void
 createGlyphAtlasImage(Font* font, VkPhysicalDevice physicalDevice, VkDevice device,
-                      VkCommandPool commandPool, VkQueue graphicsQueue, u32 fontSize);
-void
+                      VkCommandPool commandPool, VkQueue graphicsQueue);
+
+root_function void
 createGlyphAtlasImageView(Font* font, VkDevice device);
 
-void
+root_function void
+createGlyphAtlasTextureSampler(Font* font, VkPhysicalDevice physicalDevice, VkDevice device);
+
+root_function void
 createFontDescriptorSets(Font* font, VkDescriptorPool descriptorPool,
                          VkDescriptorSetLayout descriptorSetLayout, VkDevice device,
                          const u32 MAX_FRAMES_IN_FLIGHT, Array<VkDescriptorSet> descriptorSets);
 
-void
+root_function void
 createFontDescriptorPool(VkDevice device, const u32 MAX_FRAMES_IN_FLIGHT,
                          VkDescriptorPool& descriptorPool);
-
-void
+root_function void
 createFontDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout& descriptorSetLayout);
-
-Vec2<float>
-calculateTextDimensions(Font* font, String8 text);
-
-Font*
-FontInit(GlyphAtlas* glyphAtlas, u32 fontSize);
-
-u64
-InstanceBufferFromFontBuffers(Array<Vulkan_GlyphInstance> outBuffer, Font* fonts);
-
-Font*
+root_function Font*
 FontFindOrCreate(GlyphAtlas* glyphAtlas, u32 fontSize);
 
-void
+root_function void
 FontRenderResourcesAlloc(VulkanContext* vulkanContext, GlyphAtlas* glyphAtlas, Font* font);
-
-void
+root_function void
 FontFrameReset(Arena* arena, GlyphAtlas* glyphAtlas);

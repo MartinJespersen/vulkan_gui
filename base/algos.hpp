@@ -22,9 +22,9 @@ template <typename T> struct Array
 };
 
 template <typename T>
-Array<T>
+root_function Array<T>
 ArrayAlloc(Arena* arena, u64 capacity);
 
 // hashing
-u128
+root_function u128
 HashFromStr8(String8 string);

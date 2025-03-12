@@ -1,5 +1,5 @@
-Buffer
-ReadFile(Arena* arena, const std::string& filename)
+root_function Buffer
+UI_ReadFile(Arena* arena, const std::string& filename)
 {
     Buffer buffer = {0};
     FILE* file = fopen(filename.data(), "rb");

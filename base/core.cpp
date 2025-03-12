@@ -201,6 +201,31 @@ memFree(void* ptr, u64 freeSize)
     }
 }
 
+#elif defined(_MSC_VER)
+
+// Function to allocate memory
+root_function void* memAlloc(u64 size)
+{
+    // Allocate memory using VirtualAlloc
+    void* mappedMem = VirtualAlloc(NULL, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (mappedMem == NULL)
+    {
+        // Handle error if allocation fails
+        exitWithError("Memory allocation failed");
+    }
+    return mappedMem;
+}
+
+// Function to free memory
+root_function void memFree(void* ptr, u64 freeSize)
+{
+    // Free memory using VirtualFree
+    if (!VirtualFree(ptr, 0, MEM_RELEASE))
+    {
+        // Handle error if deallocation fails
+        exitWithError("Memory deallocation failed");
+    }
+}
 #else
 #error "Unsupported OS"
 #endif
@@ -209,17 +234,18 @@ memFree(void* ptr, u64 freeSize)
 
 per_thread ThreadCtx g_ThreadCtx;
 
-__attribute__((constructor)) void
-thread_init()
+void
+ThreadContextInit()
 {
+    u64 size = GIGABYTE(4);
     for (u32 tctx_i = 0; tctx_i < ArrayCount(g_ThreadCtx.scratchArenas); tctx_i++)
     {
-        g_ThreadCtx.scratchArenas[tctx_i] = ArenaAlloc(GIGABYTE(4));
+        g_ThreadCtx.scratchArenas[tctx_i] = ArenaAlloc(size);
     }
 }
 
-__attribute__((destructor)) void
-thread_exit()
+void
+ThreadContextExit()
 {
     for (u32 tctx_i = 0; tctx_i < ArrayCount(g_ThreadCtx.scratchArenas); tctx_i++)
     {

@@ -323,13 +323,15 @@ BufferDec(String8);
 
 #ifdef __linux__
 #define per_thread __thread
+#elif defined(_MSC_VER)
+#define per_thread __declspec(thread)
 #else
 #error thread context not implemented for os
 #endif
 
-#define KILOBYTE(n) ((n) * 1024UL)
-#define MEGABYTE(n) (KILOBYTE(n) * 1024UL)
-#define GIGABYTE(n) (MEGABYTE(n) * 1024UL)
+#define KILOBYTE(n) ((n) * 1024ULL)
+#define MEGABYTE(n) (KILOBYTE(n) * 1024ULL)
+#define GIGABYTE(n) (n * 1024ULL * 1024ULL * 1024ULL)
 
 #define ArrayCount(a) (sizeof((a)) / sizeof((a[0])))
 
@@ -376,12 +378,10 @@ BufferDec(String8);
 // compiler specifics
 #ifdef __GNUC__
 #define LSBIndex(n) (__builtin_ffs((n)) - 1)
-#else
-#error compiler not supported
-#endif
-
-#ifdef __GNUC__
 #define AlignOf(n) __alignof__(n)
+#elif defined(_MSC_VER)
+#define LSBIndex(n) (31 - __lzcnt(n))  
+#define AlignOf(n) __alignof(n)  
 #else
 #error compiler not supported
 #endif
@@ -398,6 +398,13 @@ Clamp(N d, N min, N max);
 struct ThreadCtx
 {
     Arena* scratchArenas[2];
+};
+
+extern "C" {
+    void
+    ThreadContextInit();
+    void
+    ThreadContextExit();
 };
 
 root_function ThreadCtx

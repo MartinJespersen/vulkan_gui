@@ -104,23 +104,23 @@ struct BoxContext
     VkPipeline graphicsPipeline;
 };
 
-void
+root_function void
 BoxIndexBufferCreate(BoxContext* boxContext, VkPhysicalDevice physicalDevice, VkDevice device,
                      VkCommandPool commandPool, VkQueue graphicsQueue, u16_Buffer indices);
 
-void
+root_function void
 BoxRenderPassBegin(BoxContext* boxContext, VulkanContext* vulkanContext, u32 imageIndex,
                    u32 currentFrame);
 
-void
+root_function void
 BoxCleanup(BoxContext* boxContext, VkDevice device);
 
-void
+root_function void
 InstanceBufferFillFromBoxes(BoxContext* boxContext, VkPhysicalDevice physicalDevice,
                             VkDevice device);
 
-u64
+root_function u64
 InstanceBufferFromBoxes(Box* first, Array<Vulkan_BoxInstance> outBuffer);
 
-void
+root_function void
 BoxFrameReset(Arena* arena, BoxContext* boxContext);

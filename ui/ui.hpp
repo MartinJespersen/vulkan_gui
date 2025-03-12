@@ -10,8 +10,8 @@
 #include <stdio.h>
 
 // user defined headers
+#include "input.hpp"
 #include "vulkan_helpers.hpp"
 #include "box.hpp"
 #include "fonts.hpp"
-#include "input.hpp"
 #include "widget.hpp"

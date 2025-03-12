@@ -10,7 +10,7 @@ BufferImpl(VkFence);
 BufferImpl(VkVertexInputAttributeDescription);
 BufferImpl(VkDescriptorSetLayout);
 
-VkCommandBuffer
+root_function VkCommandBuffer
 beginSingleTimeCommands(VkDevice device, VkCommandPool commandPool)
 {
     VkCommandBufferAllocateInfo allocInfo{};
@@ -31,7 +31,7 @@ beginSingleTimeCommands(VkDevice device, VkCommandPool commandPool)
     return commandBuffer;
 }
 
-void
+root_function void
 endSingleTimeCommands(VkDevice device, VkCommandPool commandPool, VkQueue queue,
                       VkCommandBuffer commandBuffer)
 {
@@ -48,7 +48,7 @@ endSingleTimeCommands(VkDevice device, VkCommandPool commandPool, VkQueue queue,
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }
 
-uint32_t
+root_function uint32_t
 findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter,
                VkMemoryPropertyFlags properties)
 {
@@ -68,7 +68,7 @@ findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter,
     return 0;
 }
 
-void
+root_function void
 createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size,
              VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer,
              VkDeviceMemory& bufferMemory)
@@ -101,7 +101,7 @@ createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size
     vkBindBufferMemory(device, buffer, bufferMemory, 0);
 }
 
-void
+root_function void
 copyBuffer(VkDevice device, VkCommandPool commandPool, VkQueue queue, VkBuffer srcBuffer,
            VkBuffer dstBuffer, VkDeviceSize size)
 {
@@ -114,7 +114,7 @@ copyBuffer(VkDevice device, VkCommandPool commandPool, VkQueue queue, VkBuffer s
     endSingleTimeCommands(device, commandPool, queue, commandBuffer);
 }
 
-VkImageView
+root_function VkImageView
 createImageView(VkDevice device, VkImage image, VkFormat format)
 {
     VkImageViewCreateInfo viewInfo{};
@@ -137,7 +137,7 @@ createImageView(VkDevice device, VkImage image, VkFormat format)
     return imageView;
 }
 
-void
+root_function void
 transitionImageLayout(VkCommandPool commandPool, VkDevice device, VkQueue graphicsQueue,
                       VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout)
 {
@@ -156,8 +156,8 @@ transitionImageLayout(VkCommandPool commandPool, VkDevice device, VkQueue graphi
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
 
-    VkPipelineStageFlags sourceStage;
-    VkPipelineStageFlags destinationStage;
+    VkPipelineStageFlags sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkPipelineStageFlags destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
     if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
     {
         barrier.srcAccessMask = 0;
@@ -186,7 +186,7 @@ transitionImageLayout(VkCommandPool commandPool, VkDevice device, VkQueue graphi
     endSingleTimeCommands(device, commandPool, graphicsQueue, commandBuffer);
 }
 
-void
+root_function void
 copyBufferToImage(VkCommandPool commandPool, VkDevice device, VkQueue queue, VkBuffer buffer,
                   VkImage image, uint32_t width, uint32_t height)
 {
@@ -211,7 +211,7 @@ copyBufferToImage(VkCommandPool commandPool, VkDevice device, VkQueue queue, VkB
     endSingleTimeCommands(device, commandPool, queue, commandBuffer);
 }
 
-void
+root_function void
 createImage(VkPhysicalDevice physicalDevice, VkDevice device, u32 width, u32 height,
             VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling,
             VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
@@ -254,7 +254,7 @@ createImage(VkPhysicalDevice physicalDevice, VkDevice device, u32 width, u32 hei
     vkBindImageMemory(device, image, imageMemory, 0);
 }
 
-VkImageView
+root_function VkImageView
 createColorResources(VkPhysicalDevice physicalDevice, VkDevice device,
                      VkFormat swapChainImageFormat, VkExtent2D swapChainExtent,
                      VkSampleCountFlagBits msaaSamples, VkImage& colorImage,
@@ -270,7 +270,7 @@ createColorResources(VkPhysicalDevice physicalDevice, VkDevice device,
     return createImageView(device, colorImage, colorFormat);
 }
 
-void
+root_function void
 createFramebuffers(VkFramebuffer_Buffer framebuffers, VkDevice device, VkImageView colorImageView,
                    VkRenderPass renderPass, VkExtent2D swapChainExtent,
                    VkImageView_Buffer swapChainImageViews)
@@ -297,7 +297,7 @@ createFramebuffers(VkFramebuffer_Buffer framebuffers, VkDevice device, VkImageVi
     }
 }
 
-void
+root_function void
 createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPipeline,
                        VkDevice device, VkExtent2D swapChainExtent, VkRenderPass renderPass,
                        VkDescriptorSetLayout descriptorSetLayout, VkSampleCountFlagBits msaaSamples,
@@ -307,8 +307,8 @@ createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPip
                        std::string fragShaderPath, VkShaderStageFlagBits pushConstantStage)
 {
     ArenaTemp scratchArena = ArenaScratchGet();
-    Buffer vertShaderBuffer = ReadFile(scratchArena.arena, vertShaderPath);
-    Buffer fragShaderBuffer = ReadFile(scratchArena.arena, fragShaderPath);
+    Buffer vertShaderBuffer = UI_ReadFile(scratchArena.arena, vertShaderPath);
+    Buffer fragShaderBuffer = UI_ReadFile(scratchArena.arena, fragShaderPath);
 
     VkShaderModule vertShaderModule = ShaderModuleCreate(device, vertShaderBuffer);
     VkShaderModule fragShaderModule = ShaderModuleCreate(device, fragShaderBuffer);
@@ -465,7 +465,7 @@ createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPip
     return;
 }
 
-VkRenderPass
+root_function VkRenderPass
 createRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFlagBits msaaSamples,
                  VkAttachmentLoadOp loadOp, VkImageLayout initialLayout, VkImageLayout finalLayout)
 {
@@ -536,7 +536,7 @@ createRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFl
     return renderPass;
 }
 
-VkShaderModule
+root_function VkShaderModule
 ShaderModuleCreate(VkDevice device, Buffer buffer)
 {
     VkShaderModuleCreateInfo createInfo{};
@@ -554,7 +554,7 @@ ShaderModuleCreate(VkDevice device, Buffer buffer)
 }
 
 // queue family
-bool
+root_function bool
 QueueFamilyIsComplete(QueueFamilyIndexBits queueFamily)
 {
     if ((!queueFamily.graphicsFamilyIndexBits) || (!queueFamily.presentFamilyIndexBits))
@@ -564,7 +564,7 @@ QueueFamilyIsComplete(QueueFamilyIndexBits queueFamily)
     return true;
 }
 
-QueueFamilyIndices
+root_function QueueFamilyIndices
 QueueFamilyIndicesFromBitFields(QueueFamilyIndexBits queueFamilyBits)
 {
     if (!QueueFamilyIsComplete(queueFamilyBits))
@@ -580,10 +580,7 @@ QueueFamilyIndicesFromBitFields(QueueFamilyIndexBits queueFamilyBits)
     return indices;
 }
 
-// // NOTE: you could add logic to explicitly prefer a physical device that
-// // supports drawing and presentation in the same queue for improved
-// // performance.
-QueueFamilyIndexBits
+root_function QueueFamilyIndexBits
 QueueFamiliesFind(VulkanContext* vulkanContext, VkPhysicalDevice device)
 {
     ArenaTemp scratchArena = ArenaScratchGet();
@@ -594,7 +591,6 @@ QueueFamiliesFind(VulkanContext* vulkanContext, VkPhysicalDevice device)
     VkQueueFamilyProperties* queueFamilies =
         PushArray(scratchArena.arena, VkQueueFamilyProperties, queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies);
-    // Logic to find queue family indices to populate struct with
     for (u32 i = 0; i < queueFamilyCount; i++)
     {
         if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
@@ -625,8 +621,7 @@ QueueFamiliesFind(VulkanContext* vulkanContext, VkPhysicalDevice device)
     return indices;
 }
 
-// swap chain
-SwapChainSupportDetails
+root_function SwapChainSupportDetails
 querySwapChainSupport(Arena* arena, VulkanContext* vulkanContext, VkPhysicalDevice device)
 {
     SwapChainSupportDetails details;

@@ -1,3 +1,10 @@
+
+#include <cstdlib>
+#include <cstring>
+
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+#include <vulkan/vulkan_core.h>
 // domain: hpp
 #include "entrypoint.hpp"
 
@@ -8,12 +15,11 @@
 // profiler
 #include "profiler/tracy/Tracy.hpp"
 #include "profiler/tracy/TracyVulkan.hpp"
-
 #ifdef PROFILING_ENABLE
 BufferImpl(TracyVkCtx);
 #endif
 
-VkResult
+root_function VkResult
 CreateDebugUtilsMessengerEXT(VkInstance instance,
                              const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
                              const VkAllocationCallbacks* pAllocator,
@@ -31,7 +37,7 @@ CreateDebugUtilsMessengerEXT(VkInstance instance,
     }
 }
 
-void
+root_function void
 DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
                               const VkAllocationCallbacks* pAllocator)
 {
@@ -46,7 +52,7 @@ DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debu
 void
 InitContext(Context* context)
 {
-    context->cpuFreq = EstimateCPUTimerFreq();
+    // context->cpuFreq = EstimateCPUTimerFreq();
 
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
     glyphAtlas->fontArena = (Arena*)ArenaAlloc(FONT_ARENA_SIZE);
@@ -64,7 +70,7 @@ DeleteContext(Context* context)
     ArenaDealloc(glyphAtlas->fontArena);
 }
 
-void
+root_function void
 IndexBufferAlloc(VulkanContext* vulkanContext, GlyphAtlas* glyphAtlas)
 {
     const u16 indices[] = {0, 1, 2, 2, 3, 0};
@@ -93,7 +99,7 @@ VulkanInit(Context* context)
     setupDebugMessenger(vulkanContext);
     createSurface(vulkanContext);
     pickPhysicalDevice(vulkanContext);
-    createLogicalDevice(vulkanContext);
+    createLogicalDevice(scratchArena.arena, vulkanContext);
     SwapChainInfo swapChainInfo = SwapChainCreate(scratchArena.arena, vulkanContext);
     u32 swapChainImageCount = SwapChainImageCountGet(vulkanContext);
     vulkanContext->swapChainImages =
@@ -192,7 +198,7 @@ cleanup(Context* context)
     glfwTerminate();
 }
 
-void
+root_function void
 cleanupColorResources(VulkanContext* vulkanContext)
 {
     vkDestroyImageView(vulkanContext->device, vulkanContext->colorImageView, nullptr);
@@ -200,7 +206,7 @@ cleanupColorResources(VulkanContext* vulkanContext)
     vkFreeMemory(vulkanContext->device, vulkanContext->colorImageMemory, nullptr);
 }
 
-void
+root_function void
 cleanupSwapChain(VulkanContext* vulkanContext)
 {
     cleanupColorResources(vulkanContext);
@@ -220,7 +226,7 @@ cleanupSwapChain(VulkanContext* vulkanContext)
     vkDestroySwapchainKHR(vulkanContext->device, vulkanContext->swapChain, nullptr);
 }
 
-void
+root_function void
 createSyncObjects(VulkanContext* vulkanContext)
 {
     vulkanContext->imageAvailableSemaphores =
@@ -251,7 +257,7 @@ createSyncObjects(VulkanContext* vulkanContext)
     }
 }
 
-void
+root_function void
 createCommandBuffers(Context* context)
 {
     VulkanContext* vulkanContext = context->vulkanContext;
@@ -282,7 +288,7 @@ createCommandBuffers(Context* context)
 #endif
 }
 
-void
+root_function void
 createCommandPool(VulkanContext* vulkanContext)
 {
     QueueFamilyIndices queueFamilyIndices = vulkanContext->queueFamilyIndices;
@@ -299,7 +305,7 @@ createCommandPool(VulkanContext* vulkanContext)
     }
 }
 
-void
+root_function void
 SwapChainImageViewsCreate(VulkanContext* vulkanContext)
 {
     for (uint32_t i = 0; i < vulkanContext->swapChainImages.size; i++)
@@ -310,7 +316,7 @@ SwapChainImageViewsCreate(VulkanContext* vulkanContext)
     }
 }
 
-void
+root_function void
 SwapChainImagesCreate(VulkanContext* vulkanContext, SwapChainInfo swapChainInfo, u32 imageCount)
 {
     vkGetSwapchainImagesKHR(vulkanContext->device, vulkanContext->swapChain, &imageCount,
@@ -320,7 +326,7 @@ SwapChainImagesCreate(VulkanContext* vulkanContext, SwapChainInfo swapChainInfo,
     vulkanContext->swapChainExtent = swapChainInfo.extent;
 }
 
-u32
+root_function u32
 SwapChainImageCountGet(VulkanContext* vulkanContext)
 {
     u32 imageCount = {0};
@@ -328,7 +334,7 @@ SwapChainImageCountGet(VulkanContext* vulkanContext)
     return imageCount;
 }
 
-SwapChainInfo
+root_function SwapChainInfo
 SwapChainCreate(Arena* arena, VulkanContext* vulkanContext)
 {
     SwapChainInfo swapChainInfo = {0};
@@ -363,11 +369,11 @@ SwapChainCreate(Arena* arena, VulkanContext* vulkanContext)
 
     if (queueFamilyIndices.graphicsFamilyIndex != queueFamilyIndices.presentFamilyIndex)
     {
-        u32 queueFamilyIndices[] = {vulkanContext->queueFamilyIndices.graphicsFamilyIndex,
+        u32 queueFamilyIndicesSame[] = {vulkanContext->queueFamilyIndices.graphicsFamilyIndex,
                                     vulkanContext->queueFamilyIndices.presentFamilyIndex};
         createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         createInfo.queueFamilyIndexCount = 2;
-        createInfo.pQueueFamilyIndices = queueFamilyIndices;
+        createInfo.pQueueFamilyIndices = queueFamilyIndicesSame;
     }
     else
     {
@@ -392,7 +398,7 @@ SwapChainCreate(Arena* arena, VulkanContext* vulkanContext)
     return swapChainInfo;
 }
 
-void
+root_function void
 createSurface(VulkanContext* vulkanContext)
 {
     if (glfwCreateWindowSurface(vulkanContext->instance, vulkanContext->window, nullptr,
@@ -402,7 +408,7 @@ createSurface(VulkanContext* vulkanContext)
     }
 }
 
-void
+root_function void
 createInstance(VulkanContext* vulkanContext)
 {
     ArenaTemp scratchArena = ArenaScratchGet();
@@ -452,8 +458,8 @@ createInstance(VulkanContext* vulkanContext)
     ArenaTempEnd(scratchArena);
 }
 
-void
-createLogicalDevice(VulkanContext* vulkanContext)
+root_function void
+createLogicalDevice(Arena *arena, VulkanContext* vulkanContext)
 {
     QueueFamilyIndices queueFamilyIndicies = vulkanContext->queueFamilyIndices;
 
@@ -466,7 +472,7 @@ createLogicalDevice(VulkanContext* vulkanContext)
     u32 uniqueQueueFamilies[] = {queueFamilyIndicies.graphicsFamilyIndex,
                                  queueFamilyIndicies.presentFamilyIndex};
 
-    VkDeviceQueueCreateInfo queueCreateInfos[uniqueQueueFamiliesCount];
+    VkDeviceQueueCreateInfo* queueCreateInfos = PushArray(arena, VkDeviceQueueCreateInfo, uniqueQueueFamiliesCount);
     float queuePriority = 1.0f;
     for (u32 i = 0; i < uniqueQueueFamiliesCount; i++)
     {
@@ -517,7 +523,7 @@ createLogicalDevice(VulkanContext* vulkanContext)
                      &vulkanContext->presentQueue);
 }
 
-void
+root_function void
 pickPhysicalDevice(VulkanContext* vulkanContext)
 {
     ArenaTemp scratchArena = ArenaScratchGet();
@@ -555,7 +561,7 @@ pickPhysicalDevice(VulkanContext* vulkanContext)
     ArenaTempEnd(scratchArena);
 }
 
-bool
+root_function bool
 isDeviceSuitable(VulkanContext* vulkanContext, VkPhysicalDevice device,
                  QueueFamilyIndexBits indexBits)
 {
@@ -579,7 +585,7 @@ isDeviceSuitable(VulkanContext* vulkanContext, VkPhysicalDevice device,
            supportedFeatures.samplerAnisotropy;
 }
 
-bool
+root_function bool
 checkValidationLayerSupport(VulkanContext* vulkanContext)
 {
     ArenaTemp scratchArena = ArenaScratchGet();
@@ -613,7 +619,7 @@ checkValidationLayerSupport(VulkanContext* vulkanContext)
     return layerFound;
 }
 
-String8_Buffer
+root_function String8_Buffer
 getRequiredExtensions(VulkanContext* vulkanContext)
 {
     u32 glfwExtensionCount = 0;
@@ -642,7 +648,7 @@ getRequiredExtensions(VulkanContext* vulkanContext)
     return extensions;
 }
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL
+root_function VKAPI_ATTR VkBool32 VKAPI_CALL
 debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
               VkDebugUtilsMessageTypeFlagsEXT messageType,
               const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
@@ -655,7 +661,7 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     return VK_FALSE;
 }
 
-void
+root_function void
 setupDebugMessenger(VulkanContext* vulkanContext)
 {
     if (!vulkanContext->enableValidationLayers)
@@ -669,7 +675,7 @@ setupDebugMessenger(VulkanContext* vulkanContext)
     }
 }
 
-void
+root_function void
 populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
 {
     createInfo = {};
@@ -683,7 +689,7 @@ populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
     createInfo.pfnUserCallback = debugCallback;
 }
 
-bool
+root_function bool
 checkDeviceExtensionSupport(VulkanContext* vulkanContext, VkPhysicalDevice device)
 {
     ArenaTemp scratchArena = ArenaScratchGet();
@@ -710,7 +716,7 @@ checkDeviceExtensionSupport(VulkanContext* vulkanContext, VkPhysicalDevice devic
     return numberOfRequiredExtenstionsLeft == 0;
 }
 
-VkSurfaceFormatKHR
+root_function VkSurfaceFormatKHR
 chooseSwapSurfaceFormat(VkSurfaceFormatKHR_Buffer availableFormats)
 {
     for (u32 i = 0; i < availableFormats.size; i++)
@@ -724,7 +730,7 @@ chooseSwapSurfaceFormat(VkSurfaceFormatKHR_Buffer availableFormats)
     return availableFormats.data[0];
 }
 
-VkPresentModeKHR
+root_function VkPresentModeKHR
 chooseSwapPresentMode(VkPresentModeKHR_Buffer availablePresentModes)
 {
     for (u32 i = 0; i < availablePresentModes.size; i++)
@@ -737,7 +743,7 @@ chooseSwapPresentMode(VkPresentModeKHR_Buffer availablePresentModes)
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D
+root_function VkExtent2D
 chooseSwapExtent(VulkanContext* vulkanContext, const VkSurfaceCapabilitiesKHR& capabilities)
 {
     if (capabilities.currentExtent.width != UINT32_MAX)
@@ -760,7 +766,7 @@ chooseSwapExtent(VulkanContext* vulkanContext, const VkSurfaceCapabilitiesKHR& c
     }
 }
 
-VkSampleCountFlagBits
+root_function VkSampleCountFlagBits
 getMaxUsableSampleCount(VkPhysicalDevice device)
 {
     VkPhysicalDeviceProperties physicalDeviceProperties;
@@ -796,7 +802,7 @@ getMaxUsableSampleCount(VkPhysicalDevice device)
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-void
+root_function void
 recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
 {
     ZoneScoped;
@@ -832,16 +838,16 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
         ZoneScopedN("Create Button row");
         UI_PushLayout(uiState);
         // temporary way of choosing font
-        F32Vec4 color = {0.0f, 0.8f, 0.8f, 0.1f};
-        UI_WidgetFlags flags =
+        color = {0.0f, 0.8f, 0.8f, 0.1f};
+        flags =
             UI_WidgetFlag_Clickable | UI_WidgetFlag_DrawBackground | UI_WidgetFlag_DrawText;
-        UI_Size semanticSizeX = {.kind = UI_SizeKind_TextContent, .value = 0, .strictness = 0};
-        UI_Size semanticSizeY = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
+        semanticSizeX = {.kind = UI_SizeKind_TextContent, .value = 0, .strictness = 0};
+        semanticSizeY = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
         for (u32 btn_i = 0; btn_i < 2; btn_i++)
         {
             color.axis.x += 0.1f;
             String8 name = Str8(arena, "test_name %u", btn_i);
-            String8 text = Str8(arena, "%u", btn_i);
+            text = Str8(arena, "%u", btn_i);
             UI_Widget_Add(name, uiState, color, text, 1.0f, 1.0f, 5.0f, context->io, flags, 50,
                           semanticSizeX, semanticSizeY);
         }
@@ -897,16 +903,6 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     ArenaTempEnd(frameArena);
 }
 
-inline f64
-CalculateFrameRate(u64* prevFrameTickCount, u64 cpuFreq)
-{
-    u64 tick = ReadCPUTimer();
-    u64 tickDelta = tick - *prevFrameTickCount;
-    *prevFrameTickCount = tick;
-
-    return (f64)cpuFreq / (f64)tickDelta;
-}
-
 void
 drawFrame(Context* context)
 {
@@ -920,8 +916,6 @@ drawFrame(Context* context)
                         UINT64_MAX);
     }
 
-    // TODO: This is not correct as it only looks at cpu time
-    context->frameRate = CalculateFrameRate(&context->frameTickPrev, context->cpuFreq);
 
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(
@@ -999,7 +993,7 @@ drawFrame(Context* context)
         (vulkanContext->currentFrame + 1) % vulkanContext->MAX_FRAMES_IN_FLIGHT;
 }
 
-void
+root_function void
 recreateSwapChain(VulkanContext* vulkanContext)
 {
     ArenaTemp scratchArena = ArenaScratchGet();

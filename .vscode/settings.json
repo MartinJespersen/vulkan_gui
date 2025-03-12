@@ -64,6 +64,10 @@
         "stop_token": "cpp",
         "thread": "cpp",
         "cerrno": "cpp",
-        "iomanip": "cpp"
+        "iomanip": "cpp",
+        "xmemory": "cpp",
+        "xstring": "cpp",
+        "xtr1common": "cpp",
+        "xutility": "cpp"
     }
 }

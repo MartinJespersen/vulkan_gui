@@ -3,3 +3,7 @@
 profiler
 build
 *.o
+*.obj
+*.exe
+*.rdi
+*.pdb

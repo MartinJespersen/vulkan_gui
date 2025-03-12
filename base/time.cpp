@@ -1,12 +1,12 @@
 
 
-static u64
+root_function u64
 GetOSTimerFreq(void)
 {
     return 1000000;
 }
 
-static u64
+root_function u64
 ReadOSTimer(void)
 {
     // NOTE(casey): The "struct" keyword is not necessary here when compiling in C++,
@@ -18,7 +18,7 @@ ReadOSTimer(void)
     return Result;
 }
 
-inline u64
+inline_function u64
 ReadCPUTimer(void)
 {
     // NOTE(casey): If you were on ARM, you would need to replace __rdtsc
@@ -28,7 +28,7 @@ ReadCPUTimer(void)
     return __rdtsc();
 }
 
-u64
+root_function u64
 EstimateCPUTimerFreq(void)
 {
     u64 MillisecondsToWait = 100;

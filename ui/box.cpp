@@ -1,4 +1,4 @@
-void
+root_function void
 BoxIndexBufferCreate(BoxContext* boxContext, VkPhysicalDevice physicalDevice, VkDevice device,
                      VkCommandPool commandPool, VkQueue graphicsQueue, u16_Buffer indices)
 {
@@ -27,7 +27,7 @@ BoxIndexBufferCreate(BoxContext* boxContext, VkPhysicalDevice physicalDevice, Vk
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
-void
+root_function void
 BoxRenderPassBegin(BoxContext* boxContext, VulkanContext* vulkanContext, u32 imageIndex,
                    u32 currentFrame)
 {
@@ -83,7 +83,7 @@ BoxRenderPassBegin(BoxContext* boxContext, VulkanContext* vulkanContext, u32 ima
     vkCmdEndRenderPass(commandBuffer);
 }
 
-void
+root_function void
 BoxCleanup(BoxContext* boxContext, VkDevice device)
 {
     vkDestroyBuffer(device, boxContext->indexBuffer, nullptr);
@@ -96,7 +96,7 @@ BoxCleanup(BoxContext* boxContext, VkDevice device)
     vkDestroyPipelineLayout(device, boxContext->pipelineLayout, nullptr);
 }
 
-void
+root_function void
 InstanceBufferFillFromBoxes(BoxContext* boxContext, VkPhysicalDevice physicalDevice,
                             VkDevice device)
 {
@@ -122,7 +122,7 @@ InstanceBufferFillFromBoxes(BoxContext* boxContext, VkPhysicalDevice physicalDev
     boxContext->instBufferSize = bufferSize;
 }
 
-u64
+root_function u64
 InstanceBufferFromBoxes(Box* first, Array<Vulkan_BoxInstance> outBuffer)
 {
     u64 numInstances = 0;
@@ -141,7 +141,7 @@ InstanceBufferFromBoxes(Box* first, Array<Vulkan_BoxInstance> outBuffer)
     return numInstances;
 }
 
-void
+root_function void
 BoxFrameReset(Arena* arena, BoxContext* boxContext)
 {
     boxContext->boxInstances = ArrayAlloc<Vulkan_BoxInstance>(arena, boxContext->MAX_BOX_INSTANCES);

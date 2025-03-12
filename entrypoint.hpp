@@ -10,7 +10,7 @@
 
 const u64 FONT_ARENA_SIZE = MEGABYTE(4);
 const u32 MAX_FONTS_IN_USE = 10;
-const u64 MAX_GLYPH_INSTANCES = 1000;
+
 #ifdef PROFILING_ENABLE
 BufferDec(TracyVkCtx);
 #endif
@@ -38,10 +38,6 @@ extern "C"
         f64 frameRate;
         u64 cpuFreq;
     };
-}
-
-extern "C"
-{
     void
     InitContext(Context* context);
     void
@@ -56,69 +52,73 @@ extern "C"
     drawFrame(Context* context);
 }
 
-void
+
+
+
+
+root_function void
 recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame);
 
-void
+root_function void
 recreateSwapChain(VulkanContext* vulkanContext);
 
-void
+root_function void
 createSyncObjects(VulkanContext* vulkanContext);
 
-void
+root_function void
 createCommandBuffers(Context* context);
 
-void
+root_function void
 SwapChainImageViewsCreate(VulkanContext* vulkanContext);
-void
+root_function void
 createCommandPool(VulkanContext* vulkanContext);
 
-void
+root_function void
 cleanupColorResources(VulkanContext* vulkanContext);
-void
+root_function void
 cleanupSwapChain(VulkanContext* vulkanContext);
-void
+root_function void
 createInstance(VulkanContext* vulkanContext);
-void
+root_function void
 setupDebugMessenger(VulkanContext* vulkanContext);
-void
+root_function void
 createSurface(VulkanContext* vulkanContext);
-void
+root_function void
 pickPhysicalDevice(VulkanContext* vulkanContext);
-void
-createLogicalDevice(VulkanContext* vulkanContext);
+root_function void
+createLogicalDevice(Arena* arena, VulkanContext* vulkanContext);
 
-SwapChainInfo
+root_function SwapChainInfo
 SwapChainCreate(Arena* arena, VulkanContext* vulkanContext);
-u32
+root_function u32
 SwapChainImageCountGet(VulkanContext* vulkanContext);
-void
+root_function void
 SwapChainImagesCreate(VulkanContext* vulkanContext, SwapChainInfo swapChainInfo, u32 imageCount);
 
-VkExtent2D
+root_function VkExtent2D
 chooseSwapExtent(VulkanContext* vulkanContext, const VkSurfaceCapabilitiesKHR& capabilities);
 
-String8_Buffer
+root_function String8_Buffer
 getRequiredExtensions(VulkanContext* vulkanContext);
 
-void
+root_function void
 populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 
-bool
+root_function bool
 isDeviceSuitable(VulkanContext* vulkanContext, VkPhysicalDevice device,
                  QueueFamilyIndexBits indexBits);
 
-VkSampleCountFlagBits
+                 root_function VkSampleCountFlagBits
 getMaxUsableSampleCount(VkPhysicalDevice device);
 
-bool
+root_function bool
 checkDeviceExtensionSupport(VulkanContext* vulkanContext, VkPhysicalDevice device);
 
-bool
+root_function bool
 checkValidationLayerSupport(VulkanContext* vulkanContext);
 
-VkSurfaceFormatKHR
+root_function VkSurfaceFormatKHR
 chooseSwapSurfaceFormat(VkSurfaceFormatKHR_Buffer availableFormats);
 
-VkPresentModeKHR
+root_function VkPresentModeKHR
 chooseSwapPresentMode(VkPresentModeKHR_Buffer availablePresentModes);

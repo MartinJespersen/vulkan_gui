@@ -1,18 +1,19 @@
-#include <complex.h>
 #include <cstdlib>
 #include <cstring>
 #include <sys/types.h>
-#include <unistd.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 
+#ifdef __GNUC__
 #include <dlfcn.h>
+#include <unistd.h>
 #include <fcntl.h>
-#include <iostream>
+#include <complex.h>
 #include <sys/inotify.h>
 #include <sys/prctl.h>
 #include <sys/signal.h>
+#endif
 
 // user defined: [hpp]
 #include "base/base.hpp"
@@ -23,6 +24,10 @@ void (*cleanupLib)(Context*);
 void (*VulkanInitLib)(Context*);
 void (*InitContextLib)(Context*);
 void (*DeleteContextLib)(Context*);
+void (*ThreadContextInitLib)();
+void (*ThreadContextExitLib)();
+
+#ifdef __GNUC__
 
 #define BUF_LEN (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 #define CONCAT(a, b) a b
@@ -146,6 +151,20 @@ loadLibrary()
         }
     }
 
+    ThreadContextInitLib = (void (*)(Context*))dlsym(entryHandle, "ThreadContextInit");
+    if (!ThreadContextInitLib)
+    {
+        printf("Failed to load ThreadContextInit: %s", dlerror());
+        exit(EXIT_FAILURE);
+    }
+
+    ThreadContextExitLib = (void (*)(Context*))dlsym(entryHandle, "ThreadContextExit");
+    if (!ThreadContextExitLib)
+    {
+        printf("Failed to load ThreadContextExit: %s", dlerror());
+        exit(EXIT_FAILURE);
+    }
+
     char* err = dlerror();
     if (err != NULL)
     {
@@ -184,6 +203,8 @@ signal_handler(int signo, siginfo_t* info, void* context)
         }
     }
 }
+#endif
+
 
 void
 framebufferResizeCallback(GLFWwindow* window, int width, int height)
@@ -211,8 +232,11 @@ initWindow(Context* context)
 void
 run()
 {
-#ifndef PROFILING_ENABLE
-
+    ThreadContextInit();
+#ifndef __GNUC__
+#define PROFILING_ENABLE
+#endif
+#ifndef PROFILING_ENABLE 
     void* entryHandle = loadLibrary();
     struct sigaction sa;
     sigemptyset(&sa.sa_mask);
@@ -273,6 +297,8 @@ run()
     cleanupLib = cleanup;
     InitContextLib = InitContext;
     DeleteContextLib = DeleteContext;
+    ThreadContextInitLib = ThreadContextInit;
+    ThreadContextExitLib = ThreadContextExit;
 
 #endif
 
@@ -322,6 +348,7 @@ run()
     cleanupLib(&context);
 
     DeleteContextLib(&context);
+    ThreadContextExit();
 }
 
 // NOTE: Tracy profiler has a dlclose function and it takes precedence over the one in the standard
@@ -330,15 +357,6 @@ run()
 int
 main()
 {
-    try
-    {
-        run();
-    }
-    catch (const std::exception& e)
-    {
-        std::cerr << e.what() << std::endl;
-        return EXIT_FAILURE;
-    }
-
+    run();
     return EXIT_SUCCESS;
 }

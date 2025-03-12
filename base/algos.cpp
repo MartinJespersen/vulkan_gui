@@ -3,7 +3,7 @@
 // fixed array
 
 template <typename T>
-Array<T>
+root_function Array<T>
 ArrayAlloc(Arena* arena, u64 capacity)
 {
     Array<T>* arr = PushStruct(arena, Array<T>);
@@ -13,7 +13,7 @@ ArrayAlloc(Arena* arena, u64 capacity)
 }
 
 // hash
-u128
+root_function u128
 HashFromStr8(String8 string)
 {
     u128 hash = {0};

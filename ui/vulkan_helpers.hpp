@@ -54,9 +54,9 @@ struct VulkanContext
     const u32 HEIGHT = 600;
     const u32 MAX_FRAMES_IN_FLIGHT = 2;
 
-    char* validationLayers[1] = {"VK_LAYER_KHRONOS_validation"};
+    const char* validationLayers[1] = {"VK_LAYER_KHRONOS_validation"};
 
-    char* deviceExtensions[1] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    const char* deviceExtensions[1] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 #ifdef NDEBUG
     const u8 enableValidationLayers = 0;
@@ -105,49 +105,49 @@ struct VulkanContext
     QueueFamilyIndices queueFamilyIndices;
 };
 
-VkCommandBuffer
+root_function VkCommandBuffer
 beginSingleTimeCommands(VkDevice device, VkCommandPool commandPool);
 
-void
+root_function void
 endSingleTimeCommands(VkDevice device, VkCommandPool commandPool, VkQueue queue,
                       VkCommandBuffer commandBuffer);
 
-void
+root_function void
 createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size,
              VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer,
              VkDeviceMemory& bufferMemory);
-void
+root_function void
 copyBuffer(VkDevice device, VkCommandPool commandPool, VkQueue queue, VkBuffer srcBuffer,
            VkBuffer dstBuffer, VkDeviceSize size);
 
-void
+root_function void
 transitionImageLayout(VkCommandPool commandPool, VkDevice device, VkQueue graphicsQueue,
                       VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
 
-void
+root_function void
 copyBufferToImage(VkCommandPool commandPool, VkDevice device, VkQueue queue, VkBuffer buffer,
                   VkImage image, uint32_t width, uint32_t height);
-void
+root_function void
 createImage(VkPhysicalDevice physicalDevice, VkDevice device, uint32_t width, uint32_t height,
             VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling,
             VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
             VkDeviceMemory& imageMemory);
 
-VkImageView
+root_function VkImageView
 createImageView(VkDevice device, VkImage image, VkFormat format);
 
-VkImageView
+root_function VkImageView
 createColorResources(VkPhysicalDevice physicalDevice, VkDevice device,
                      VkFormat swapChainImageFormat, VkExtent2D swapChainExtent,
                      VkSampleCountFlagBits msaaSamples, VkImage& colorImage,
                      VkDeviceMemory& colorImageMemory);
 
-void
+root_function void
 createFramebuffers(VkFramebuffer_Buffer framebuffers, VkDevice device, VkImageView colorImageView,
                    VkRenderPass renderPass, VkExtent2D swapChainExtent,
                    VkImageView_Buffer swapChainImageViews);
 
-void
+root_function void
 createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPipeline,
                        VkDevice device, VkExtent2D swapChainExtent, VkRenderPass renderPass,
                        VkDescriptorSetLayout descriptorSetLayout, VkSampleCountFlagBits msaaSamples,
@@ -156,24 +156,23 @@ createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPip
                        Vulkan_PushConstantInfo pushConstInfo, std::string vertShaderPath,
                        std::string fragShaderPath, VkShaderStageFlagBits pushConstantStage);
 
-VkRenderPass
+root_function VkRenderPass
 createRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFlagBits msaaSamples,
                  VkAttachmentLoadOp loadOp, VkImageLayout initialLayout, VkImageLayout finalLayout);
 
-VkShaderModule
+root_function VkShaderModule
 ShaderModuleCreate(VkDevice device, Buffer buffer);
 
 // queue family
 
-bool
+root_function bool
 QueueFamilyIsComplete(QueueFamilyIndexBits queueFamily);
 
-QueueFamilyIndices
+root_function QueueFamilyIndices
 QueueFamilyIndicesFromBitFields(QueueFamilyIndexBits queueFamilyBits);
 
-QueueFamilyIndexBits
+root_function QueueFamilyIndexBits
 QueueFamiliesFind(VulkanContext* vulkanContext, VkPhysicalDevice device);
 
-// swap chain
-SwapChainSupportDetails
+root_function SwapChainSupportDetails
 querySwapChainSupport(Arena* arena, VulkanContext* vulkanContext, VkPhysicalDevice device);

@@ -111,24 +111,24 @@ struct UI_State
 };
 
 // UI_Key functions
-UI_Key
+root_function UI_Key
 UI_Key_Calculate(String8 str);
 
-bool
+root_function bool
 UI_Key_IsEqual(UI_Key key0, UI_Key key1);
 
-bool
+root_function bool
 UI_Key_IsNull(UI_Key key);
 
 // Widget Cache
 
-UI_Widget*
+root_function UI_Widget*
 UI_Widget_FromKey(UI_State* uiState, UI_Key key);
 
-UI_Widget*
+root_function UI_Widget*
 UI_Widget_Allocate(UI_State* uiState);
 
-UI_Widget*
+root_function UI_Widget*
 UI_WidgetSlot_Push(UI_State* uiState, UI_Key key);
 
 // Widget functions
@@ -161,7 +161,7 @@ UI_Widget_DrawPrepare(Arena* arena, UI_State* uiState, BoxContext* boxContext);
 
 // Layout functions
 inline_function void
-UI_PushLayout(UI_State* uiState, UI_Widget* widget);
+UI_PushLayout(UI_State* uiState);
 
 inline_function void
 UI_PopLayout(UI_State* uiState);

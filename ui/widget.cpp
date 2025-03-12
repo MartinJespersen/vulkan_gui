@@ -1,4 +1,4 @@
-UI_Widget*
+root_function UI_Widget*
 UI_Widget_FromKey(UI_State* uiState, UI_Key key)
 {
     UI_Widget* result = {0};
@@ -21,7 +21,7 @@ UI_Widget_FromKey(UI_State* uiState, UI_Key key)
     return result;
 }
 
-UI_Widget*
+root_function UI_Widget*
 UI_Widget_Allocate(UI_State* uiState)
 {
     UI_Widget* widget = uiState->freeList;
@@ -39,7 +39,7 @@ UI_Widget_Allocate(UI_State* uiState)
 }
 
 // UI_WidgetSlot
-UI_Widget*
+root_function UI_Widget*
 UI_WidgetSlot_Push(UI_State* uiState, UI_Key key)
 {
     UI_WidgetSlot* slot = &uiState->widgetSlot[key.key % uiState->widgetCacheSize];
@@ -51,7 +51,7 @@ UI_WidgetSlot_Push(UI_State* uiState, UI_Key key)
 }
 
 // UI_Key
-UI_Key
+root_function UI_Key
 UI_Key_Calculate(String8 str)
 {
     u128 hash = HashFromStr8(str);
@@ -59,13 +59,13 @@ UI_Key_Calculate(String8 str)
     return key;
 }
 
-bool
+root_function bool
 UI_Key_IsEqual(UI_Key key0, UI_Key key1)
 {
     return key0.key == key1.key;
 }
 
-bool
+root_function bool
 UI_Key_IsNull(UI_Key key)
 {
     return key.key == 0;
