@@ -27,10 +27,11 @@ typedef uint64_t b64;
 // Arena
 struct Arena
 {
-    void* ptr;
     u64 pos;
-    u64 max;
     u64 align;
+    u64 resSize;
+    u64 cmtSize;
+    u64 cmt;
 };
 
 struct ArenaTemp
@@ -44,9 +45,6 @@ ArenaAlloc(u64 size);
 
 root_function void
 ArenaDealloc(Arena* arena);
-
-root_function void
-ArenaClear(Arena* arena);
 
 root_function void*
 ArenaPush(Arena* arena, u64 size);
@@ -259,14 +257,18 @@ struct Vec3
     }
 };
 
-#pragma once
-
-// os memory
-root_function void*
-memAlloc(u64 size);
-
-root_function void
-memFree(void* ptr, u64 freeSize);
+#define no_name_mangle extern "C"
+// sanitization
+#if ASAN_ENABLED
+#pragma comment(lib, "clang_rt.asan-x86_64.lib")
+no_name_mangle void __asan_poison_memory_region(void const volatile *addr, size_t size);
+no_name_mangle void __asan_unpoison_memory_region(void const volatile *addr, size_t size);
+# define AsanPoisonMemoryRegion(addr, size)   __asan_poison_memory_region((addr), (size))
+# define AsanUnpoisonMemoryRegion(addr, size) __asan_unpoison_memory_region((addr), (size))
+#else
+# define AsanPoisonMemoryRegion(addr, size)   ((void)(addr), (void)(size))
+# define AsanUnpoisonMemoryRegion(addr, size) ((void)(addr), (void)(size))
+#endif
 
 // scratch arena
 root_function ArenaTemp

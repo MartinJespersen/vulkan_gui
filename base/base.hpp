@@ -28,4 +28,12 @@
 #ifdef _GNUC_ //TODO: create implementation for windows as well  
 #include "time.hpp"
 #endif
+
+#if defined(_MSC_VER)
+    #include "os_win.hpp"
+#elif defined(__linux__)
+// TODO: create os folder for linux
+#else
+#error Libraries missing for current OS
+#endif
 #include "algos.hpp"

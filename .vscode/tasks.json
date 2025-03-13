@@ -26,6 +26,28 @@
                 "$gcc"
             ],
             "detail": "Generated task for building the project"
+        },
+        {
+            "label": "MSC debug",
+            "type": "shell",
+            "windows": {
+                "command": ".\\debug.bat",
+
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "shell": {
+                    "executable": "C:\\Windows\\System32\\cmd.exe",
+                    "args": [
+                        "/c",
+                        "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat\" &&"
+                    ]
+                },"cwd": "${workspaceFolder}"
+            },
+            "detail": "build and debug with raddebugger"
         }
     ]
 }

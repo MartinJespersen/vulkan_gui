@@ -1,7 +1,7 @@
 
 :: Set paths and filenames
 set "cwd=C:\repos\vulkan_gui\"
-set "debug_dir=%cwd%build\debug"
+set "debug_dir=%cwd%\msc\build\debug"
 set "exec_name=vulkan_gui.exe"
 set "entrypoint_file_name=entrypoint.cpp"
 set "main_file_name=main.cpp"
@@ -26,4 +26,4 @@ popd
 if not exist "%debug_dir%" mkdir "%debug_dir%"
 
 :: Compile main executable
-cl /Z7 %main_file_name% %entrypoint_file_name% /Fe"%exec_full_path%"  %cxxflags%  %include_dirs% /DPROFILING_ENABLE /nologo /link %link_dirs% %link_libs% %link_flags% /INCREMENTAL:NO /noexp
+cl /Z7 /DASAN_ENABLED %main_file_name% %entrypoint_file_name% /Fe"%exec_full_path%"  %cxxflags%  %include_dirs% /DPROFILING_ENABLE /nologo /link %link_dirs% %link_libs% %link_flags% /INCREMENTAL:NO /noexp

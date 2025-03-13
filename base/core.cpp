@@ -2,49 +2,59 @@
 root_function Arena*
 ArenaAlloc(u64 size)
 {
-    void* block = memAlloc(size);
+    u64 headerSize = sizeof(Arena);
+    u64 cmtSize = OS_PageSize();
+    void* block = OS_Reserve(size);
+    OS_Alloc(block, cmtSize);
+    AsanPoisonMemoryRegion(block, cmtSize);
+    AsanUnpoisonMemoryRegion(block, headerSize);
+
     Arena* arena = (Arena*)block;
-    arena->max = size;
-    arena->pos = sizeof(Arena);
-    arena->ptr = (void*)((u8*)arena + arena->pos);
+    arena->resSize = size;
+    arena->pos = headerSize;
+    arena->cmtSize = cmtSize;
+    arena->cmt = cmtSize;
     arena->align = 8;
+
     return arena;
-}
-
-root_function void
-ArenaClear(Arena* arena)
-{
-    arena->pos = 0;
-}
-
-root_function void*
-ArenaPush(Arena* arena, u64 size)
-{
-    if ((arena->pos + size + arena->align) > arena->max)
-    {
-        return nullptr;
-    }
-
-    arena->pos += (arena->align - 1);
-    arena->pos -= arena->pos % arena->align;
-    void* result = (void*)((u8*)arena->ptr + arena->pos);
-    arena->pos += size;
-    return result;
 }
 
 root_function void*
 ArenaPushAlign(Arena* arena, u64 size, u64 align)
 {
-    if ((arena->pos + size + align) > arena->max)
-    {
-        return nullptr;
-    }
-
+    u64 posPre = arena->pos;
     arena->pos += (align - 1);
     arena->pos -= arena->pos % align;
-    void* result = (void*)((u8*)arena->ptr + arena->pos);
-    arena->pos += size;
+    u64 posPost = arena->pos + size;
+
+    if (posPost >= arena->resSize)
+    {
+        exitWithError("Arena Error: Not enough space reserved");
+    }
+
+    // commit memory in new block
+    if (posPost >= arena->cmt) {
+        u64 cmtNew = posPost + arena->cmtSize - 1;
+        cmtNew -= cmtNew%arena->cmtSize;
+        u64 cmtNewClamped = Min(cmtNew, arena->resSize);
+        u64 cmtSize = cmtNewClamped - arena->cmt;
+        void* cmtPtr = (void*)((u8*)arena + arena->cmt);
+        OS_Alloc(cmtPtr, cmtSize);
+        arena->cmt = cmtNewClamped;
+    }
+
+    // unpoison memory
+    AsanUnpoisonMemoryRegion((u8*)arena+posPre, (posPost - posPre));
+    
+    void* result = (void*)((u8*)arena + arena->pos);
+    arena->pos = posPost;
     return result;
+}
+
+root_function void*
+ArenaPush(Arena* arena, u64 size)
+{
+    return ArenaPushAlign(arena, size, arena->align);
 }
 
 root_function void*
@@ -66,13 +76,26 @@ ArenaPushZeroAlign(Arena* arena, u64 size, u64 align)
 root_function void
 ArenaPop(Arena* arena, u64 pos)
 {
+    ASSERT(pos<=arena->pos, "ArenaPop: Input position should always be below the current position"); 
+    //uncommit memory
+    u64 unCmtLimit = arena->cmt - arena->cmtSize;
+    if(pos <= unCmtLimit) {
+        u64 posCmt = pos + arena->cmtSize - 1;
+        posCmt -= posCmt%arena->cmtSize;
+        u64 unCmtSize = arena->cmt - posCmt;
+        void* posCmtPtr = (void*)((u8*)arena + posCmt);
+        OS_Release(posCmtPtr, unCmtSize);
+        arena->cmt = posCmt;
+    }
+
+    AsanPoisonMemoryRegion((u8*)arena+pos, (arena->pos - pos));
     arena->pos = pos;
 }
 
 root_function void
 ArenaDealloc(Arena* arena)
 {
-    memFree(arena, arena->max);
+    OS_Free((void*)arena);
 }
 
 root_function ArenaTemp
@@ -85,7 +108,7 @@ ArenaTempBegin(Arena* arena)
 root_function void
 ArenaTempEnd(ArenaTemp temp)
 {
-    temp.arena->pos = temp.pos;
+    ArenaPop(temp.arena, temp.pos);
 }
 
 // String functions
@@ -175,60 +198,6 @@ StrArrFromStr8Buffer(Arena* arena, String8* buffer, u64 count)
     }
     return arr;
 }
-
-// allocations
-
-#ifdef __linux__
-#include <sys/mman.h>
-
-root_function void*
-memAlloc(u64 size)
-{
-    void* mappedMem = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (mappedMem == MAP_FAILED)
-    {
-        exitWithError(strerror(errno));
-    }
-    return mappedMem;
-}
-
-root_function void
-memFree(void* ptr, u64 freeSize)
-{
-    if (munmap(ptr, freeSize) < 0)
-    {
-        exitWithError(strerror(errno));
-    }
-}
-
-#elif defined(_MSC_VER)
-
-// Function to allocate memory
-root_function void* memAlloc(u64 size)
-{
-    // Allocate memory using VirtualAlloc
-    void* mappedMem = VirtualAlloc(NULL, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    if (mappedMem == NULL)
-    {
-        // Handle error if allocation fails
-        exitWithError("Memory allocation failed");
-    }
-    return mappedMem;
-}
-
-// Function to free memory
-root_function void memFree(void* ptr, u64 freeSize)
-{
-    // Free memory using VirtualFree
-    if (!VirtualFree(ptr, 0, MEM_RELEASE))
-    {
-        // Handle error if deallocation fails
-        exitWithError("Memory deallocation failed");
-    }
-}
-#else
-#error "Unsupported OS"
-#endif
 
 // scratch arena
 

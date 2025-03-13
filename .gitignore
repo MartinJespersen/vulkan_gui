@@ -1,5 +1,4 @@
 **.spv
-.vscode
 profiler
 build
 *.o
@@ -7,3 +6,4 @@ build
 *.exe
 *.rdi
 *.pdb
+*/BROWSE.VC.DB*

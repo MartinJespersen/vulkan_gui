@@ -360,7 +360,7 @@ createGlyphAtlasImage(Font* font, VkPhysicalDevice physicalDevice, VkDevice devi
     ArenaTemp scratchArena = ArenaScratchGet();
     u32 texWidth, texHeight;
     unsigned char* pixels = initGlyphs(scratchArena.arena, font, &texWidth, &texHeight);
-    VkDeviceSize imageSize = (u32)texWidth * (u32)texHeight * 4;
+    VkDeviceSize imageSize = (u32)texWidth * (u32)texHeight;
 
     if (!pixels)
     {
