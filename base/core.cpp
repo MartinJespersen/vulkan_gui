@@ -41,6 +41,7 @@ ArenaPushAlign(Arena* arena, u64 size, u64 align)
         void* cmtPtr = (void*)((u8*)arena + arena->cmt);
         OS_Alloc(cmtPtr, cmtSize);
         arena->cmt = cmtNewClamped;
+        AsanPoisonMemoryRegion((u8*)arena+posPost, (arena->cmt-posPost));
     }
 
     // unpoison memory

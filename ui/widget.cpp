@@ -123,7 +123,7 @@ UI_Widget_DepthFirstPostOrder(UI_Widget* widget)
         next = widget->parent;
     }
     else
-        for (next = widget->next; !IsNull(next->next); next = next->first)
+        for (next = widget->next; !IsNull(next->first); next = next->first)
         {
         }
     return next;
@@ -205,35 +205,27 @@ UI_Widget_SizeAndRelativePositionCalculate(GlyphAtlas* glyphAtlas, UI_State* uiS
             widget->textSize = textDimPx;
             widget->font = font;
         }
-        else
-            for (u32 axis = 0; axis < Axis2_COUNT; axis++)
+
+        for (u32 axis = 0; axis < Axis2_COUNT; axis++)
+        {
+            if (widget->semanticSize[axis].kind == UI_SizeKind_ChildrenSum)
             {
-                if (widget->semanticSize[axis].kind == UI_SizeKind_ChildrenSum)
+                for (UI_Widget* child = widget->first; !IsNull(child); child = child->next)
                 {
-                    widget->computedSize = {0.0f, 0.0f};
-                    widget->computedRelativePosition = {0.0f, 0.0f};
-                    for (UI_Widget* child = widget->first; !IsNull(child); child = child->next)
-                    {
-                        child->computedRelativePosition[axis] = widget->computedSize[axis];
-                        widget->computedSize[axis] += child->computedSize[axis];
-                    }
-                }
-                else
-                {
-                    widget->computedRelativePosition[axis] = 0.0f;
-                    for (UI_Widget* child = widget->first; !IsNull(child); child = child->next)
-                    {
-                        widget->computedSize[axis] =
-                            Max(widget->computedSize[axis], child->computedSize[axis]);
-                    }
-                    if (!UI_Widget_IsEmpty(widget->prev))
-                    {
-                        UI_Widget* prev = widget->prev;
-                        widget->computedRelativePosition[axis] =
-                            prev->computedRelativePosition[axis] + widget->computedSize[axis];
-                    }
+                    child->computedRelativePosition[axis] = widget->computedSize[axis];
+                    widget->computedSize[axis] += child->computedSize[axis];
                 }
             }
+            else if (widget->semanticSize[axis].kind == UI_SizeKind_Null)
+            {
+                for (UI_Widget* child = widget->first; !IsNull(child); child = child->next)
+                {
+                    widget->computedSize[axis] =
+                        Max(widget->computedSize[axis], child->computedSize[axis]);
+                }
+            } 
+
+        }
     }
 }
 
@@ -245,21 +237,15 @@ UI_Widget_AbsolutePositionCalculate(UI_State* uiState, F32Vec4 posAbs)
     {
         widget->rect = {0};
 
-        if (widget == uiState->root)
+        Vec2<f32> p0Parent = posAbs.point.p0;
+        if (widget != uiState->root)
         {
-            // widget->rect = posAbs;
-            Vec2<f32> windowSize = posAbs.point.p1 - posAbs.point.p0;
-            f32 xSize = Min(windowSize.x, widget->computedSize.x);
-            f32 ySize = Min(windowSize.y, widget->computedSize.y);
-            widget->rect.point.p0 = posAbs.point.p0;
-            widget->rect.point.p1 = posAbs.point.p0 + Vec2(xSize, ySize);
+            p0Parent = widget->parent->rect.point.p0;
         }
-        else
-        {
-            widget->rect.point.p0 =
-                widget->computedRelativePosition + widget->parent->rect.point.p0;
-            widget->rect.point.p1 = widget->rect.point.p0 + widget->computedSize;
-        }
+
+        widget->rect.point.p0 =
+            widget->computedRelativePosition + p0Parent;
+        widget->rect.point.p1 = widget->rect.point.p0 + widget->computedSize;
     }
 }
 

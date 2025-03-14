@@ -8,11 +8,12 @@
             "name": "Debug Vulkan GUI",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}\\msc\\build\\debug\\vulkan_gui.exe",
+            "program": "${workspaceFolder}\\build\\msc\\debug\\vulkan_gui.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
+            "preLaunchTask": "MSC build"
         },
         {
             "name": "g++ debug",

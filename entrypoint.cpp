@@ -829,8 +829,8 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     F32Vec4 color = {0.0f, 0.0f, 1.0f, 1.0f};
     String8 text = Str8(arena, "");
     UI_WidgetFlags flags = UI_WidgetFlag_DrawBackground;
-    UI_Size semanticSizeX = {.kind = UI_SizeKind_ChildrenSum, .value = 0, .strictness = 0};
-    UI_Size semanticSizeY = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
+    UI_Size semanticSizeX = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
+    UI_Size semanticSizeY = {.kind = UI_SizeKind_ChildrenSum, .value = 0, .strictness = 0};
     UI_Widget_Add(Str8(arena, "Div"), uiState, color, text, 1.0f, 1.0f, 5.0f, context->io, flags,
                   30, semanticSizeX, semanticSizeY);
 
@@ -841,9 +841,9 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
         color = {0.0f, 0.8f, 0.8f, 0.1f};
         flags =
             UI_WidgetFlag_Clickable | UI_WidgetFlag_DrawBackground | UI_WidgetFlag_DrawText;
-        semanticSizeX = {.kind = UI_SizeKind_TextContent, .value = 0, .strictness = 0};
-        semanticSizeY = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
-        for (u32 btn_i = 0; btn_i < 2; btn_i++)
+        semanticSizeX = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
+        semanticSizeY = {.kind = UI_SizeKind_TextContent, .value = 0, .strictness = 0};
+        for (u32 btn_i = 0; btn_i < 15; btn_i++)
         {
             color.axis.x += 0.1f;
             String8 name = Str8(arena, "test_name %u", btn_i);
@@ -906,16 +906,15 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
 void
 drawFrame(Context* context)
 {
+    ZoneScoped;
     VulkanContext* vulkanContext = context->vulkanContext;
 
-    ZoneScoped;
     {
         ZoneScopedN("Wait for frame");
         vkWaitForFences(vulkanContext->device, 1,
                         &vulkanContext->inFlightFences.data[vulkanContext->currentFrame], VK_TRUE,
                         UINT64_MAX);
     }
-
 
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(
