@@ -15,9 +15,7 @@
 // profiler
 #include "profiler/tracy/Tracy.hpp"
 #include "profiler/tracy/TracyVulkan.hpp"
-#ifdef PROFILING_ENABLE
-BufferImpl(TracyVkCtx);
-#endif
+
 
 root_function VkResult
 CreateDebugUtilsMessengerEXT(VkInstance instance,
@@ -129,7 +127,8 @@ VulkanInit(Context* context)
                            vulkanContext->fontRenderPass, VK_NULL_HANDLE,
                            vulkanContext->msaaSamples, Vulkan_BoxInstance::getBindingDescription(),
                            Vulkan_BoxInstance::getAttributeDescriptions(vulkanContext->arena),
-                           vulkanContext->resolutionInfo, "shaders/vert.spv", "shaders/frag.spv",
+                           vulkanContext->resolutionInfo, Str8(scratchArena.arena, "shaders/vert.spv"), 
+                           Str8(scratchArena.arena, "shaders/frag.spv"),
                            VK_SHADER_STAGE_VERTEX_BIT);
 
     vulkanContext->colorImageView = createColorResources(
@@ -829,9 +828,9 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     F32Vec4 color = {0.0f, 0.0f, 1.0f, 1.0f};
     String8 text = Str8(arena, "");
     UI_WidgetFlags flags = UI_WidgetFlag_DrawBackground;
-    UI_Size semanticSizeX = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
-    UI_Size semanticSizeY = {.kind = UI_SizeKind_ChildrenSum, .value = 0, .strictness = 0};
-    UI_Widget_Add(Str8(arena, "Div"), uiState, color, text, 1.0f, 1.0f, 5.0f, context->io, flags,
+    UI_Size semanticSizeX = {.kind = UI_SizeKind_Pixels, .value = 50.0f, .strictness = 0};
+    UI_Size semanticSizeY = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
+    UI_Widget_Add(Str8(arena, "Div"), context, color, text, 1.0f, 1.0f, 5.0f, flags,
                   30, semanticSizeX, semanticSizeY);
 
     {
@@ -841,16 +840,17 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
         color = {0.0f, 0.8f, 0.8f, 0.1f};
         flags =
             UI_WidgetFlag_Clickable | UI_WidgetFlag_DrawBackground | UI_WidgetFlag_DrawText;
-        semanticSizeX = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
-        semanticSizeY = {.kind = UI_SizeKind_TextContent, .value = 0, .strictness = 0};
-        for (u32 btn_i = 0; btn_i < 15; btn_i++)
+        semanticSizeX = {.kind = UI_SizeKind_TextContent, .value = 0, .strictness = 10.0f};
+        semanticSizeY = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
+        for (u32 btn_i = 0; btn_i < 4; btn_i++)
         {
             color.axis.x += 0.1f;
             String8 name = Str8(arena, "test_name %u", btn_i);
             text = Str8(arena, "%u", btn_i);
-            UI_Widget_Add(name, uiState, color, text, 1.0f, 1.0f, 5.0f, context->io, flags, 50,
+            UI_Widget_Add(name, context, color, text, 1.0f, 1.0f, 5.0f, flags, 50,
                           semanticSizeX, semanticSizeY);
         }
+
         UI_PopLayout(uiState);
     }
     UI_Widget_SizeAndRelativePositionCalculate(glyphAtlas, uiState);
@@ -893,7 +893,7 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     {
         TracyVkZoneC(profilingContext->tracyContexts.data[currentFrame],
                      vulkanContext->commandBuffers.data[currentFrame], "Text GPU", 0x00FF00);
-        beginGlyphAtlasRenderPass(glyphAtlas, vulkanContext, imageIndex, currentFrame);
+        GlyphAtlasRenderPass(glyphAtlas, vulkanContext, imageIndex, currentFrame);
     }
 
     if (vkEndCommandBuffer(vulkanContext->commandBuffers.data[currentFrame]) != VK_SUCCESS)

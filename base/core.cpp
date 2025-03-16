@@ -27,13 +27,13 @@ ArenaPushAlign(Arena* arena, u64 size, u64 align)
     arena->pos -= arena->pos % align;
     u64 posPost = arena->pos + size;
 
-    if (posPost >= arena->resSize)
+    if (posPost > arena->resSize)
     {
         exitWithError("Arena Error: Not enough space reserved");
     }
 
     // commit memory in new block
-    if (posPost >= arena->cmt) {
+    if (posPost > arena->cmt) {
         u64 cmtNew = posPost + arena->cmtSize - 1;
         cmtNew -= cmtNew%arena->cmtSize;
         u64 cmtNewClamped = Min(cmtNew, arena->resSize);
@@ -80,7 +80,7 @@ ArenaPop(Arena* arena, u64 pos)
     ASSERT(pos<=arena->pos, "ArenaPop: Input position should always be below the current position"); 
     //uncommit memory
     u64 unCmtLimit = arena->cmt - arena->cmtSize;
-    if(pos <= unCmtLimit) {
+    if(pos < unCmtLimit) {
         u64 posCmt = pos + arena->cmtSize - 1;
         posCmt -= posCmt%arena->cmtSize;
         u64 unCmtSize = arena->cmt - posCmt;

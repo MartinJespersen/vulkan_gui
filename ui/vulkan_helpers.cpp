@@ -303,12 +303,12 @@ createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPip
                        VkDescriptorSetLayout descriptorSetLayout, VkSampleCountFlagBits msaaSamples,
                        VkVertexInputBindingDescription bindingDescription,
                        VkVertexInputAttributeDescription_Buffer attributeDescriptions,
-                       Vulkan_PushConstantInfo pushConstInfo, std::string vertShaderPath,
-                       std::string fragShaderPath, VkShaderStageFlagBits pushConstantStage)
+                       Vulkan_PushConstantInfo pushConstInfo, String8 vertShaderPath,
+                       String8 fragShaderPath, VkShaderStageFlagBits pushConstantStage)
 {
     ArenaTemp scratchArena = ArenaScratchGet();
-    Buffer vertShaderBuffer = UI_ReadFile(scratchArena.arena, vertShaderPath);
-    Buffer fragShaderBuffer = UI_ReadFile(scratchArena.arena, fragShaderPath);
+    Buffer vertShaderBuffer = IO_ReadFile(scratchArena.arena, vertShaderPath);
+    Buffer fragShaderBuffer = IO_ReadFile(scratchArena.arena, fragShaderPath);
 
     VkShaderModule vertShaderModule = ShaderModuleCreate(device, vertShaderBuffer);
     VkShaderModule fragShaderModule = ShaderModuleCreate(device, fragShaderBuffer);

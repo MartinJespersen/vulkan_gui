@@ -4,40 +4,11 @@
 #include "base/base.hpp"
 #include "ui/ui.hpp"
 
-// profiler
-#include "profiler/tracy/Tracy.hpp"
-#include "profiler/tracy/TracyVulkan.hpp"
-
 const u64 FONT_ARENA_SIZE = MEGABYTE(4);
 const u32 MAX_FONTS_IN_USE = 10;
 
-#ifdef PROFILING_ENABLE
-BufferDec(TracyVkCtx);
-#endif
-
 extern "C"
 {
-    struct ProfilingContext
-    {
-#ifdef PROFILING_ENABLE
-        // tracy profiling context
-        TracyVkCtx_Buffer tracyContexts;
-#endif
-    };
-
-    struct Context
-    {
-        VulkanContext* vulkanContext;
-        ProfilingContext* profilingContext;
-        GlyphAtlas* glyphAtlas;
-        BoxContext* boxContext;
-        UI_IO* io;
-
-        UI_State* uiState;
-        u64 frameTickPrev;
-        f64 frameRate;
-        u64 cpuFreq;
-    };
     void
     InitContext(Context* context);
     void
@@ -51,10 +22,6 @@ extern "C"
     void
     drawFrame(Context* context);
 }
-
-
-
-
 
 root_function void
 recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame);

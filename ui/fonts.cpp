@@ -1,12 +1,15 @@
 root_function void
-beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, u32 imageIndex,
+GlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, u32 imageIndex,
                           u32 currentFrame)
 {
+    ArenaTemp scratchArena = ArenaScratchGet();
+    Arena* arena = scratchArena.arena;
+
     if (!glyphAtlas->loaded)
     {
-        u32 totalDescSets = glyphAtlas->fontCount + vulkanContext->MAX_FRAMES_IN_FLIGHT;
-        createFontDescriptorPool(vulkanContext->device, totalDescSets, glyphAtlas->descriptorPool);
-        createFontDescriptorSetLayout(vulkanContext->device, glyphAtlas->descriptorSetLayout);
+        u32 totalDescSets = glyphAtlas->fontCount * vulkanContext->MAX_FRAMES_IN_FLIGHT;
+        FontDescriptorPoolCreate(vulkanContext->device, totalDescSets, glyphAtlas->descriptorPool);
+        FontDescriptorSetLayoutCreate(vulkanContext->device, glyphAtlas->descriptorSetLayout);
         for (Font* font = glyphAtlas->fontLL.first; !IsNull(font); font = font->next)
         {
             FontRenderResourcesAlloc(vulkanContext, glyphAtlas, font);
@@ -17,8 +20,8 @@ beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, 
                                vulkanContext->msaaSamples,
                                Vulkan_GlyphInstance::getBindingDescription(),
                                Vulkan_GlyphInstance::getAttributeDescriptions(vulkanContext->arena),
-                               vulkanContext->resolutionInfo, "shaders/text_vert.spv",
-                               "shaders/text_frag.spv", VK_SHADER_STAGE_VERTEX_BIT);
+                               vulkanContext->resolutionInfo, Str8(arena,"shaders/text_vert.spv"),
+                               Str8(arena, "shaders/text_frag.spv"), VK_SHADER_STAGE_VERTEX_BIT);
         createGlyphIndexBuffer(glyphAtlas, vulkanContext->physicalDevice, vulkanContext->device);
         glyphAtlas->loaded = true;
     }
@@ -74,10 +77,11 @@ beginGlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, 
     }
 
     vkCmdEndRenderPass(commandBuffer);
+    ArenaTempEnd(scratchArena);
 }
 
 root_function Vec2<float>
-calculateTextDimensions(Font* font, String8 text)
+TextDimensionsCalculate(Font* font, String8 text)
 {
     Vec2<float> dimensions = {0.0, 0.0};
     u64 len = text.size;
@@ -155,7 +159,7 @@ addTexts(Arena* arena, GlyphAtlas* glyphAtlas, Text* texts, size_t len, u32 font
     Font* font = FontFindOrCreate(glyphAtlas, fontSize);
     for (size_t i = 0; i < len; i++)
     {
-        Vec2<f32> textHeight = calculateTextDimensions(font, texts[i].text);
+        Vec2<f32> textHeight = TextDimensionsCalculate(font, texts[i].text);
         addText(arena, font, texts[i].text, Vec2<f32>(texts[i].x, texts[i].y), min, max,
                 textHeight.y);
     }
@@ -354,7 +358,7 @@ cleanupFontResources(GlyphAtlas* glyphAtlas, VkDevice device)
 }
 
 root_function void
-createGlyphAtlasImage(Font* font, VkPhysicalDevice physicalDevice, VkDevice device,
+GlyphAtlasImageCreate(Font* font, VkPhysicalDevice physicalDevice, VkDevice device,
                       VkCommandPool commandPool, VkQueue graphicsQueue)
 {
     ArenaTemp scratchArena = ArenaScratchGet();
@@ -401,7 +405,7 @@ createGlyphAtlasImage(Font* font, VkPhysicalDevice physicalDevice, VkDevice devi
 }
 
 root_function void
-createGlyphAtlasImageView(Font* font, VkDevice device)
+GlyphAtlasImageViewCreate(Font* font, VkDevice device)
 {
     font->textureImageView = createImageView(device, font->textureImage, VK_FORMAT_R8_UNORM);
 }
@@ -446,7 +450,7 @@ createGlyphAtlasTextureSampler(Font* font, VkPhysicalDevice physicalDevice, VkDe
 }
 
 root_function void
-createFontDescriptorSets(Font* font, VkDescriptorPool descriptorPool,
+FontDescriptorSetsCreate(Font* font, VkDescriptorPool descriptorPool,
                          VkDescriptorSetLayout descriptorSetLayout, VkDevice device,
                          const u32 MAX_FRAMES_IN_FLIGHT, Array<VkDescriptorSet> descriptorSets)
 {
@@ -492,18 +496,18 @@ createFontDescriptorSets(Font* font, VkDescriptorPool descriptorPool,
 }
 
 root_function void
-createFontDescriptorPool(VkDevice device, const u32 MAX_FRAMES_IN_FLIGHT,
+FontDescriptorPoolCreate(VkDevice device, const u32 descriptorCount,
                          VkDescriptorPool& descriptorPool)
 {
     VkDescriptorPoolSize poolSizes = {};
     poolSizes.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolSizes.descriptorCount = descriptorCount;
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = 1;
     poolInfo.pPoolSizes = &poolSizes;
-    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolInfo.maxSets = descriptorCount;
 
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
     {
@@ -512,7 +516,7 @@ createFontDescriptorPool(VkDevice device, const u32 MAX_FRAMES_IN_FLIGHT,
 }
 
 root_function void
-createFontDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout& descriptorSetLayout)
+FontDescriptorSetLayoutCreate(VkDevice device, VkDescriptorSetLayout& descriptorSetLayout)
 {
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
     samplerLayoutBinding.binding = 0;
@@ -561,13 +565,13 @@ root_function void
 FontRenderResourcesAlloc(VulkanContext* vulkanContext, GlyphAtlas* glyphAtlas, Font* font)
 {
     // TODO: Create All font resources
-    createGlyphAtlasImage(font, vulkanContext->physicalDevice, vulkanContext->device,
+    GlyphAtlasImageCreate(font, vulkanContext->physicalDevice, vulkanContext->device,
                           vulkanContext->commandPool, vulkanContext->graphicsQueue);
-    createGlyphAtlasImageView(font, vulkanContext->device);
+    GlyphAtlasImageViewCreate(font, vulkanContext->device);
     createGlyphAtlasTextureSampler(font, vulkanContext->physicalDevice, vulkanContext->device);
     font->descriptorSets =
         ArrayAlloc<VkDescriptorSet>(glyphAtlas->fontArena, vulkanContext->MAX_FRAMES_IN_FLIGHT);
-    createFontDescriptorSets(font, glyphAtlas->descriptorPool, glyphAtlas->descriptorSetLayout,
+    FontDescriptorSetsCreate(font, glyphAtlas->descriptorPool, glyphAtlas->descriptorSetLayout,
                              vulkanContext->device, vulkanContext->MAX_FRAMES_IN_FLIGHT,
                              font->descriptorSets);
 }

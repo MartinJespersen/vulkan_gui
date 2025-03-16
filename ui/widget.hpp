@@ -1,5 +1,19 @@
 #pragma once
 
+#ifdef PROFILING_ENABLE
+BufferDec(TracyVkCtx);
+#endif
+
+struct ProfilingContext
+{
+#ifdef PROFILING_ENABLE
+    // tracy profiling context
+    TracyVkCtx_Buffer tracyContexts;
+#endif
+};
+
+
+
 struct Panel
 {
     Panel* first;
@@ -58,6 +72,8 @@ struct UI_Widget
     UI_Widget* last;
     UI_Widget* parent;
 
+    String8 name;
+    
     UI_WidgetFlags flags;
 
     UI_Key key;
@@ -110,6 +126,20 @@ struct UI_State
     u64 freeListSize;
 };
 
+struct Context
+{
+    VulkanContext* vulkanContext;
+    ProfilingContext* profilingContext;
+    GlyphAtlas* glyphAtlas;
+    BoxContext* boxContext;
+    UI_IO* io;
+
+    UI_State* uiState;
+    u64 frameTickPrev;
+    f64 frameRate;
+    u64 cpuFreq;
+};
+
 // UI_Key functions
 root_function UI_Key
 UI_Key_Calculate(String8 str);
@@ -132,6 +162,11 @@ root_function UI_Widget*
 UI_WidgetSlot_Push(UI_State* uiState, UI_Key key);
 
 // Widget functions
+root_function f32 
+ResizeChildren(UI_Widget* widget, Axis2 axis, f32 AxChildSizeCum, UI_Size parentSemanticSizeInfo, b32 useStrictness);
+
+root_function void 
+ReassignRelativePositionsOfChildren(UI_Widget* widget, Axis2 axis);
 
 inline_function b32
 UI_Widget_IsEmpty(UI_Widget* widget);
@@ -140,8 +175,8 @@ inline_function void
 UI_Widget_SetEmpty(UI_Widget** widget);
 
 root_function void
-UI_Widget_Add(String8 widgetName, UI_State* uiState, const F32Vec4 color, String8 text,
-              f32 softness, f32 borderThickness, f32 cornerRadius, UI_IO* io, UI_WidgetFlags flags,
+UI_Widget_Add(String8 widgetName, Context* context, const F32Vec4 color, String8 text,
+              f32 softness, f32 borderThickness, f32 cornerRadius, UI_WidgetFlags flags,
               u32 fontSize, UI_Size semanticSizeX, UI_Size semanticSizeY);
 
 root_function void

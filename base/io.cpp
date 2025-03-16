@@ -1,8 +1,8 @@
 root_function Buffer
-UI_ReadFile(Arena* arena, const std::string& filename)
+IO_ReadFile(Arena* arena, String8 filename)
 {
     Buffer buffer = {0};
-    FILE* file = fopen(filename.data(), "rb");
+    FILE* file = fopen((const char*)filename.str, "rb");
     if (file == NULL)
     {
         exitWithError("failed to open file!");

@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug Vulkan GUI",
+            "name": "Build and Debug MSC",
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}\\build\\msc\\debug\\vulkan_gui.exe",
@@ -14,6 +14,16 @@
             "cwd": "${workspaceFolder}",
             "environment": [],
             "preLaunchTask": "MSC build"
+        },
+        {
+            "name": "Debug MSC",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}\\build\\msc\\debug\\vulkan_gui.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
         },
         {
             "name": "g++ debug",

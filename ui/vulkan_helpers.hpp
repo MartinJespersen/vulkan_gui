@@ -153,8 +153,8 @@ createGraphicsPipeline(VkPipelineLayout* pipelineLayout, VkPipeline* graphicsPip
                        VkDescriptorSetLayout descriptorSetLayout, VkSampleCountFlagBits msaaSamples,
                        VkVertexInputBindingDescription bindingDescription,
                        VkVertexInputAttributeDescription_Buffer attributeDescriptions,
-                       Vulkan_PushConstantInfo pushConstInfo, std::string vertShaderPath,
-                       std::string fragShaderPath, VkShaderStageFlagBits pushConstantStage);
+                       Vulkan_PushConstantInfo pushConstInfo, String8 vertShaderPath,
+                       String8 fragShaderPath, VkShaderStageFlagBits pushConstantStage);
 
 root_function VkRenderPass
 createRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFlagBits msaaSamples,

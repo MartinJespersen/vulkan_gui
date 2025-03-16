@@ -1,3 +1,15 @@
+#ifdef PROFILING_ENABLE
+BufferImpl(TracyVkCtx);
+#endif
+
+inline_function void UI_Widget_TreeStateReset(UI_Widget* widget) {
+    widget->first = 0;
+    widget->last = 0;
+    widget->next = 0;
+    widget->prev = 0;
+    widget->parent = 0;
+}
+
 root_function UI_Widget*
 UI_Widget_FromKey(UI_State* uiState, UI_Key key)
 {
@@ -144,13 +156,20 @@ struct UI_WidgetDF
 };
 
 root_function void
-UI_Widget_Add(String8 widgetName, UI_State* uiState, const F32Vec4 color, String8 text,
-              f32 softness, f32 borderThickness, f32 cornerRadius, UI_IO* io, UI_WidgetFlags flags,
+UI_Widget_Add(String8 widgetName, Context* context, const F32Vec4 color, String8 text,
+              f32 softness, f32 borderThickness, f32 cornerRadius, UI_WidgetFlags flags,
               u32 fontSize, UI_Size semanticSizeX, UI_Size semanticSizeY)
 {
+    UI_State* uiState = context->uiState;
+    UI_IO* io = context->io;
+    GlyphAtlas* glyphAtlas = context->glyphAtlas;
+
     UI_Key key = UI_Key_Calculate(widgetName);
     UI_Widget* widget = UI_Widget_FromKey(uiState, key);
+    
+    UI_Widget_TreeStateReset(widget);
 
+    widget->name = widgetName;
     widget->flags = flags;
     widget->color = color;
     widget->softness = softness;
@@ -162,6 +181,11 @@ UI_Widget_Add(String8 widgetName, UI_State* uiState, const F32Vec4 color, String
     widget->text = text;
     widget->semanticSize[Axis2_X] = semanticSizeX;
     widget->semanticSize[Axis2_Y] = semanticSizeY;
+
+    if (flags & UI_WidgetFlag_DrawText) {
+        widget->font = FontFindOrCreate(glyphAtlas, widget->fontSize);
+        widget->textSize = TextDimensionsCalculate(widget->font, widget->text);
+    }
 
     if (io->mousePosition >= widget->rect.point.p0 && io->mousePosition <= widget->rect.point.p1)
     {
@@ -198,34 +222,67 @@ UI_Widget_SizeAndRelativePositionCalculate(GlyphAtlas* glyphAtlas, UI_State* uiS
         if (widget->semanticSize[Axis2_X].kind == UI_SizeKind_TextContent ||
             widget->semanticSize[Axis2_Y].kind == UI_SizeKind_TextContent)
         {
-            Font* font = FontFindOrCreate(glyphAtlas, widget->fontSize);
-            Vec2<f32> textDimPx = calculateTextDimensions(font, widget->text);
-            Vec2<f32> computedSize = textDimPx + 2.0f * widget->borderThickness;
-            widget->computedSize = computedSize;
-            widget->textSize = textDimPx;
-            widget->font = font;
+            widget->computedSize = widget->textSize + 2.0f * widget->borderThickness;
         }
 
         for (u32 axis = 0; axis < Axis2_COUNT; axis++)
         {
-            if (widget->semanticSize[axis].kind == UI_SizeKind_ChildrenSum)
-            {
-                for (UI_Widget* child = widget->first; !IsNull(child); child = child->next)
+            switch(widget->semanticSize[axis].kind) {
+
+                case UI_SizeKind_ChildrenSum:
                 {
-                    child->computedRelativePosition[axis] = widget->computedSize[axis];
-                    widget->computedSize[axis] += child->computedSize[axis];
-                }
+                    for (UI_Widget* child = widget->first; !IsNull(child); child = child->next)
+                    {
+                        child->computedRelativePosition[axis] = widget->computedSize[axis];
+                        widget->computedSize[axis] += child->computedSize[axis];
+                    }
+
+                } break;
+                case UI_SizeKind_Pixels: 
+                {
+                    widget->computedSize[axis] = widget->semanticSize[axis].value;
+                } break;
+                case UI_SizeKind_Null:
+                {
+                    for (UI_Widget* child = widget->first; !IsNull(child); child = child->next)
+                    {
+                        widget->computedSize[axis] =
+                            Max(widget->computedSize[axis], child->computedSize[axis]);
+                    }
+                } break;
             }
-            else if (widget->semanticSize[axis].kind == UI_SizeKind_Null)
-            {
-                for (UI_Widget* child = widget->first; !IsNull(child); child = child->next)
-                {
-                    widget->computedSize[axis] =
-                        Max(widget->computedSize[axis], child->computedSize[axis]);
-                }
-            } 
 
         }
+    }
+}
+
+root_function f32 ResizeChildren(UI_Widget* widget, Axis2 axis, f32 AxChildSizeCum, UI_Size parentSemanticSizeInfo, b32 useStrictness) {
+    b32 resizingDone = 0;
+    f32 strictness = 0;
+    f32 sizeCum = AxChildSizeCum;
+    for (UI_Widget* child = widget->last; !IsNull(child); child = child->prev) {
+        UI_Size childSemanticSizeInfo = child->semanticSize[axis];
+        if (useStrictness) {
+            strictness = childSemanticSizeInfo.strictness;
+        }
+        sizeCum -= Max(child->computedSize[axis] - strictness, 0);
+        child->computedSize[axis] = strictness;
+        f32 sizeDiff = parentSemanticSizeInfo.value - sizeCum;
+        if (sizeDiff >= 0) {
+            sizeCum += sizeDiff;
+            child->computedSize[axis] += sizeDiff;
+            resizingDone=1;
+            break;
+        }
+    }
+    return sizeCum;
+}
+
+root_function void ReassignRelativePositionsOfChildren(UI_Widget* widget, Axis2 axis) {
+    f32 sizeCum = 0;
+    for (UI_Widget* child = widget->first; !IsNull(child); child = child->next) {
+        child->computedRelativePosition[axis] = sizeCum;
+        sizeCum += child->computedSize[axis];
     }
 }
 
@@ -241,6 +298,29 @@ UI_Widget_AbsolutePositionCalculate(UI_State* uiState, F32Vec4 posAbs)
         if (widget != uiState->root)
         {
             p0Parent = widget->parent->rect.point.p0;
+        }
+
+        for (u32 axis = 0; axis < Axis2_COUNT; axis++) {
+            switch (widget->semanticSize[axis].kind) {
+                case UI_SizeKind_Pixels:{
+                    UI_Size parentSemanticSizeInfo = widget->semanticSize[axis];
+                    f32 childAxSizeTotal = 0;
+                    for (UI_Widget* child = widget->first; !IsNull(child); child = child->next) {
+                        childAxSizeTotal += child->computedSize[axis];
+                    }
+                    if (childAxSizeTotal > parentSemanticSizeInfo.value) {
+                        b32 useStrictness = 1;
+                        
+                        f32 sizeAfterStrictnessResize = ResizeChildren(widget,(Axis2)axis, childAxSizeTotal, parentSemanticSizeInfo, useStrictness); 
+                        if (sizeAfterStrictnessResize > parentSemanticSizeInfo.value) {
+                            useStrictness = 0;
+                            ResizeChildren(widget,(Axis2)axis, sizeAfterStrictnessResize, parentSemanticSizeInfo, useStrictness); 
+                        }
+                    }
+                    ReassignRelativePositionsOfChildren(widget, (Axis2)axis);
+                } break;
+            }
+            
         }
 
         widget->rect.point.p0 =
@@ -297,14 +377,14 @@ UI_Widget_DrawPrepare(Arena* arena, UI_State* uiState, BoxContext* boxContext)
 inline_function void
 UI_PushLayout(UI_State* uiState)
 {
-    StackPush(uiState->parent, uiState->current);
+    uiState->parent = uiState->current;
 }
 
 inline_function void
 UI_PopLayout(UI_State* uiState)
 {
-    uiState->root = uiState->parent;
-    StackPop(uiState->parent);
+    uiState->root = uiState->current = uiState->parent;
+    uiState->parent = uiState->current ? uiState->current->parent : 0;
 }
 
 inline_function void
