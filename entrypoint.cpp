@@ -827,8 +827,8 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     // add buttom that is only a rectangle and text at the moment
     F32Vec4 color = {0.0f, 0.0f, 1.0f, 1.0f};
     String8 text = Str8(arena, "");
-    UI_WidgetFlags flags = UI_WidgetFlag_DrawBackground;
-    UI_Size semanticSizeX = {.kind = UI_SizeKind_Pixels, .value = 50.0f, .strictness = 0};
+    UI_WidgetFlags flags = 0;
+    UI_Size semanticSizeX = {.kind = UI_SizeKind_ChildrenSum, .value = 50.0f, .strictness = 0};
     UI_Size semanticSizeY = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
     UI_Widget_Add(Str8(arena, "Div"), context, color, text, 1.0f, 1.0f, 5.0f, flags,
                   30, semanticSizeX, semanticSizeY);
@@ -849,6 +849,27 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
             text = Str8(arena, "%u", btn_i);
             UI_Widget_Add(name, context, color, text, 1.0f, 1.0f, 5.0f, flags, 50,
                           semanticSizeX, semanticSizeY);
+        }
+
+        semanticSizeX = {.kind = UI_SizeKind_Pixels, .value = 50, .strictness = 0.0f};
+        semanticSizeY = {.kind = UI_SizeKind_Pixels, .value = 100, .strictness = 0.0f};
+        String8 name = Str8(arena, "parentSize");
+        UI_Widget_Add(name, context, color, text, 0.0f, 0.0f, 0.0f, UI_WidgetFlag_DrawBackground, 50,
+                        semanticSizeX, semanticSizeY);
+        {
+            UI_PushLayout(uiState);
+            u32 childCount = 3;
+            for (u32 c_i = 0; c_i < childCount; c_i++) {
+                
+                semanticSizeX = {.kind = UI_SizeKind_Null, .value = 0.0f, .strictness = 0.0f};
+                semanticSizeY = {.kind = UI_SizeKind_PercentOfParent, .value = 1.0f/childCount, .strictness = 0.0f};
+                String8 name = Str8(arena, "childOfParent%u", c_i);
+                color = {0.0f, 0.0f, 0.0f, 1.0f};
+                color.data[c_i] = 1.0f;
+                UI_Widget_Add(name, context, color, text, 0.0f, 0.0f, 0.0f, UI_WidgetFlag_DrawBackground, 50,
+                    semanticSizeX, semanticSizeY);
+            }
+            UI_PopLayout(uiState);
         }
 
         UI_PopLayout(uiState);

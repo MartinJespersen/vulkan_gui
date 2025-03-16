@@ -294,37 +294,53 @@ UI_Widget_AbsolutePositionCalculate(UI_State* uiState, F32Vec4 posAbs)
     {
         widget->rect = {0};
 
-        Vec2<f32> p0Parent = posAbs.point.p0;
+        F32Vec4 rectParent = posAbs;
         if (widget != uiState->root)
         {
-            p0Parent = widget->parent->rect.point.p0;
+            rectParent = widget->parent->rect;
         }
 
         for (u32 axis = 0; axis < Axis2_COUNT; axis++) {
-            switch (widget->semanticSize[axis].kind) {
+            UI_Size semanticSizeInfo = widget->semanticSize[axis];
+            switch (semanticSizeInfo.kind) {
                 case UI_SizeKind_Pixels:{
-                    UI_Size parentSemanticSizeInfo = widget->semanticSize[axis];
                     f32 childAxSizeTotal = 0;
                     for (UI_Widget* child = widget->first; !IsNull(child); child = child->next) {
                         childAxSizeTotal += child->computedSize[axis];
                     }
-                    if (childAxSizeTotal > parentSemanticSizeInfo.value) {
+                    if (childAxSizeTotal > semanticSizeInfo.value) {
                         b32 useStrictness = 1;
                         
-                        f32 sizeAfterStrictnessResize = ResizeChildren(widget,(Axis2)axis, childAxSizeTotal, parentSemanticSizeInfo, useStrictness); 
-                        if (sizeAfterStrictnessResize > parentSemanticSizeInfo.value) {
+                        f32 sizeAfterStrictnessResize = ResizeChildren(widget,(Axis2)axis, childAxSizeTotal, semanticSizeInfo, useStrictness); 
+                        if (sizeAfterStrictnessResize > semanticSizeInfo.value) {
                             useStrictness = 0;
-                            ResizeChildren(widget,(Axis2)axis, sizeAfterStrictnessResize, parentSemanticSizeInfo, useStrictness); 
+                            ResizeChildren(widget,(Axis2)axis, sizeAfterStrictnessResize, semanticSizeInfo, useStrictness); 
                         }
                     }
                     ReassignRelativePositionsOfChildren(widget, (Axis2)axis);
                 } break;
+                case UI_SizeKind_PercentOfParent: {
+                    ASSERT(0.0f <= semanticSizeInfo.value && semanticSizeInfo.value <= 1.0f, "Semantic value must be a value between 0 and 1");
+                    f32 parentSize = rectParent.point.p1[axis] - rectParent.point.p0[axis];
+                    widget->computedSize[axis] = parentSize * semanticSizeInfo.value;
+                    f32 computedRelativePosition = {0};
+                    if(widget->prev) {
+                        computedRelativePosition = widget->prev->computedRelativePosition[axis] + widget->prev->computedSize[axis]; 
+                    }
+                    widget->computedRelativePosition[axis] = computedRelativePosition;
+                } break;
+                case UI_SizeKind_Null:
+                {
+                    u32 otherAx = (axis + 1) % Axis2_COUNT;
+                    if (widget->semanticSize[otherAx].kind == UI_SizeKind_PercentOfParent) {
+                        widget->computedSize[axis] = rectParent.point.p1[axis] - rectParent.point.p0[axis];
+                    }
+                } break;
             }
-            
         }
 
         widget->rect.point.p0 =
-            widget->computedRelativePosition + p0Parent;
+            widget->computedRelativePosition + rectParent.point.p0;
         widget->rect.point.p1 = widget->rect.point.p0 + widget->computedSize;
     }
 }
