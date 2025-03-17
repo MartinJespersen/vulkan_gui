@@ -402,12 +402,14 @@ struct ThreadCtx
     Arena* scratchArenas[2];
 };
 
-extern "C" {
-    void
-    ThreadContextInit();
-    void
-    ThreadContextExit();
-};
+no_name_mangle void
+ThreadContextInit();
+
+no_name_mangle void
+ThreadContextExit();
+
+no_name_mangle void
+ThreadContextSet(ThreadCtx* ctx);
 
 root_function ThreadCtx
 ThreadContextAlloc();

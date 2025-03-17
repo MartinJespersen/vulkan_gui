@@ -26,6 +26,7 @@ void (*InitContextLib)(Context*);
 void (*DeleteContextLib)(Context*);
 void (*ThreadContextInitLib)();
 void (*ThreadContextExitLib)();
+void (*ThreadContextSetLib)(ThreadCtx*);
 
 #ifdef __GNUC__
 
@@ -165,6 +166,13 @@ loadLibrary()
         exit(EXIT_FAILURE);
     }
 
+    ThreadContextSetLib = (void (*)(ThreadCtx*))dlsym(entryHandle, "ThreadContextSet");
+    if (!ThreadContextSetLib)
+    {
+        printf("Failed to load ThreadContextSet: %s", dlerror());
+        exit(EXIT_FAILURE);
+    }
+
     char* err = dlerror();
     if (err != NULL)
     {
@@ -232,7 +240,7 @@ initWindow(Context* context)
 void
 run()
 {
-    ThreadContextInit();
+    ThreadCtx thread_ctx = {0};
 #ifndef __GNUC__
 #define PROFILING_ENABLE
 #endif
@@ -299,8 +307,10 @@ run()
     DeleteContextLib = DeleteContext;
     ThreadContextInitLib = ThreadContextInit;
     ThreadContextExitLib = ThreadContextExit;
+    ThreadContextSetLib = ThreadContextSet;
 
 #endif
+
 
     VulkanContext vulkanContext = {};
     ProfilingContext profilingContext = {};
@@ -309,8 +319,10 @@ run()
     UI_IO input = {};
     UI_State uiState = {};
     Context context = {
-        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, &uiState, 0, 0, 0};
+        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, &uiState, &thread_ctx, 0, 0, 0};
 
+    ThreadContextSetLib(&thread_ctx);
+    ThreadContextInitLib();
     initWindow(&context);
     InitContextLib(&context);
     VulkanInitLib(&context);
@@ -348,7 +360,7 @@ run()
     cleanupLib(&context);
 
     DeleteContextLib(&context);
-    ThreadContextExit();
+    ThreadContextExitLib();
 }
 
 // NOTE: Tracy profiler has a dlclose function and it takes precedence over the one in the standard

@@ -8,7 +8,8 @@
                 "C:\\freetype-2.13.2\\include", "C:\\VulkanSDK\\1.4.304.1\\Include", "C:\\glfw-3.4.bin.WIN64\\include"
             ],
             "defines": [
-                // "PROFILING_ENABLE"
+                "PROFILING_ENABLE",
+                "ASAN_ENABLE"
             ],
             "compilerPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Enterprise\\VC\\Tools\\MSVC\\14.29.30133\\bin\\Hostx64\\x64\\cl.exe",
             "cStandard": "c17",

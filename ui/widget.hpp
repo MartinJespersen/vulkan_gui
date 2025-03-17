@@ -133,8 +133,9 @@ struct Context
     GlyphAtlas* glyphAtlas;
     BoxContext* boxContext;
     UI_IO* io;
-
     UI_State* uiState;
+    ThreadCtx* thread_ctx;
+
     u64 frameTickPrev;
     f64 frameRate;
     u64 cpuFreq;

@@ -1,5 +1,6 @@
 # Things to do:
 
+* Implement dynamic loading of DLL in with WIN API
 * create vulkan resources for glyphs as widget tree is built
 * move all libraries into repo for easier build on new system and relative include dirs
 * implement multithreading

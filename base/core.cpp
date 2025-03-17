@@ -202,24 +202,28 @@ StrArrFromStr8Buffer(Arena* arena, String8* buffer, u64 count)
 
 // scratch arena
 
-per_thread ThreadCtx g_ThreadCtx;
+ThreadCtx* g_thread_ctx;
 
-void
+no_name_mangle void ThreadContextSet(ThreadCtx* ctx) {
+    g_thread_ctx = ctx;
+}
+
+no_name_mangle void
 ThreadContextInit()
 {
     u64 size = GIGABYTE(4);
-    for (u32 tctx_i = 0; tctx_i < ArrayCount(g_ThreadCtx.scratchArenas); tctx_i++)
+    for (u32 tctx_i = 0; tctx_i < ArrayCount(g_thread_ctx->scratchArenas); tctx_i++)
     {
-        g_ThreadCtx.scratchArenas[tctx_i] = ArenaAlloc(size);
+        g_thread_ctx->scratchArenas[tctx_i] = ArenaAlloc(size);
     }
 }
 
-void
+no_name_mangle void
 ThreadContextExit()
 {
-    for (u32 tctx_i = 0; tctx_i < ArrayCount(g_ThreadCtx.scratchArenas); tctx_i++)
+    for (u32 tctx_i = 0; tctx_i < ArrayCount(g_thread_ctx->scratchArenas); tctx_i++)
     {
-        ArenaDealloc(g_ThreadCtx.scratchArenas[tctx_i]);
+        ArenaDealloc(g_thread_ctx->scratchArenas[tctx_i]);
     }
 }
 
@@ -227,8 +231,8 @@ root_function ArenaTemp
 ArenaScratchGet()
 {
     ArenaTemp temp = {};
-    temp.pos = g_ThreadCtx.scratchArenas[0]->pos;
-    temp.arena = g_ThreadCtx.scratchArenas[0];
+    temp.pos = g_thread_ctx->scratchArenas[0]->pos;
+    temp.arena = g_thread_ctx->scratchArenas[0];
     return temp;
 }
 
@@ -236,7 +240,7 @@ root_function ArenaTemp
 ArenaScratchGet(Arena** conflicts, u64 conflict_count)
 {
     ArenaTemp scratch = {0};
-    ThreadCtx* tctx = &g_ThreadCtx;
+    ThreadCtx* tctx = g_thread_ctx;
     for (u64 tctx_idx = 0; tctx_idx < ArrayCount(tctx->scratchArenas); tctx_idx += 1)
     {
         b32 is_conflicting = 0;
