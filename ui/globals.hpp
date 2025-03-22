@@ -27,10 +27,10 @@ WidgetCfg
 #undef X
 
 
-no_name_mangle void
+root_function void
 ThreadContextInit();
 
-no_name_mangle void
+root_function void
 ThreadContextExit();
 
 no_name_mangle void

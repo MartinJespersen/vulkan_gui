@@ -22,14 +22,9 @@
 Context g_ctx_main;
 
 void (*drawFrameLib)();
-void (*cleanupLib)();
-void (*VulkanInitLib)();
 void (*InitContextLib)();
 void (*DeleteContextLib)();
-void (*ThreadContextInitLib)();
-void (*ThreadContextExitLib)();
 void (*GlobalContextSetLib)(Context*);
-void (*initWindowLib)();
 
 #ifdef __GNUC__
 
@@ -284,15 +279,10 @@ run()
     }
 
 #else
-    VulkanInitLib = VulkanInit;
     drawFrameLib = drawFrame;
-    cleanupLib = cleanup;
     InitContextLib = InitContext;
     DeleteContextLib = DeleteContext;
-    ThreadContextInitLib = ThreadContextInit;
-    ThreadContextExitLib = ThreadContextExit;
     GlobalContextSetLib = GlobalContextSet;
-    initWindowLib = initWindow;
 
 #endif
 
@@ -308,10 +298,7 @@ run()
         &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, &ui_state, &thread_ctx, 0, 0, 0, &g_ui_widget};
 
     GlobalContextSetLib(&g_ctx_main);
-    ThreadContextInitLib();
-    initWindowLib();
     InitContextLib();
-    VulkanInitLib();
 
     while (!glfwWindowShouldClose(vulkanContext.window))
     {
@@ -343,10 +330,7 @@ run()
 #ifndef PROFILING_ENABLE
     inotify_rm_watch(fd, wd);
 #endif
-    cleanupLib();
-
     DeleteContextLib();
-    ThreadContextExitLib();
 }
 
 // NOTE: Tracy profiler has a dlclose function and it takes precedence over the one in the standard

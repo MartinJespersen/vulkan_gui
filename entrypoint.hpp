@@ -14,14 +14,17 @@ extern "C"
     void
     DeleteContext();
     void
-    VulkanInit();
-    void
-    initWindow();
-    void
-    cleanup();
-    void
     drawFrame();
 }
+
+root_function void
+cleanup();
+
+root_function void
+VulkanInit();
+
+root_function void
+initWindow();
 
 root_function void
 framebufferResizeCallback(GLFWwindow* window, int width, int height);

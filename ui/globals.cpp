@@ -13,18 +13,14 @@ inline_function Context* GlobalContextGet() {
     return g_ctx;    
 }
 
-//Thread Context
-
-no_name_mangle void ThreadCxtSet(ThreadCtx* ctx) {
-    g_thread_ctx = ctx;
-}
+//Thread Context ------------------------------------------------------------
 
 root_function ThreadCtx* 
 ThreadCtxGet(){
     return g_thread_ctx;
 }
 
-no_name_mangle void
+root_function void
 ThreadContextInit()
 {
     u64 size = GIGABYTE(4);
@@ -32,10 +28,9 @@ ThreadContextInit()
     {
         g_thread_ctx->scratchArenas[tctx_i] = ArenaAlloc(size);
     }
-
 }
 
-no_name_mangle void
+root_function void
 ThreadContextExit()
 {
     for (u32 tctx_i = 0; tctx_i < ArrayCount(g_thread_ctx->scratchArenas); tctx_i++)

@@ -60,11 +60,17 @@ InitContext()
     ui_state->widgetSlot = PushArray(ui_state->arena_permanent, UI_WidgetSlot, ui_state->widgetCacheSize);
 
     ui_state->arena_frame = ArenaAlloc(GIGABYTE(1));
+
+    ThreadContextInit();
+    initWindow();
+    VulkanInit();
 }
 
 no_name_mangle void
 DeleteContext()
 {
+    cleanup();
+    ThreadContextExit();
     Context* ctx = GlobalContextGet();
     ASSERT(ctx, "No Global Context found.");
     GlyphAtlas* glyphAtlas = ctx->glyphAtlas;
@@ -97,7 +103,7 @@ framebufferResizeCallback(GLFWwindow* window, int width, int height)
     context->vulkanContext->framebufferResized = 1;
 }
 
-no_name_mangle void
+root_function void
 initWindow()
 {
     Context* ctx = GlobalContextGet();
@@ -111,7 +117,7 @@ initWindow()
     glfwSetFramebufferSizeCallback(vulkanContext->window, framebufferResizeCallback);
 }
 
-no_name_mangle void
+root_function void
 VulkanInit()
 {
     Context* ctx = GlobalContextGet();
@@ -178,7 +184,7 @@ VulkanInit()
     ArenaTempEnd(scratchArena);
 }
 
-no_name_mangle void
+root_function void
 cleanup()
 {
     Context* ctx = GlobalContextGet();
