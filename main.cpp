@@ -322,8 +322,9 @@ run()
     BoxContext rect = {};
     UI_IO input = {};
     UI_State ui_state = {};
+    UI_Widget g_ui_widget = {&g_ui_widget, &g_ui_widget,&g_ui_widget,&g_ui_widget,&g_ui_widget,&g_ui_widget,&g_ui_widget,0};
     g_ctx_main = {
-        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, &ui_state, 0, 0, 0};
+        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, &ui_state, 0, 0, 0, &g_ui_widget};
 
     GlobalContextSetLib(&g_ctx_main);
     ThreadCxtSetLib(&thread_ctx);

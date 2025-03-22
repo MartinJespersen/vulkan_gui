@@ -11,14 +11,15 @@ struct ProfilingContext
 #endif
 };
 
-// Adding dynamic configuration -------------------------------------
+// Widget Configuration -------------------------------------
 #define WidgetCfg \
-    X(C_FontSize,           u32) \
-    X(C_Text,               String8) \
-    X(C_BackgroungColor,    F32Vec4)
+    X(C_Parent,             UI_Widget*,     g_ui_widget) \
+    X(C_FontSize,           u32,            0) \
+    X(C_Text,               String8,        {0}) \
+    X(C_BackgroundColor,    F32Vec4,        {0}) 
 
 enum WidgetConfigEnum {
-    #define X(name, type) name,
+    #define X(name, type, default) name,
         WidgetCfg
     #undef X
     WIDGET_CONFIG_COUNT
@@ -29,7 +30,7 @@ struct Config {
 };
 
 struct ConfigBucket {
-    Config* cfg_arr[WIDGET_CONFIG_COUNT];
+    Config* c[WIDGET_CONFIG_COUNT];
 };
 
 // UI State --------------------------------------------
@@ -107,6 +108,9 @@ struct UI_Widget
     UI_Widget* last;
     UI_Widget* parent;
 
+    // format + styling extensions
+    UI_TextExt *text_ext;
+
     String8 name;
     
     UI_WidgetFlags flags;
@@ -127,9 +131,6 @@ struct UI_Widget
     f32 borderThickness;
     f32 cornerRadius;
     u32 fontSize;
-
-    // format + styling extensions
-    UI_TextExt *text_ext;
 };
 
 struct UI_WidgetSlot
@@ -145,7 +146,6 @@ struct UI_State
     // frame state
     Arena* arena_frame;
     UI_Widget* current; // current widget
-    UI_Widget* parent;  // current parent node
     UI_Widget* root;    // root of tree structure
 
     // ui cache size
@@ -178,6 +178,9 @@ struct Context
     u64 frameTickPrev;
     f64 frameRate;
     u64 cpuFreq;
+
+    // empty objects
+    UI_Widget* g_ui_widget;
 };
 
 

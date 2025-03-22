@@ -837,11 +837,10 @@ CommandBufferRecord(u32 imageIndex, u32 currentFrame)
                 semanticSizeX, semanticSizeY);
     }
 
-    C_FontSize_Push(30);
+    C_FontSize_Scoped(30)
+    UI_Layout_Scoped
     {
         ZoneScopedN("Create Button row");
-        UI_PushLayout(ui_state);
-        // temporary way of choosing font
         color = {0.0f, 0.8f, 0.8f, 0.1f};
         flags =
             UI_WidgetFlag_Clickable | UI_WidgetFlag_DrawBackground | UI_WidgetFlag_DrawText;
@@ -863,8 +862,9 @@ CommandBufferRecord(u32 imageIndex, u32 currentFrame)
         String8 name = Str8(frame_arena, "parentSize");
         UI_Widget_Add(name, color, 0.0f, 0.0f, 0.0f, UI_WidgetFlag_DrawBackground,
                         semanticSizeX, semanticSizeY);
+        
+        UI_Layout_Scoped
         {
-            UI_PushLayout(ui_state);
             u32 childCount = 3;
             for (u32 c_i = 0; c_i < childCount; c_i++) {
                 
@@ -876,10 +876,8 @@ CommandBufferRecord(u32 imageIndex, u32 currentFrame)
                 UI_Widget_Add(name, color, 0.0f, 0.0f, 0.0f, UI_WidgetFlag_DrawBackground,
                     semanticSizeX, semanticSizeY);
             }
-            UI_PopLayout(ui_state);
         }
 
-        UI_PopLayout(ui_state);
     }
     UI_Widget_SizeAndRelativePositionCalculate(glyphAtlas, ui_state);
     F32Vec4 rootWindowRect = {0.0f, 0.0f, 400.0f, 400.0f};

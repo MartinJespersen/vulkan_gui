@@ -32,12 +32,6 @@ ResizeChildren(UI_Widget* widget, Axis2 axis, f32 AxChildSizeCum, UI_Size parent
 root_function void 
 ReassignRelativePositionsOfChildren(UI_Widget* widget, Axis2 axis);
 
-inline_function b32
-UI_Widget_IsEmpty(UI_Widget* widget);
-
-inline_function void
-UI_Widget_SetEmpty(UI_Widget** widget);
-
 root_function void
 UI_Widget_Add(String8 widgetName, const F32Vec4 color, f32 softness, 
             f32 borderThickness, f32 cornerRadius, UI_WidgetFlags flags,
@@ -60,10 +54,12 @@ UI_Widget_DrawPrepare(Arena* arena, UI_State* ui_state, BoxContext* boxContext);
 
 // Layout functions
 inline_function void
-UI_PushLayout(UI_State* ui_state);
+UI_PushLayout();
 
 inline_function void
-UI_PopLayout(UI_State* ui_state);
+UI_PopLayout();
+
+#define UI_Layout_Scoped DeferScoped(UI_PushLayout(), UI_PopLayout()) 
 
 inline_function void
 UI_State_FrameReset(UI_State* ui_state);

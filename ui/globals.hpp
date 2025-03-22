@@ -12,7 +12,7 @@
 // Widget Configuration --------------------------------
 
 #define X(name, type) \
-    inline_function type* name##_Get();
+    inline_function type name##_Get();
 WidgetCfg
 #undef X
 

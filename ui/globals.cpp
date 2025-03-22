@@ -1,8 +1,11 @@
 // Global Context
 Context *g_ctx;
+UI_Widget* g_ui_widget;
+ThreadCtx* g_thread_ctx;
 
 no_name_mangle void GlobalContextSet(Context* ctx) {
     g_ctx = ctx;
+    g_ui_widget = ctx->g_ui_widget;
 }
 
 inline_function Context* GlobalContextGet() {
@@ -10,7 +13,6 @@ inline_function Context* GlobalContextGet() {
 }
 
 //Thread Context
-ThreadCtx* g_thread_ctx;
 
 no_name_mangle void ThreadCxtSet(ThreadCtx* ctx) {
     g_thread_ctx = ctx;
@@ -77,19 +79,21 @@ ArenaScratchGet(Arena** conflicts, u64 conflict_count)
 }
 
 // Widget configuration ----------------------------------------------------------
-#define X(name, type) \
-    inline_function type* name##_Get() \
+#define X(name, type, default) \
+    inline_function type name##_Get() \
     { \
         Context* ctx = GlobalContextGet(); \
         UI_State* ui_state = ctx->ui_state; \
-        Config* cur_top = ui_state->cfg_bucket.cfg_arr[name]; \
-        ASSERT(cur_top, "There should always be a configuration available"); \
-        return (type*)cur_top->ptr; \
+        Config* cur_top = ui_state->cfg_bucket.c[name]; \
+        if(IsNull(cur_top)) { \
+            return default; \
+        } \
+        return *((type*)cur_top->ptr); \
     }
 WidgetCfg
 #undef X
 
-#define X(name, type) \
+#define X(name, type, default) \
     inline_function void name##_Push(type v) \
     { \
         Context* ctx = GlobalContextGet(); \
@@ -98,23 +102,25 @@ WidgetCfg
         Config* cfg = PushStructZero(arena, Config); \
         type* v_ptr = PushStructZero(arena, type); \
         *v_ptr = v; \
-        cfg->ptr=(void*)v_ptr; \
-        Config** cur_top = &ui_state->cfg_bucket.cfg_arr[name]; \
+        cfg->ptr=(void**)v_ptr; \
+        Config** cur_top = &ui_state->cfg_bucket.c[name]; \
         StackPush(*cur_top, cfg); \
     }
 WidgetCfg
 #undef X
 
-#define X(name, type) \
+#define X(name, type, default) \
     inline_function void name##_Pop() \
     { \
         UI_State* ui_state = GlobalContextGet()->ui_state; \
         Arena* arena = ui_state->arena_frame; \
-        Config* cur_top = ui_state->cfg_bucket.cfg_arr[name]; \
-        StackPop(cur_top); \
+        Config** cur_top = &ui_state->cfg_bucket.c[name]; \
+        ASSERT(*cur_top, "Should never pop a NULL value"); \
+        StackPop(*cur_top); \
     }
 WidgetCfg
 #undef X
 
 #define C_FontSize_Scoped(v) DeferScoped(C_FontSize_Push(v), C_FontSize_Pop())
 #define C_Text_Scoped(v) DeferScoped(C_Text_Push(v), C_Text_Pop())
+

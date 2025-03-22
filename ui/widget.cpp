@@ -1,12 +1,15 @@
-// format + styling extensions
-
+inline_function b32 
+UI_Widget_IsEmpty(UI_Widget* widget) {
+    return IsNull(widget) || widget == g_ui_widget;
+}
 
 inline_function void UI_Widget_TreeStateReset(UI_Widget* widget) {
-    widget->first = 0;
-    widget->last = 0;
-    widget->next = 0;
-    widget->prev = 0;
-    widget->parent = 0;
+    widget->first = g_ui_widget;
+    widget->last = g_ui_widget;
+    widget->next = g_ui_widget;
+    widget->prev = g_ui_widget;
+    widget->parent = g_ui_widget;
+
 }
 
 root_function UI_Widget*
@@ -16,7 +19,7 @@ UI_Widget_FromKey(UI_State* ui_state, UI_Key key)
     u64 slotKey = key.key % ui_state->widgetCacheSize;
     UI_WidgetSlot* slot = &ui_state->widgetSlot[slotKey];
 
-    for (UI_Widget* widget = slot->first; !IsNull(widget); widget = widget->hashNext)
+    for (UI_Widget* widget = slot->first; !UI_Widget_IsEmpty(widget); widget = widget->hashNext)
     {
         if (UI_Key_IsEqual(widget->key, key))
         {
@@ -25,7 +28,7 @@ UI_Widget_FromKey(UI_State* ui_state, UI_Key key)
         }
     }
 
-    if (IsNull(result))
+    if (UI_Widget_IsEmpty(result))
     {
         result = UI_WidgetSlot_Push(ui_state, key);
     }
@@ -56,7 +59,7 @@ UI_WidgetSlot_Push(UI_State* ui_state, UI_Key key)
     UI_WidgetSlot* slot = &ui_state->widgetSlot[key.key % ui_state->widgetCacheSize];
     UI_Widget* widget = UI_Widget_Allocate(ui_state);
 
-    DLLPushBack_NPZ(slot->first, slot->last, widget, hashNext, hashPrev, IsNull, SetNull);
+    DLLPushBack_NPZ(slot->first, slot->last, widget, hashNext, hashPrev, UI_Widget_IsEmpty, SetNull);
     widget->key = key;
     return widget;
 }
@@ -83,30 +86,19 @@ UI_Key_IsNull(UI_Key key)
 }
 
 // Widget implementations
-inline_function b32
-UI_Widget_IsEmpty(UI_Widget* widget)
-{
-    return widget == 0;
-}
-
-inline_function void
-UI_Widget_SetEmpty(UI_Widget** widget)
-{
-    *widget = 0;
-}
 
 root_function UI_Widget*
 UI_Widget_DepthFirstPreOrder(UI_Widget* widget)
 {
     UI_Widget* next = {0};
-    if (widget->first)
+    if (!UI_Widget_IsEmpty(widget->first))
     {
         next = widget->first;
     }
     else
-        for (UI_Widget* parent = widget; !IsNull(parent); parent = parent->parent)
+        for (UI_Widget* parent = widget; !UI_Widget_IsEmpty(parent); parent = parent->parent)
         {
-            if (parent->next)
+            if (!UI_Widget_IsEmpty(parent->next))
             {
                 next = parent->next;
                 break;
@@ -119,7 +111,7 @@ inline_function UI_Widget*
 UI_Widget_TreeLeftMostFind(UI_Widget* root)
 {
     UI_Widget* child = root;
-    for (; !IsNull(child) && !IsNull(child->first); child = child->first)
+    for (; !UI_Widget_IsEmpty(child) && !UI_Widget_IsEmpty(child->first); child = child->first)
     {
     };
     return child;
@@ -129,12 +121,12 @@ root_function UI_Widget*
 UI_Widget_DepthFirstPostOrder(UI_Widget* widget)
 {
     UI_Widget* next = {0};
-    if (IsNull(widget->next))
+    if (UI_Widget_IsEmpty(widget->next))
     {
         next = widget->parent;
     }
     else
-        for (next = widget->next; !IsNull(next->first); next = next->first)
+        for (next = widget->next; !UI_Widget_IsEmpty(next->first); next = next->first)
         {
         }
     return next;
@@ -161,7 +153,7 @@ UI_Widget_SizeAndRelativePositionCalculate(GlyphAtlas* glyphAtlas, UI_State* ui_
 {
     UI_Widget* leftMostWidget = UI_Widget_TreeLeftMostFind(ui_state->root);
     // size and relative position calculation
-    for (UI_Widget* widget = leftMostWidget; !IsNull(widget);
+    for (UI_Widget* widget = leftMostWidget; !UI_Widget_IsEmpty(widget);
          widget = UI_Widget_DepthFirstPostOrder(widget))
     {
         widget->computedSize = {0.0f, 0.0f};
@@ -180,7 +172,7 @@ UI_Widget_SizeAndRelativePositionCalculate(GlyphAtlas* glyphAtlas, UI_State* ui_
 
                 case UI_SizeKind_ChildrenSum:
                 {
-                    for (UI_Widget* child = widget->first; !IsNull(child); child = child->next)
+                    for (UI_Widget* child = widget->first; !UI_Widget_IsEmpty(child); child = child->next)
                     {
                         child->computedRelativePosition[axis] = widget->computedSize[axis];
                         widget->computedSize[axis] += child->computedSize[axis];
@@ -193,7 +185,7 @@ UI_Widget_SizeAndRelativePositionCalculate(GlyphAtlas* glyphAtlas, UI_State* ui_
                 } break;
                 case UI_SizeKind_Null:
                 {
-                    for (UI_Widget* child = widget->first; !IsNull(child); child = child->next)
+                    for (UI_Widget* child = widget->first; !UI_Widget_IsEmpty(child); child = child->next)
                     {
                         widget->computedSize[axis] =
                             Max(widget->computedSize[axis], child->computedSize[axis]);
@@ -209,7 +201,7 @@ root_function f32 ResizeChildren(UI_Widget* widget, Axis2 axis, f32 AxChildSizeC
     b32 resizingDone = 0;
     f32 strictness = 0;
     f32 sizeCum = AxChildSizeCum;
-    for (UI_Widget* child = widget->last; !IsNull(child); child = child->prev) {
+    for (UI_Widget* child = widget->last; !UI_Widget_IsEmpty(child); child = child->prev) {
         UI_Size childSemanticSizeInfo = child->semanticSize[axis];
         if (useStrictness) {
             strictness = childSemanticSizeInfo.strictness;
@@ -229,7 +221,7 @@ root_function f32 ResizeChildren(UI_Widget* widget, Axis2 axis, f32 AxChildSizeC
 
 root_function void ReassignRelativePositionsOfChildren(UI_Widget* widget, Axis2 axis) {
     f32 sizeCum = 0;
-    for (UI_Widget* child = widget->first; !IsNull(child); child = child->next) {
+    for (UI_Widget* child = widget->first; !UI_Widget_IsEmpty(child); child = child->next) {
         child->computedRelativePosition[axis] = sizeCum;
         sizeCum += child->computedSize[axis];
     }
@@ -238,7 +230,7 @@ root_function void ReassignRelativePositionsOfChildren(UI_Widget* widget, Axis2 
 root_function void
 UI_Widget_AbsolutePositionCalculate(UI_State* ui_state, F32Vec4 posAbs)
 {
-    for (UI_Widget* widget = ui_state->root; !IsNull(widget);
+    for (UI_Widget* widget = ui_state->root; !UI_Widget_IsEmpty(widget);
          widget = UI_Widget_DepthFirstPreOrder(widget))
     {
         widget->rect = {0};
@@ -254,7 +246,7 @@ UI_Widget_AbsolutePositionCalculate(UI_State* ui_state, F32Vec4 posAbs)
             switch (semanticSizeInfo.kind) {
                 case UI_SizeKind_Pixels:{
                     f32 childAxSizeTotal = 0;
-                    for (UI_Widget* child = widget->first; !IsNull(child); child = child->next) {
+                    for (UI_Widget* child = widget->first; !UI_Widget_IsEmpty(child); child = child->next) {
                         childAxSizeTotal += child->computedSize[axis];
                     }
                     if (childAxSizeTotal > semanticSizeInfo.value) {
@@ -273,7 +265,7 @@ UI_Widget_AbsolutePositionCalculate(UI_State* ui_state, F32Vec4 posAbs)
                     f32 parentSize = rectParent.point.p1[axis] - rectParent.point.p0[axis];
                     widget->computedSize[axis] = parentSize * semanticSizeInfo.value;
                     f32 computedRelativePosition = {0};
-                    if(widget->prev) {
+                    if(!UI_Widget_IsEmpty(widget->prev)) {
                         computedRelativePosition = widget->prev->computedRelativePosition[axis] + widget->prev->computedSize[axis]; 
                     }
                     widget->computedRelativePosition[axis] = computedRelativePosition;
@@ -297,7 +289,7 @@ UI_Widget_AbsolutePositionCalculate(UI_State* ui_state, F32Vec4 posAbs)
 root_function void
 UI_Widget_DrawPrepare(Arena* arena, UI_State* ui_state, BoxContext* boxContext)
 {
-    for (UI_Widget* widget = ui_state->root; !IsNull(widget);
+    for (UI_Widget* widget = ui_state->root; !UI_Widget_IsEmpty(widget);
          widget = UI_Widget_DepthFirstPreOrder(widget))
     {
         if (widget->flags & UI_WidgetFlag_DrawBackground)
@@ -336,24 +328,26 @@ UI_Widget_DrawPrepare(Arena* arena, UI_State* ui_state, BoxContext* boxContext)
 
 // layout
 inline_function void
-UI_PushLayout(UI_State* ui_state)
+UI_PushLayout()
 {
-    ui_state->parent = ui_state->current;
+    UI_State* ui_state = GlobalContextGet()->ui_state;
+    ASSERT(!UI_Widget_IsEmpty(ui_state->current), "Cannot push a layout without a widget to promote to parent");
+    C_Parent_Push(ui_state->current);
 }
 
 inline_function void
-UI_PopLayout(UI_State* ui_state)
+UI_PopLayout()
 {
-    ui_state->root = ui_state->current = ui_state->parent;
-    ui_state->parent = ui_state->current ? ui_state->current->parent : 0;
+    UI_State* ui_state = GlobalContextGet()->ui_state;
+    ui_state->root = ui_state->current = C_Parent_Get();
+    C_Parent_Pop();
 }
 
 inline_function void
 UI_State_FrameReset(UI_State* ui_state)
 {
-    ui_state->parent = 0;
-    ui_state->current = 0;
-    ui_state->root = 0;
+    ui_state->current = g_ui_widget;
+    ui_state->root = g_ui_widget;
     ArenaReset(ui_state->arena_frame);
 }
 
@@ -389,10 +383,10 @@ UI_Widget_TextExtAdd(UI_Widget* widget, UI_TextExtSizeCalcFuncType* size_calc_fu
     UI_State* ui_state = GlobalContextGet()->ui_state;
     Arena* arena = ui_state->arena_frame;
 
-    u32* font_size = C_FontSize_Get();
-    String8 *text = C_Text_Get();
+    u32 font_size = C_FontSize_Get();
+    String8 text = C_Text_Get();
     UI_TextExtData* data = PushStruct(arena, UI_TextExtData);
-    *data = {.font_size=*font_size, .text=*text};
+    *data = {.font_size=font_size, .text=text};
 
     UI_TextExt* text_ext = PushStruct(arena, UI_TextExt);
     text_ext->data = data;
@@ -440,15 +434,17 @@ UI_Widget_Add(String8 widgetName, const F32Vec4 color, f32 softness,
             widget->active_t = true;
         }
     }
-    if (ui_state->parent)
+
+    UI_Widget* parent = C_Parent_Get();
+    if (!UI_Widget_IsEmpty(parent))
     {
         // add to widget tree
-        DLLPushBack(ui_state->parent->first, ui_state->parent->last, widget);
+        DLLPushBack_NPZ(parent->first, parent->last, widget, next, prev, UI_Widget_IsEmpty, SetNull);
     }
 
-    ASSERT((IsNull(ui_state->parent) && IsNull(ui_state->current)) || !IsNull(ui_state->parent),
+    ASSERT((UI_Widget_IsEmpty(parent) && UI_Widget_IsEmpty(ui_state->current)) || !UI_Widget_IsEmpty(parent),
            "Tree can only have one widget root");
 
-    widget->parent = ui_state->parent;
+    widget->parent = parent;
     ui_state->current = widget;
 }
