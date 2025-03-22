@@ -19,14 +19,17 @@
 #include "base/base.hpp"
 #include "entrypoint.hpp"
 
-void (*drawFrameLib)(Context*);
+Context g_ctx_main;
+
+void (*drawFrameLib)();
 void (*cleanupLib)(Context*);
 void (*VulkanInitLib)(Context*);
 void (*InitContextLib)(Context*);
 void (*DeleteContextLib)(Context*);
 void (*ThreadContextInitLib)();
 void (*ThreadContextExitLib)();
-void (*ThreadContextSetLib)(ThreadCtx*);
+void (*ThreadCxtSetLib)(ThreadCtx*);
+void (*GlobalContextSetLib)(Context*);
 
 #ifdef __GNUC__
 
@@ -122,7 +125,7 @@ loadLibrary()
         exit(EXIT_FAILURE);
     }
 
-    drawFrameLib = (void (*)(Context*))dlsym(entryHandle, "drawFrame");
+    drawFrameLib = (void (*)())dlsym(entryHandle, "drawFrame");
     if (!drawFrameLib)
     {
         printf("Failed to load drawFrame: %s", dlerror());
@@ -166,10 +169,10 @@ loadLibrary()
         exit(EXIT_FAILURE);
     }
 
-    ThreadContextSetLib = (void (*)(ThreadCtx*))dlsym(entryHandle, "ThreadContextSet");
+    ThreadContextSetLib = (void (*)(ThreadCtx*))dlsym(entryHandle, "ThreadCxtSet");
     if (!ThreadContextSetLib)
     {
-        printf("Failed to load ThreadContextSet: %s", dlerror());
+        printf("Failed to load ThreadCxtSet: %s", dlerror());
         exit(EXIT_FAILURE);
     }
 
@@ -307,7 +310,8 @@ run()
     DeleteContextLib = DeleteContext;
     ThreadContextInitLib = ThreadContextInit;
     ThreadContextExitLib = ThreadContextExit;
-    ThreadContextSetLib = ThreadContextSet;
+    ThreadCxtSetLib = ThreadCxtSet;
+    GlobalContextSetLib = GlobalContextSet;
 
 #endif
 
@@ -317,15 +321,16 @@ run()
     GlyphAtlas glyphAtlas = {};
     BoxContext rect = {};
     UI_IO input = {};
-    UI_State uiState = {};
-    Context context = {
-        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, &uiState, &thread_ctx, 0, 0, 0};
+    UI_State ui_state = {};
+    g_ctx_main = {
+        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, &ui_state, 0, 0, 0};
 
-    ThreadContextSetLib(&thread_ctx);
+    GlobalContextSetLib(&g_ctx_main);
+    ThreadCxtSetLib(&thread_ctx);
     ThreadContextInitLib();
-    initWindow(&context);
-    InitContextLib(&context);
-    VulkanInitLib(&context);
+    initWindow(&g_ctx_main);
+    InitContextLib(&g_ctx_main);
+    VulkanInitLib(&g_ctx_main);
 
     while (!glfwWindowShouldClose(vulkanContext.window))
     {
@@ -352,14 +357,14 @@ run()
         }
 
 #endif
-        drawFrameLib(&context);
+        drawFrameLib();
     }
 #ifndef PROFILING_ENABLE
     inotify_rm_watch(fd, wd);
 #endif
-    cleanupLib(&context);
+    cleanupLib(&g_ctx_main);
 
-    DeleteContextLib(&context);
+    DeleteContextLib(&g_ctx_main);
     ThreadContextExitLib();
 }
 

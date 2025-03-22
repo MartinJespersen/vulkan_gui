@@ -20,11 +20,11 @@ extern "C"
     void
     cleanup(Context* context);
     void
-    drawFrame(Context* context);
+    drawFrame();
 }
 
 root_function void
-recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame);
+CommandBufferRecord(u32 imageIndex, u32 currentFrame);
 
 root_function void
 recreateSwapChain(VulkanContext* vulkanContext);

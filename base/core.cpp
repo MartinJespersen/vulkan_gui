@@ -94,6 +94,11 @@ ArenaPop(Arena* arena, u64 pos)
 }
 
 root_function void
+ArenaReset(Arena* arena) {
+    ArenaPop(arena, sizeof(Arena));
+}
+
+root_function void
 ArenaDealloc(Arena* arena)
 {
     OS_Free((void*)arena);
@@ -198,68 +203,6 @@ StrArrFromStr8Buffer(Arena* arena, String8* buffer, u64 count)
         arr[i] = (char*)buffer[i].str;
     }
     return arr;
-}
-
-// scratch arena
-
-ThreadCtx* g_thread_ctx;
-
-no_name_mangle void ThreadContextSet(ThreadCtx* ctx) {
-    g_thread_ctx = ctx;
-}
-
-no_name_mangle void
-ThreadContextInit()
-{
-    u64 size = GIGABYTE(4);
-    for (u32 tctx_i = 0; tctx_i < ArrayCount(g_thread_ctx->scratchArenas); tctx_i++)
-    {
-        g_thread_ctx->scratchArenas[tctx_i] = ArenaAlloc(size);
-    }
-}
-
-no_name_mangle void
-ThreadContextExit()
-{
-    for (u32 tctx_i = 0; tctx_i < ArrayCount(g_thread_ctx->scratchArenas); tctx_i++)
-    {
-        ArenaDealloc(g_thread_ctx->scratchArenas[tctx_i]);
-    }
-}
-
-root_function ArenaTemp
-ArenaScratchGet()
-{
-    ArenaTemp temp = {};
-    temp.pos = g_thread_ctx->scratchArenas[0]->pos;
-    temp.arena = g_thread_ctx->scratchArenas[0];
-    return temp;
-}
-
-root_function ArenaTemp
-ArenaScratchGet(Arena** conflicts, u64 conflict_count)
-{
-    ArenaTemp scratch = {0};
-    ThreadCtx* tctx = g_thread_ctx;
-    for (u64 tctx_idx = 0; tctx_idx < ArrayCount(tctx->scratchArenas); tctx_idx += 1)
-    {
-        b32 is_conflicting = 0;
-        for (Arena** conflict = conflicts; conflict < conflicts + conflict_count; conflict += 1)
-        {
-            if (*conflict == tctx->scratchArenas[tctx_idx])
-            {
-                is_conflicting = 1;
-                break;
-            }
-        }
-        if (is_conflicting == 0)
-        {
-            scratch.arena = tctx->scratchArenas[tctx_idx];
-            scratch.pos = scratch.arena->pos;
-            break;
-        }
-    }
-    return scratch;
 }
 
 // Buffers

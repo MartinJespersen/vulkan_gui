@@ -50,22 +50,24 @@ DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debu
 void
 InitContext(Context* context)
 {
-    // context->cpuFreq = EstimateCPUTimerFreq();
-
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
     glyphAtlas->fontArena = (Arena*)ArenaAlloc(FONT_ARENA_SIZE);
 
-    UI_State* uiState = context->uiState;
-    uiState->arena = (Arena*)ArenaAlloc(GIGABYTE(1));
-    uiState->widgetCacheSize = 1; // 4096;
-    uiState->widgetSlot = PushArray(uiState->arena, UI_WidgetSlot, uiState->widgetCacheSize);
+    UI_State* ui_state = context->ui_state;
+    ui_state->arena = (Arena*)ArenaAlloc(GIGABYTE(1));
+    ui_state->widgetCacheSize = 1; // 4096;
+    ui_state->widgetSlot = PushArray(ui_state->arena, UI_WidgetSlot, ui_state->widgetCacheSize);
+
+    ui_state->frame_arena = ArenaAlloc(GIGABYTE(1));
 }
 
 void
 DeleteContext(Context* context)
 {
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
+    UI_State* ui_state = context->ui_state;
     ArenaDealloc(glyphAtlas->fontArena);
+    ArenaDealloc(ui_state->frame_arena);
 }
 
 root_function void
@@ -802,22 +804,22 @@ getMaxUsableSampleCount(VkPhysicalDevice device)
 }
 
 root_function void
-recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
+CommandBufferRecord(u32 imageIndex, u32 currentFrame)
 {
     ZoneScoped;
-    ArenaTemp frameArena = ArenaScratchGet();
-    Arena* arena = frameArena.arena;
+    Context* context = GlobalContextGet();
 
     VulkanContext* vulkanContext = context->vulkanContext;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
     BoxContext* boxContext = context->boxContext;
     ProfilingContext* profilingContext = context->profilingContext;
-    UI_State* uiState = context->uiState;
+    UI_State* ui_state = context->ui_state;
     (void)profilingContext;
 
-    FontFrameReset(arena, glyphAtlas);
-    BoxFrameReset(arena, boxContext);
-    UI_State_FrameReset(uiState);
+    Arena* frame_arena = ui_state->frame_arena;
+    FontFrameReset(frame_arena, glyphAtlas);
+    BoxFrameReset(frame_arena, boxContext);
+    UI_State_FrameReset(ui_state);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -826,16 +828,19 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
 
     // add buttom that is only a rectangle and text at the moment
     F32Vec4 color = {0.0f, 0.0f, 1.0f, 1.0f};
-    String8 text = Str8(arena, "");
+    String8 text = Str8(frame_arena, "");
     UI_WidgetFlags flags = 0;
     UI_Size semanticSizeX = {.kind = UI_SizeKind_ChildrenSum, .value = 50.0f, .strictness = 0};
     UI_Size semanticSizeY = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
-    UI_Widget_Add(Str8(arena, "Div"), context, color, text, 1.0f, 1.0f, 5.0f, flags,
-                  30, semanticSizeX, semanticSizeY);
+    {
+        UI_Widget_Add(Str8(frame_arena, "Div"), color, 1.0f, 1.0f, 5.0f, flags,
+                semanticSizeX, semanticSizeY);
+    }
 
+    C_FontSize_Push(30);
     {
         ZoneScopedN("Create Button row");
-        UI_PushLayout(uiState);
+        UI_PushLayout(ui_state);
         // temporary way of choosing font
         color = {0.0f, 0.8f, 0.8f, 0.1f};
         flags =
@@ -845,39 +850,41 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
         for (u32 btn_i = 0; btn_i < 4; btn_i++)
         {
             color.axis.x += 0.1f;
-            String8 name = Str8(arena, "test_name %u", btn_i);
-            text = Str8(arena, "%u", btn_i);
-            UI_Widget_Add(name, context, color, text, 1.0f, 1.0f, 5.0f, flags, 50,
+            String8 name = Str8(frame_arena, "test_name %u", btn_i);
+            
+            C_Text_Scoped(Str8(frame_arena, "%u", btn_i))
+            C_FontSize_Scoped(50)
+            UI_Widget_Add(name, color, 1.0f, 1.0f, 5.0f, flags,
                           semanticSizeX, semanticSizeY);
         }
 
         semanticSizeX = {.kind = UI_SizeKind_Pixels, .value = 50, .strictness = 0.0f};
         semanticSizeY = {.kind = UI_SizeKind_Pixels, .value = 100, .strictness = 0.0f};
-        String8 name = Str8(arena, "parentSize");
-        UI_Widget_Add(name, context, color, text, 0.0f, 0.0f, 0.0f, UI_WidgetFlag_DrawBackground, 50,
+        String8 name = Str8(frame_arena, "parentSize");
+        UI_Widget_Add(name, color, 0.0f, 0.0f, 0.0f, UI_WidgetFlag_DrawBackground,
                         semanticSizeX, semanticSizeY);
         {
-            UI_PushLayout(uiState);
+            UI_PushLayout(ui_state);
             u32 childCount = 3;
             for (u32 c_i = 0; c_i < childCount; c_i++) {
                 
                 semanticSizeX = {.kind = UI_SizeKind_Null, .value = 0.0f, .strictness = 0.0f};
                 semanticSizeY = {.kind = UI_SizeKind_PercentOfParent, .value = 1.0f/childCount, .strictness = 0.0f};
-                String8 name = Str8(arena, "childOfParent%u", c_i);
+                String8 name = Str8(frame_arena, "childOfParent%u", c_i);
                 color = {0.0f, 0.0f, 0.0f, 1.0f};
                 color.data[c_i] = 1.0f;
-                UI_Widget_Add(name, context, color, text, 0.0f, 0.0f, 0.0f, UI_WidgetFlag_DrawBackground, 50,
+                UI_Widget_Add(name, color, 0.0f, 0.0f, 0.0f, UI_WidgetFlag_DrawBackground,
                     semanticSizeX, semanticSizeY);
             }
-            UI_PopLayout(uiState);
+            UI_PopLayout(ui_state);
         }
 
-        UI_PopLayout(uiState);
+        UI_PopLayout(ui_state);
     }
-    UI_Widget_SizeAndRelativePositionCalculate(glyphAtlas, uiState);
+    UI_Widget_SizeAndRelativePositionCalculate(glyphAtlas, ui_state);
     F32Vec4 rootWindowRect = {0.0f, 0.0f, 400.0f, 400.0f};
-    UI_Widget_AbsolutePositionCalculate(uiState, rootWindowRect);
-    UI_Widget_DrawPrepare(arena, uiState, boxContext);
+    UI_Widget_AbsolutePositionCalculate(ui_state, rootWindowRect);
+    UI_Widget_DrawPrepare(frame_arena, ui_state, boxContext);
 
     // recording rectangles
     {
@@ -921,13 +928,13 @@ recordCommandBuffer(Context* context, u32 imageIndex, u32 currentFrame)
     {
         exitWithError("failed to record command buffer!");
     }
-    ArenaTempEnd(frameArena);
 }
 
-void
-drawFrame(Context* context)
+no_name_mangle void
+drawFrame()
 {
     ZoneScoped;
+    Context *context = GlobalContextGet();
     VulkanContext* vulkanContext = context->vulkanContext;
 
     {
@@ -957,7 +964,7 @@ drawFrame(Context* context)
                   &vulkanContext->inFlightFences.data[vulkanContext->currentFrame]);
     vkResetCommandBuffer(vulkanContext->commandBuffers.data[vulkanContext->currentFrame], 0);
 
-    recordCommandBuffer(context, imageIndex, vulkanContext->currentFrame);
+    CommandBufferRecord(imageIndex, vulkanContext->currentFrame);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

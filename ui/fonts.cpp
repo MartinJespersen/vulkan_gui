@@ -102,9 +102,11 @@ TextDimensionsCalculate(Font* font, String8 text)
 }
 
 root_function void
-addText(Arena* arena, Font* font, String8 text, Vec2<f32> offset, Vec2<f32> pos0, Vec2<f32> pos1,
+TextDraw(Font* font, String8 text, Vec2<f32> offset, Vec2<f32> pos0, Vec2<f32> pos1,
         f32 textHeight)
 {
+    Arena* frame_arena = GlobalContextGet()->ui_state->arena;
+
     // find largest bearing to find origin
     f32 largestBearingY = 0;
     for (u32 textIndex = 0; textIndex < text.size; textIndex++)
@@ -141,7 +143,7 @@ addText(Arena* arena, Font* font, String8 text, Vec2<f32> offset, Vec2<f32> pos0
         f32 yPosOffset0 =
             Max(-(largestBearingY - ch.bearingY) + ((textHeight - (ypos1 - ypos0)) / 2), 0.0f);
 
-        GlyphInstance* glyphInstance = PushStruct(arena, GlyphInstance);
+        GlyphInstance* glyphInstance = PushStruct(frame_arena, GlyphInstance);
         StackPush(font->instances, glyphInstance);
 
         glyphInstance->pos0 = {xpos0, ypos0};
@@ -149,19 +151,6 @@ addText(Arena* arena, Font* font, String8 text, Vec2<f32> offset, Vec2<f32> pos0
         glyphInstance->glyphOffset = {(f32)ch.glyphOffset + xPosOffset0, yPosOffset0};
 
         xOrigin += f32(ch.advance >> 6);
-    }
-}
-
-root_function void
-addTexts(Arena* arena, GlyphAtlas* glyphAtlas, Text* texts, size_t len, u32 fontSize, Vec2<f32> min,
-         Vec2<f32> max)
-{
-    Font* font = FontFindOrCreate(glyphAtlas, fontSize);
-    for (size_t i = 0; i < len; i++)
-    {
-        Vec2<f32> textHeight = TextDimensionsCalculate(font, texts[i].text);
-        addText(arena, font, texts[i].text, Vec2<f32>(texts[i].x, texts[i].y), min, max,
-                textHeight.y);
     }
 }
 

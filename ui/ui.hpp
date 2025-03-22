@@ -13,8 +13,9 @@
 #include "profiler/tracy/TracyVulkan.hpp"
 
 // user defined headers
-#include "io.hpp"
 #include "vulkan_helpers.hpp"
 #include "box.hpp"
 #include "fonts.hpp"
+#include "state.hpp"
+#include "globals.hpp"
 #include "widget.hpp"
