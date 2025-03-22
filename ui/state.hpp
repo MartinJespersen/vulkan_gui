@@ -164,6 +164,11 @@ struct UI_IO
     bool leftClicked;
 };
 
+// Threading Context
+struct ThreadCtx
+{
+    Arena* scratchArenas[2];
+};
 
 // global contexts 
 struct Context
@@ -174,6 +179,7 @@ struct Context
     BoxContext* boxContext;
     UI_IO* io;
     UI_State* ui_state;
+    ThreadCtx* thread_ctx;
 
     u64 frameTickPrev;
     f64 frameRate;

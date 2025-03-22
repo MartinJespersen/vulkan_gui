@@ -26,11 +26,6 @@ WidgetCfg
 WidgetCfg
 #undef X
 
-// Threading Context
-struct ThreadCtx
-{
-    Arena* scratchArenas[2];
-};
 
 no_name_mangle void
 ThreadContextInit();
@@ -43,12 +38,6 @@ ThreadCxtSet(ThreadCtx* ctx);
 
 root_function ThreadCtx* 
 ThreadCtxGet();
-
-root_function ThreadCtx
-ThreadContextAlloc();
-
-root_function void
-ThreadContextDealloc(ThreadCtx* ctx);
 
 // globals context
 no_name_mangle void GlobalContextSet(Context* ctx);

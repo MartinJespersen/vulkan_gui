@@ -22,14 +22,14 @@
 Context g_ctx_main;
 
 void (*drawFrameLib)();
-void (*cleanupLib)(Context*);
-void (*VulkanInitLib)(Context*);
-void (*InitContextLib)(Context*);
-void (*DeleteContextLib)(Context*);
+void (*cleanupLib)();
+void (*VulkanInitLib)();
+void (*InitContextLib)();
+void (*DeleteContextLib)();
 void (*ThreadContextInitLib)();
 void (*ThreadContextExitLib)();
-void (*ThreadCxtSetLib)(ThreadCtx*);
 void (*GlobalContextSetLib)(Context*);
+void (*initWindowLib)();
 
 #ifdef __GNUC__
 
@@ -217,28 +217,9 @@ signal_handler(int signo, siginfo_t* info, void* context)
 #endif
 
 
-void
-framebufferResizeCallback(GLFWwindow* window, int width, int height)
-{
-    (void)width;
-    (void)height;
 
-    auto context = reinterpret_cast<Context*>(glfwGetWindowUserPointer(window));
-    context->vulkanContext->framebufferResized = 1;
-}
 
-void
-initWindow(Context* context)
-{
-    VulkanContext* vulkanContext = context->vulkanContext;
 
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-    vulkanContext->window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
-    glfwSetWindowUserPointer(vulkanContext->window, context);
-    glfwSetFramebufferSizeCallback(vulkanContext->window, framebufferResizeCallback);
-}
 
 void
 run()
@@ -310,8 +291,8 @@ run()
     DeleteContextLib = DeleteContext;
     ThreadContextInitLib = ThreadContextInit;
     ThreadContextExitLib = ThreadContextExit;
-    ThreadCxtSetLib = ThreadCxtSet;
     GlobalContextSetLib = GlobalContextSet;
+    initWindowLib = initWindow;
 
 #endif
 
@@ -324,14 +305,13 @@ run()
     UI_State ui_state = {};
     UI_Widget g_ui_widget = {&g_ui_widget, &g_ui_widget,&g_ui_widget,&g_ui_widget,&g_ui_widget,&g_ui_widget,&g_ui_widget,0};
     g_ctx_main = {
-        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, &ui_state, 0, 0, 0, &g_ui_widget};
+        &vulkanContext, &profilingContext, &glyphAtlas, &rect, &input, &ui_state, &thread_ctx, 0, 0, 0, &g_ui_widget};
 
     GlobalContextSetLib(&g_ctx_main);
-    ThreadCxtSetLib(&thread_ctx);
     ThreadContextInitLib();
-    initWindow(&g_ctx_main);
-    InitContextLib(&g_ctx_main);
-    VulkanInitLib(&g_ctx_main);
+    initWindowLib();
+    InitContextLib();
+    VulkanInitLib();
 
     while (!glfwWindowShouldClose(vulkanContext.window))
     {
@@ -363,9 +343,9 @@ run()
 #ifndef PROFILING_ENABLE
     inotify_rm_watch(fd, wd);
 #endif
-    cleanupLib(&g_ctx_main);
+    cleanupLib();
 
-    DeleteContextLib(&g_ctx_main);
+    DeleteContextLib();
     ThreadContextExitLib();
 }
 

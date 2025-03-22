@@ -10,18 +10,21 @@ const u32 MAX_FONTS_IN_USE = 10;
 extern "C"
 {
     void
-    InitContext(Context* context);
+    InitContext();
     void
-    DeleteContext(Context* context);
+    DeleteContext();
     void
-    initWindow(Context* context);
+    VulkanInit();
     void
-    VulkanInit(Context* context);
+    initWindow();
     void
-    cleanup(Context* context);
+    cleanup();
     void
     drawFrame();
 }
+
+root_function void
+framebufferResizeCallback(GLFWwindow* window, int width, int height);
 
 root_function void
 CommandBufferRecord(u32 imageIndex, u32 currentFrame);

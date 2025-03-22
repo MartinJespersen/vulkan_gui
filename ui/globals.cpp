@@ -6,6 +6,7 @@ ThreadCtx* g_thread_ctx;
 no_name_mangle void GlobalContextSet(Context* ctx) {
     g_ctx = ctx;
     g_ui_widget = ctx->g_ui_widget;
+    g_thread_ctx = ctx->thread_ctx;
 }
 
 inline_function Context* GlobalContextGet() {

@@ -47,13 +47,14 @@ DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debu
     }
 }
 
-void
-InitContext(Context* context)
+no_name_mangle void
+InitContext()
 {
-    GlyphAtlas* glyphAtlas = context->glyphAtlas;
+    Context* ctx = GlobalContextGet();
+    GlyphAtlas* glyphAtlas = ctx->glyphAtlas;
     glyphAtlas->fontArena = (Arena*)ArenaAlloc(FONT_ARENA_SIZE);
 
-    UI_State* ui_state = context->ui_state;
+    UI_State* ui_state = ctx->ui_state;
     ui_state->arena_permanent = (Arena*)ArenaAlloc(GIGABYTE(1));
     ui_state->widgetCacheSize = 1; // 4096;
     ui_state->widgetSlot = PushArray(ui_state->arena_permanent, UI_WidgetSlot, ui_state->widgetCacheSize);
@@ -61,11 +62,13 @@ InitContext(Context* context)
     ui_state->arena_frame = ArenaAlloc(GIGABYTE(1));
 }
 
-void
-DeleteContext(Context* context)
+no_name_mangle void
+DeleteContext()
 {
-    GlyphAtlas* glyphAtlas = context->glyphAtlas;
-    UI_State* ui_state = context->ui_state;
+    Context* ctx = GlobalContextGet();
+    ASSERT(ctx, "No Global Context found.");
+    GlyphAtlas* glyphAtlas = ctx->glyphAtlas;
+    UI_State* ui_state = ctx->ui_state;
     ArenaDealloc(glyphAtlas->fontArena);
     ArenaDealloc(ui_state->arena_frame);
 }
@@ -84,14 +87,39 @@ IndexBufferAlloc(VulkanContext* vulkanContext, GlyphAtlas* glyphAtlas)
     }
 }
 
-void
-VulkanInit(Context* context)
+root_function void
+framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
+    (void)width;
+    (void)height;
+
+    auto context = reinterpret_cast<Context*>(glfwGetWindowUserPointer(window));
+    context->vulkanContext->framebufferResized = 1;
+}
+
+no_name_mangle void
+initWindow()
+{
+    Context* ctx = GlobalContextGet();
+    VulkanContext* vulkanContext = ctx->vulkanContext;
+
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+    vulkanContext->window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
+    glfwSetWindowUserPointer(vulkanContext->window, ctx);
+    glfwSetFramebufferSizeCallback(vulkanContext->window, framebufferResizeCallback);
+}
+
+no_name_mangle void
+VulkanInit()
+{
+    Context* ctx = GlobalContextGet();
     ArenaTemp scratchArena = ArenaScratchGet();
 
-    VulkanContext* vulkanContext = context->vulkanContext;
-    GlyphAtlas* glyphAtlas = context->glyphAtlas;
-    BoxContext* boxContext = context->boxContext;
+    VulkanContext* vulkanContext = ctx->vulkanContext;
+    GlyphAtlas* glyphAtlas = ctx->glyphAtlas;
+    BoxContext* boxContext = ctx->boxContext;
     vulkanContext->arena = ArenaAlloc(GIGABYTE(4));
 
     IndexBufferAlloc(vulkanContext, glyphAtlas);
@@ -140,22 +168,23 @@ VulkanInit(Context* context)
     createFramebuffers(vulkanContext->swapChainFramebuffers, vulkanContext->device,
                        vulkanContext->colorImageView, vulkanContext->fontRenderPass,
                        vulkanContext->swapChainExtent, vulkanContext->swapChainImageViews);
-    BoxIndexBufferCreate(context->boxContext, vulkanContext->physicalDevice, vulkanContext->device,
+    BoxIndexBufferCreate(ctx->boxContext, vulkanContext->physicalDevice, vulkanContext->device,
                          vulkanContext->commandPool, vulkanContext->graphicsQueue,
                          vulkanContext->indices);
 
-    createCommandBuffers(context);
+    createCommandBuffers(ctx);
     createSyncObjects(vulkanContext);
 
     ArenaTempEnd(scratchArena);
 }
 
-void
-cleanup(Context* context)
+no_name_mangle void
+cleanup()
 {
-    VulkanContext* vulkanContext = context->vulkanContext;
-    GlyphAtlas* glyphAtlas = context->glyphAtlas;
-    BoxContext* boxContext = context->boxContext;
+    Context* ctx = GlobalContextGet();
+    VulkanContext* vulkanContext = ctx->vulkanContext;
+    GlyphAtlas* glyphAtlas = ctx->glyphAtlas;
+    BoxContext* boxContext = ctx->boxContext;
 
     vkDeviceWaitIdle(vulkanContext->device);
 
@@ -173,9 +202,9 @@ cleanup(Context* context)
     vkDestroyRenderPass(vulkanContext->device, vulkanContext->fontRenderPass, nullptr);
 
 #ifdef PROFILING_ENABLE
-    for (u32 i = 0; i < context->profilingContext->tracyContexts.size; i++)
+    for (u32 i = 0; i < ctx->profilingContext->tracyContexts.size; i++)
     {
-        TracyVkDestroy(context->profilingContext->tracyContexts.data[i]);
+        TracyVkDestroy(ctx->profilingContext->tracyContexts.data[i]);
     }
 #endif
     vkDestroyCommandPool(vulkanContext->device, vulkanContext->commandPool, nullptr);
