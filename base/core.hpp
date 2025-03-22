@@ -24,6 +24,9 @@ typedef uint64_t b64;
 #define root_function static
 #define inline_function static inline
 
+// Scopes
+#define DeferScoped(start, end) for(int _i_ = ((start), 0); _i_ == 0; (_i_ += 1, (end)))
+
 // Arena
 struct Arena
 {
@@ -54,6 +57,9 @@ ArenaPushZero(Arena* arena, u64 size);
 
 root_function void
 ArenaPop(Arena* arena, u64 pos);
+
+root_function void
+ArenaReset(Arena* arena);
 
 root_function ArenaTemp
 ArenaTempBegin(Arena* arena);
@@ -323,14 +329,6 @@ struct Buffer
 BufferDec(u16);
 BufferDec(String8);
 
-#ifdef __linux__
-#define per_thread __thread
-#elif defined(_MSC_VER)
-#define per_thread __declspec(thread)
-#else
-#error thread context not implemented for os
-#endif
-
 #define KILOBYTE(n) ((n) * 1024ULL)
 #define MEGABYTE(n) (KILOBYTE(n) * 1024ULL)
 #define GIGABYTE(n) (n * 1024ULL * 1024ULL * 1024ULL)
@@ -394,25 +392,3 @@ BufferDec(String8);
 template <typename N>
 root_function N
 Clamp(N d, N min, N max);
-
-// tread context
-
-struct ThreadCtx
-{
-    Arena* scratchArenas[2];
-};
-
-no_name_mangle void
-ThreadContextInit();
-
-no_name_mangle void
-ThreadContextExit();
-
-no_name_mangle void
-ThreadContextSet(ThreadCtx* ctx);
-
-root_function ThreadCtx
-ThreadContextAlloc();
-
-root_function void
-ThreadContextDealloc(ThreadCtx* ctx);

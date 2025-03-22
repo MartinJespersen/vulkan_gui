@@ -1,6 +1,5 @@
-#ifdef PROFILING_ENABLE
-BufferImpl(TracyVkCtx);
-#endif
+// format + styling extensions
+
 
 inline_function void UI_Widget_TreeStateReset(UI_Widget* widget) {
     widget->first = 0;
@@ -11,11 +10,11 @@ inline_function void UI_Widget_TreeStateReset(UI_Widget* widget) {
 }
 
 root_function UI_Widget*
-UI_Widget_FromKey(UI_State* uiState, UI_Key key)
+UI_Widget_FromKey(UI_State* ui_state, UI_Key key)
 {
     UI_Widget* result = {0};
-    u64 slotKey = key.key % uiState->widgetCacheSize;
-    UI_WidgetSlot* slot = &uiState->widgetSlot[slotKey];
+    u64 slotKey = key.key % ui_state->widgetCacheSize;
+    UI_WidgetSlot* slot = &ui_state->widgetSlot[slotKey];
 
     for (UI_Widget* widget = slot->first; !IsNull(widget); widget = widget->hashNext)
     {
@@ -28,34 +27,34 @@ UI_Widget_FromKey(UI_State* uiState, UI_Key key)
 
     if (IsNull(result))
     {
-        result = UI_WidgetSlot_Push(uiState, key);
+        result = UI_WidgetSlot_Push(ui_state, key);
     }
     return result;
 }
 
 root_function UI_Widget*
-UI_Widget_Allocate(UI_State* uiState)
+UI_Widget_Allocate(UI_State* ui_state)
 {
-    UI_Widget* widget = uiState->freeList;
-    if (uiState->freeListSize > 0)
+    UI_Widget* widget = ui_state->freeList;
+    if (ui_state->freeListSize > 0)
     {
-        StackPop(uiState->freeList);
+        StackPop(ui_state->freeList);
         MemoryZeroStruct(widget);
-        uiState->freeListSize -= 1;
+        ui_state->freeListSize -= 1;
     }
     else
     {
-        widget = PushStruct(uiState->arena, UI_Widget);
+        widget = PushStruct(ui_state->arena_permanent, UI_Widget);
     }
     return widget;
 }
 
 // UI_WidgetSlot
 root_function UI_Widget*
-UI_WidgetSlot_Push(UI_State* uiState, UI_Key key)
+UI_WidgetSlot_Push(UI_State* ui_state, UI_Key key)
 {
-    UI_WidgetSlot* slot = &uiState->widgetSlot[key.key % uiState->widgetCacheSize];
-    UI_Widget* widget = UI_Widget_Allocate(uiState);
+    UI_WidgetSlot* slot = &ui_state->widgetSlot[key.key % ui_state->widgetCacheSize];
+    UI_Widget* widget = UI_Widget_Allocate(ui_state);
 
     DLLPushBack_NPZ(slot->first, slot->last, widget, hashNext, hashPrev, IsNull, SetNull);
     widget->key = key;
@@ -155,63 +154,12 @@ struct UI_WidgetDF
     IterState iterState;
 };
 
-root_function void
-UI_Widget_Add(String8 widgetName, Context* context, const F32Vec4 color, String8 text,
-              f32 softness, f32 borderThickness, f32 cornerRadius, UI_WidgetFlags flags,
-              u32 fontSize, UI_Size semanticSizeX, UI_Size semanticSizeY)
-{
-    UI_State* uiState = context->uiState;
-    UI_IO* io = context->io;
-    GlyphAtlas* glyphAtlas = context->glyphAtlas;
 
-    UI_Key key = UI_Key_Calculate(widgetName);
-    UI_Widget* widget = UI_Widget_FromKey(uiState, key);
-    
-    UI_Widget_TreeStateReset(widget);
-
-    widget->name = widgetName;
-    widget->flags = flags;
-    widget->color = color;
-    widget->softness = softness;
-    widget->borderThickness = borderThickness;
-    widget->cornerRadius = cornerRadius;
-    widget->fontSize = fontSize;
-    widget->active_t = false;
-    widget->hot_t = false;
-    widget->text = text;
-    widget->semanticSize[Axis2_X] = semanticSizeX;
-    widget->semanticSize[Axis2_Y] = semanticSizeY;
-
-    if (flags & UI_WidgetFlag_DrawText) {
-        widget->font = FontFindOrCreate(glyphAtlas, widget->fontSize);
-        widget->textSize = TextDimensionsCalculate(widget->font, widget->text);
-    }
-
-    if (io->mousePosition >= widget->rect.point.p0 && io->mousePosition <= widget->rect.point.p1)
-    {
-        widget->hot_t = true;
-        if (io->leftClicked)
-        {
-            widget->active_t = true;
-        }
-    }
-    if (uiState->parent)
-    {
-        // add to widget tree
-        DLLPushBack(uiState->parent->first, uiState->parent->last, widget);
-    }
-
-    ASSERT((IsNull(uiState->parent) && IsNull(uiState->current)) || !IsNull(uiState->parent),
-           "Tree can only have one widget root");
-
-    widget->parent = uiState->parent;
-    uiState->current = widget;
-}
 
 root_function void
-UI_Widget_SizeAndRelativePositionCalculate(GlyphAtlas* glyphAtlas, UI_State* uiState)
+UI_Widget_SizeAndRelativePositionCalculate(GlyphAtlas* glyphAtlas, UI_State* ui_state)
 {
-    UI_Widget* leftMostWidget = UI_Widget_TreeLeftMostFind(uiState->root);
+    UI_Widget* leftMostWidget = UI_Widget_TreeLeftMostFind(ui_state->root);
     // size and relative position calculation
     for (UI_Widget* widget = leftMostWidget; !IsNull(widget);
          widget = UI_Widget_DepthFirstPostOrder(widget))
@@ -222,7 +170,8 @@ UI_Widget_SizeAndRelativePositionCalculate(GlyphAtlas* glyphAtlas, UI_State* uiS
         if (widget->semanticSize[Axis2_X].kind == UI_SizeKind_TextContent ||
             widget->semanticSize[Axis2_Y].kind == UI_SizeKind_TextContent)
         {
-            widget->computedSize = widget->textSize + 2.0f * widget->borderThickness;
+            Vec2<f32> text_size = widget->text_ext->size_calc_func(widget);
+            widget->computedSize = text_size + 2.0f * widget->borderThickness;
         }
 
         for (u32 axis = 0; axis < Axis2_COUNT; axis++)
@@ -287,15 +236,15 @@ root_function void ReassignRelativePositionsOfChildren(UI_Widget* widget, Axis2 
 }
 
 root_function void
-UI_Widget_AbsolutePositionCalculate(UI_State* uiState, F32Vec4 posAbs)
+UI_Widget_AbsolutePositionCalculate(UI_State* ui_state, F32Vec4 posAbs)
 {
-    for (UI_Widget* widget = uiState->root; !IsNull(widget);
+    for (UI_Widget* widget = ui_state->root; !IsNull(widget);
          widget = UI_Widget_DepthFirstPreOrder(widget))
     {
         widget->rect = {0};
 
         F32Vec4 rectParent = posAbs;
-        if (widget != uiState->root)
+        if (widget != ui_state->root)
         {
             rectParent = widget->parent->rect;
         }
@@ -346,9 +295,9 @@ UI_Widget_AbsolutePositionCalculate(UI_State* uiState, F32Vec4 posAbs)
 }
 
 root_function void
-UI_Widget_DrawPrepare(Arena* arena, UI_State* uiState, BoxContext* boxContext)
+UI_Widget_DrawPrepare(Arena* arena, UI_State* ui_state, BoxContext* boxContext)
 {
-    for (UI_Widget* widget = uiState->root; !IsNull(widget);
+    for (UI_Widget* widget = ui_state->root; !IsNull(widget);
          widget = UI_Widget_DepthFirstPreOrder(widget))
     {
         if (widget->flags & UI_WidgetFlag_DrawBackground)
@@ -380,33 +329,126 @@ UI_Widget_DrawPrepare(Arena* arena, UI_State* uiState, BoxContext* boxContext)
 
         if (widget->flags & UI_WidgetFlag_DrawText)
         {
-            Vec2 diffDim = widget->rect.point.p1 - widget->rect.point.p0 - widget->textSize;
-            Vec2 glyphPos = widget->rect.point.p0 + diffDim / 2.0f;
-            Vec2 p0xB = widget->rect.point.p0 + widget->borderThickness;
-            Vec2 p1xB = widget->rect.point.p1 - widget->borderThickness;
-            addText(arena, widget->font, widget->text, glyphPos, p0xB, p1xB, widget->textSize.y);
+            widget->text_ext->draw_func(widget);
         }
     }
 }
 
 // layout
 inline_function void
-UI_PushLayout(UI_State* uiState)
+UI_PushLayout(UI_State* ui_state)
 {
-    uiState->parent = uiState->current;
+    ui_state->parent = ui_state->current;
 }
 
 inline_function void
-UI_PopLayout(UI_State* uiState)
+UI_PopLayout(UI_State* ui_state)
 {
-    uiState->root = uiState->current = uiState->parent;
-    uiState->parent = uiState->current ? uiState->current->parent : 0;
+    ui_state->root = ui_state->current = ui_state->parent;
+    ui_state->parent = ui_state->current ? ui_state->current->parent : 0;
 }
 
 inline_function void
-UI_State_FrameReset(UI_State* uiState)
+UI_State_FrameReset(UI_State* ui_state)
 {
-    uiState->parent = 0;
-    uiState->current = 0;
-    uiState->root = 0;
+    ui_state->parent = 0;
+    ui_state->current = 0;
+    ui_state->root = 0;
+    ArenaReset(ui_state->arena_frame);
+}
+
+// Text Extensions ---------------------------------------------------------------
+
+root_function Vec2<f32>
+UI_TextExtSizeCalc(UI_Widget* widget) {
+    GlyphAtlas* glyphAtlas = GlobalContextGet()->glyphAtlas;
+    UI_TextExtData* data = (UI_TextExtData*)widget->text_ext->data;
+    Font* font = FontFindOrCreate(glyphAtlas, data->font_size);
+    Vec2<f32> text_size = TextDimensionsCalculate(font, data->text);
+    data->text_size = text_size;
+    return data->text_size;
+}
+
+root_function void
+UI_TextExtDraw(UI_Widget* widget) {
+    GlyphAtlas* glyphAtlas = GlobalContextGet()->glyphAtlas;
+    UI_TextExtData* data = (UI_TextExtData*)widget->text_ext->data;
+    Vec2 diff_dim = widget->rect.point.p1 - widget->rect.point.p0 - data->text_size;
+    Vec2 glyph_pos = widget->rect.point.p0 + diff_dim / 2.0f;
+    Vec2 p0xB = widget->rect.point.p0 + widget->borderThickness;
+    Vec2 p1xB = widget->rect.point.p1 - widget->borderThickness;
+
+    Font *font = FontFindOrCreate(glyphAtlas, data->font_size);
+
+    TextDraw(font, data->text, glyph_pos, p0xB, p1xB, data->text_size.y);
+} 
+
+root_function void 
+UI_Widget_TextExtAdd(UI_Widget* widget, UI_TextExtSizeCalcFuncType* size_calc_func, UI_TextExtDrawFuncType* draw_func) {
+
+    UI_State* ui_state = GlobalContextGet()->ui_state;
+    Arena* arena = ui_state->arena_frame;
+
+    u32* font_size = C_FontSize_Get();
+    String8 *text = C_Text_Get();
+    UI_TextExtData* data = PushStruct(arena, UI_TextExtData);
+    *data = {.font_size=*font_size, .text=*text};
+
+    UI_TextExt* text_ext = PushStruct(arena, UI_TextExt);
+    text_ext->data = data;
+    text_ext->size_calc_func = size_calc_func;
+    text_ext->draw_func = draw_func;
+    widget->text_ext = text_ext;
+}
+
+// Root Functions ----------------------------------------------------------------
+root_function void
+UI_Widget_Add(String8 widgetName, const F32Vec4 color, f32 softness, 
+                f32 borderThickness, f32 cornerRadius, UI_WidgetFlags flags,
+                UI_Size semanticSizeX, UI_Size semanticSizeY)
+{
+    Context* context = GlobalContextGet();
+    UI_State* ui_state = context->ui_state;
+    UI_IO* io = context->io;
+    GlyphAtlas* glyphAtlas = context->glyphAtlas;
+
+    UI_Key key = UI_Key_Calculate(widgetName);
+    UI_Widget* widget = UI_Widget_FromKey(ui_state, key);
+    
+    UI_Widget_TreeStateReset(widget);
+
+    widget->name = widgetName;
+    widget->flags = flags;
+    widget->color = color;
+    widget->softness = softness;
+    widget->borderThickness = borderThickness;
+    widget->cornerRadius = cornerRadius;
+    widget->active_t = false;
+    widget->hot_t = false;
+    widget->semanticSize[Axis2_X] = semanticSizeX;
+    widget->semanticSize[Axis2_Y] = semanticSizeY;
+
+    if (flags & UI_WidgetFlag_DrawText) {
+        UI_Widget_TextExtAdd(widget, UI_TextExtSizeCalc, UI_TextExtDraw);
+    }
+
+    if (io->mousePosition >= widget->rect.point.p0 && io->mousePosition <= widget->rect.point.p1)
+    {
+        widget->hot_t = true;
+        if (io->leftClicked)
+        {
+            widget->active_t = true;
+        }
+    }
+    if (ui_state->parent)
+    {
+        // add to widget tree
+        DLLPushBack(ui_state->parent->first, ui_state->parent->last, widget);
+    }
+
+    ASSERT((IsNull(ui_state->parent) && IsNull(ui_state->current)) || !IsNull(ui_state->parent),
+           "Tree can only have one widget root");
+
+    widget->parent = ui_state->parent;
+    ui_state->current = widget;
 }

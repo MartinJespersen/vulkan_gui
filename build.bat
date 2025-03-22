@@ -9,7 +9,7 @@ set "exec_full_path=%debug_dir%\%exec_name%"
 
 
 :: Compiler and linker flags
-set "cxxflags=/W3 /std:c++20 /wd4201"
+set "cxxflags=/W0 /std:c++20 /wd4201"
 set "include_dirs=/I. /IC:\VulkanSDK\1.4.304.1\Include\ /IC:\glfw-3.4.bin.WIN64\include /IC:\freetype-2.13.2\include"
 :: free typed is the debug lib
 set "link_libs=glfw3_mt.lib vulkan-1.lib user32.lib gdi32.lib opengl32.lib shell32.lib freetype.lib"
