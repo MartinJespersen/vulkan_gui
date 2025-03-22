@@ -123,4 +123,3 @@ WidgetCfg
 
 #define C_FontSize_Scoped(v) DeferScoped(C_FontSize_Push(v), C_FontSize_Pop())
 #define C_Text_Scoped(v) DeferScoped(C_Text_Push(v), C_Text_Pop())
-
