@@ -99,6 +99,7 @@ WidgetCfg
         type* v_ptr = PushStructZero(arena, type); \
         *v_ptr = v; \
         cfg->ptr=(void**)v_ptr; \
+        cfg->type_enum=name; \
         Config** cur_top = &ui_state->cfg_bucket.c[name]; \
         StackPush(*cur_top, cfg); \
     }
@@ -119,3 +120,8 @@ WidgetCfg
 
 #define C_FontSize_Scoped(v) DeferScoped(C_FontSize_Push(v), C_FontSize_Pop())
 #define C_Text_Scoped(v) DeferScoped(C_Text_Push(v), C_Text_Pop())
+#define C_BackgroundColor_Scoped(v) DeferScoped(C_BackgroundColor_Push(v), C_BackgroundColor_Pop())
+#define C_Softness_Scoped(v) DeferScoped(C_Softness_Push(v), C_Softness_Pop())
+#define C_CornerRadius_Scoped(v) DeferScoped(C_CornerRadius_Push(v), C_CornerRadius_Pop())
+#define C_BorderThickness_Scoped(v) DeferScoped(C_BorderThickness_Push(v), C_BorderThickness_Pop())
+#define C_Margin_Scoped(v) DeferScoped(C_Margin_Push(v), C_Margin_Pop())

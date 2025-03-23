@@ -11,12 +11,20 @@ struct ProfilingContext
 #endif
 };
 
+static const F32Vec4 C_Padding_Default = {1.0f, 1.0f, 1.0f, 10.0f};
+static const F32Vec4 C_Margin_Default = {5.f, 5.f, 5.f, 5.f};
+
 // Widget Configuration -------------------------------------
 #define WidgetCfg \
     X(C_Parent,             UI_Widget*,     g_ui_widget) \
+    X(C_Softness,           f32,            1.0f) \
+    X(C_BorderThickness,    f32,            0.0f) \
+    X(C_CornerRadius,       f32,            1.0f) \
     X(C_FontSize,           u32,            0) \
     X(C_Text,               String8,        {0}) \
-    X(C_BackgroundColor,    F32Vec4,        {0}) 
+    X(C_BackgroundColor,    F32Vec4,        {0}) \
+    X(C_Padding,            F32Vec4,        C_Padding_Default) \
+    X(C_Margin,             F32Vec4,        C_Margin_Default)
 
 enum WidgetConfigEnum {
     #define X(name, type, default) name,
@@ -25,6 +33,7 @@ enum WidgetConfigEnum {
     WIDGET_CONFIG_COUNT
 };
 struct Config {
+    WidgetConfigEnum type_enum;
     Config* next;
     void* ptr;
 };
@@ -89,12 +98,27 @@ struct UI_TextExtData {
     u32 font_size;
     String8 text;
     Vec2<f32> text_size;
+    f32 border_thickness;
+    F32Vec4 padding;
+    F32Vec4 margin;
 };
-
 struct UI_TextExt {
     UI_TextExtSizeCalcFuncType* size_calc_func;
     UI_TextExtDrawFuncType* draw_func;
     void* data;
+};
+
+typedef void UI_RectExtDrawFuncType(UI_Widget* widget);
+struct UI_RectExtData {
+    F32Vec4 background_color;
+    f32 softness; 
+    f32 border_thickness; 
+    f32 corner_radius;
+    F32Vec4 margin;
+};
+struct UI_RectExt {
+    UI_RectExtData* data;
+    UI_RectExtDrawFuncType* draw_func;
 };
 
 struct UI_Widget
@@ -109,7 +133,8 @@ struct UI_Widget
     UI_Widget* parent;
 
     // format + styling extensions
-    UI_TextExt *text_ext;
+    UI_TextExt* text_ext;
+    UI_RectExt* rect_ext;
 
     String8 name;
     
@@ -125,12 +150,6 @@ struct UI_Widget
     bool hot_t;
     bool active_t;
 
-    // layout
-    F32Vec4 color;
-    f32 softness;
-    f32 borderThickness;
-    f32 cornerRadius;
-    u32 fontSize;
 };
 
 struct UI_WidgetSlot
@@ -176,7 +195,7 @@ struct Context
     VulkanContext* vulkanContext;
     ProfilingContext* profilingContext;
     GlyphAtlas* glyphAtlas;
-    BoxContext* boxContext;
+    BoxContext* box_context;
     UI_IO* io;
     UI_State* ui_state;
     ThreadCtx* thread_ctx;

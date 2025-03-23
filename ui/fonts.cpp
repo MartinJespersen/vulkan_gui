@@ -102,8 +102,7 @@ TextDimensionsCalculate(Font* font, String8 text)
 }
 
 root_function void
-TextDraw(Font* font, String8 text, Vec2<f32> offset, Vec2<f32> pos0, Vec2<f32> pos1,
-        f32 textHeight)
+TextDraw(Font* font, String8 text, Vec2<f32> pos0, Vec2<f32> pos1)
 {
     Arena* frame_arena = GlobalContextGet()->ui_state->arena_frame;
 
@@ -118,8 +117,8 @@ TextDraw(Font* font, String8 text, Vec2<f32> offset, Vec2<f32> pos0, Vec2<f32> p
         }
     }
 
-    f32 xOrigin = offset.x;
-    f32 yOrigin = offset.y + largestBearingY;
+    f32 xOrigin = pos0.x;
+    f32 yOrigin = pos0.y + largestBearingY;
 
     for (u32 i = 0; i < text.size; i++)
     {
@@ -140,8 +139,9 @@ TextDraw(Font* font, String8 text, Vec2<f32> offset, Vec2<f32> pos0, Vec2<f32> p
         f32 xpos1 = Clamp(xGlyphPos0 + ch.width, pos0.x, pos1.x);
         f32 ypos1 = Clamp(yGlyphPos0 + ch.height, pos0.y, pos1.y);
 
+        f32 text_height = pos1.y - pos0.y;
         f32 yPosOffset0 =
-            Max(-(largestBearingY - ch.bearingY) + ((textHeight - (ypos1 - ypos0)) / 2), 0.0f);
+            Max(-(largestBearingY - ch.bearingY) + ((text_height - (ypos1 - ypos0)) / 2), 0.0f);
 
         GlyphInstance* glyphInstance = PushStruct(frame_arena, GlyphInstance);
         StackPush(font->instances, glyphInstance);

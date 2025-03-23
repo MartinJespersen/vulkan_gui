@@ -163,7 +163,7 @@ UI_Widget_SizeAndRelativePositionCalculate(GlyphAtlas* glyphAtlas, UI_State* ui_
             widget->semanticSize[Axis2_Y].kind == UI_SizeKind_TextContent)
         {
             Vec2<f32> text_size = widget->text_ext->size_calc_func(widget);
-            widget->computedSize = text_size + 2.0f * widget->borderThickness;
+            widget->computedSize = text_size;
         }
 
         for (u32 axis = 0; axis < Axis2_COUNT; axis++)
@@ -287,36 +287,14 @@ UI_Widget_AbsolutePositionCalculate(UI_State* ui_state, F32Vec4 posAbs)
 }
 
 root_function void
-UI_Widget_DrawPrepare(Arena* arena, UI_State* ui_state, BoxContext* boxContext)
+UI_Widget_DrawPrepare(Arena* arena, UI_State* ui_state, BoxContext* box_context)
 {
     for (UI_Widget* widget = ui_state->root; !UI_Widget_IsEmpty(widget);
          widget = UI_Widget_DepthFirstPreOrder(widget))
     {
         if (widget->flags & UI_WidgetFlag_DrawBackground)
         {
-            Box* box = PushStructZero(arena, Box);
-            QueuePush(boxContext->boxQueue.first, boxContext->boxQueue.last, box);
-
-            // reacting to last frame input
-            box->pos0 = widget->rect.point.p0;
-            box->pos1 = widget->rect.point.p1;
-            box->color = widget->color;
-            box->softness = widget->softness;
-            box->borderThickness = widget->borderThickness;
-            box->cornerRadius = widget->cornerRadius;
-            box->attributes = 0;
-
-            if (widget->flags & UI_WidgetFlag_Clickable)
-            {
-                if (widget->hot_t)
-                {
-                    box->attributes |= BoxAttributes::HOT;
-                    if (widget->active_t)
-                    {
-                        box->attributes |= BoxAttributes::ACTIVE;
-                    }
-                }
-            }
+            widget->rect_ext->draw_func(widget);
         }
 
         if (widget->flags & UI_WidgetFlag_DrawText)
@@ -360,7 +338,16 @@ UI_TextExtSizeCalc(UI_Widget* widget) {
     Font* font = FontFindOrCreate(glyphAtlas, data->font_size);
     Vec2<f32> text_size = TextDimensionsCalculate(font, data->text);
     data->text_size = text_size;
-    return data->text_size;
+
+    f32 padding_width = data->padding.point.p0.x + data->padding.point.p1.x;
+    f32 padding_height = data->padding.point.p0.y + data->padding.point.p1.y;
+    Vec2<f32> padding_size = {padding_width, padding_height};
+
+    f32 margin_width = data->margin.point.p0.x + data->margin.point.p1.x;
+    f32 margin_height = data->margin.point.p0.y + data->margin.point.p1.y;
+    Vec2<f32> margin_size = {margin_width, margin_height};
+
+    return data->text_size + 2.f*data->border_thickness + padding_size + margin_size;
 }
 
 root_function void
@@ -369,12 +356,12 @@ UI_TextExtDraw(UI_Widget* widget) {
     UI_TextExtData* data = (UI_TextExtData*)widget->text_ext->data;
     Vec2 diff_dim = widget->rect.point.p1 - widget->rect.point.p0 - data->text_size;
     Vec2 glyph_pos = widget->rect.point.p0 + diff_dim / 2.0f;
-    Vec2 p0xB = widget->rect.point.p0 + widget->borderThickness;
-    Vec2 p1xB = widget->rect.point.p1 - widget->borderThickness;
+    Vec2 p0xB = widget->rect.point.p0 + data->border_thickness + data->padding.point.p0 + data->margin.point.p0;
+    Vec2 p1xB = widget->rect.point.p1 - data->border_thickness - data->padding.point.p1 - data->margin.point.p1;
 
     Font *font = FontFindOrCreate(glyphAtlas, data->font_size);
 
-    TextDraw(font, data->text, glyph_pos, p0xB, p1xB, data->text_size.y);
+    TextDraw(font, data->text, p0xB, p1xB);
 } 
 
 root_function void 
@@ -385,8 +372,11 @@ UI_Widget_TextExtAdd(UI_Widget* widget, UI_TextExtSizeCalcFuncType* size_calc_fu
 
     u32 font_size = C_FontSize_Get();
     String8 text = C_Text_Get();
+    f32 border_thickness = C_BorderThickness_Get();
+    F32Vec4 padding = C_Padding_Get();
+    F32Vec4 margin = C_Margin_Get();
     UI_TextExtData* data = PushStruct(arena, UI_TextExtData);
-    *data = {.font_size=font_size, .text=text};
+    *data = {.font_size=font_size, .text=text, .border_thickness=border_thickness, .padding=padding, .margin=margin};
 
     UI_TextExt* text_ext = PushStruct(arena, UI_TextExt);
     text_ext->data = data;
@@ -395,10 +385,67 @@ UI_Widget_TextExtAdd(UI_Widget* widget, UI_TextExtSizeCalcFuncType* size_calc_fu
     widget->text_ext = text_ext;
 }
 
+// Rect extension ----------------------------------------------------------------
+root_function void
+UI_Widget_RectExtDraw(UI_Widget* widget) {
+    UI_RectExtData* data = (UI_RectExtData*)widget->rect_ext->data;
+    Context* ctx = GlobalContextGet();
+    Arena* frame_arena = ctx->ui_state->arena_frame;
+    BoxContext* box_context = ctx->box_context;
+    Box* box = PushStructZero(frame_arena, Box);
+    QueuePush(box_context->boxQueue.first, box_context->boxQueue.last, box);
+
+    // reacting to last frame input
+    box->pos0 = widget->rect.point.p0 + data->margin.point.p0;
+    box->pos1 = widget->rect.point.p1 - data->margin.point.p1;
+    box->color = data->background_color;
+    box->softness = data->softness;
+    box->borderThickness = data->border_thickness;
+    box->cornerRadius = data->corner_radius;
+    box->attributes = 0;
+
+    if (widget->flags & UI_WidgetFlag_Clickable)
+    {
+        if (widget->hot_t)
+        {
+            box->attributes |= BoxAttributes::HOT;
+            if (widget->active_t)
+            {
+                box->attributes |= BoxAttributes::ACTIVE;
+            }
+        }
+    }
+}
+
+root_function void 
+UI_Widget_RectExtAdd(UI_Widget* widget, UI_RectExtDrawFuncType* draw_func) {
+
+    UI_State* ui_state = GlobalContextGet()->ui_state;
+    Arena* arena = ui_state->arena_frame;
+
+    F32Vec4 color = C_BackgroundColor_Get();
+    f32 softness = C_Softness_Get();
+    f32 border_thickness = C_BorderThickness_Get();
+    f32 corner_radius = C_CornerRadius_Get();
+    F32Vec4 margin = C_Margin_Get();
+    UI_RectExtData* data = PushStruct(arena, UI_RectExtData);
+    *data = {
+            .background_color=color, 
+            .softness=softness,
+            .border_thickness=border_thickness, 
+            .corner_radius=corner_radius, 
+            .margin=margin
+        };
+
+    UI_RectExt* rect_ext = PushStruct(arena, UI_RectExt);
+    rect_ext->data = data;
+    rect_ext->draw_func = draw_func;
+    widget->rect_ext = rect_ext;
+}
+
 // Root Functions ----------------------------------------------------------------
 root_function void
-UI_Widget_Add(String8 widgetName, const F32Vec4 color, f32 softness, 
-                f32 borderThickness, f32 cornerRadius, UI_WidgetFlags flags,
+UI_Widget_Add(String8 widgetName, UI_WidgetFlags flags,
                 UI_Size semanticSizeX, UI_Size semanticSizeY)
 {
     Context* context = GlobalContextGet();
@@ -413,14 +460,14 @@ UI_Widget_Add(String8 widgetName, const F32Vec4 color, f32 softness,
 
     widget->name = widgetName;
     widget->flags = flags;
-    widget->color = color;
-    widget->softness = softness;
-    widget->borderThickness = borderThickness;
-    widget->cornerRadius = cornerRadius;
     widget->active_t = false;
     widget->hot_t = false;
     widget->semanticSize[Axis2_X] = semanticSizeX;
     widget->semanticSize[Axis2_Y] = semanticSizeY;
+
+    if (flags & UI_WidgetFlag_DrawBackground) {
+        UI_Widget_RectExtAdd(widget, UI_Widget_RectExtDraw);
+    }
 
     if (flags & UI_WidgetFlag_DrawText) {
         UI_Widget_TextExtAdd(widget, UI_TextExtSizeCalc, UI_TextExtDraw);

@@ -125,7 +125,7 @@ VulkanInit()
 
     VulkanContext* vulkanContext = ctx->vulkanContext;
     GlyphAtlas* glyphAtlas = ctx->glyphAtlas;
-    BoxContext* boxContext = ctx->boxContext;
+    BoxContext* box_context = ctx->box_context;
     vulkanContext->arena = ArenaAlloc(GIGABYTE(4));
 
     IndexBufferAlloc(vulkanContext, glyphAtlas);
@@ -158,7 +158,7 @@ VulkanInit()
     vulkanContext->resolutionInfo.offset = 0;
     vulkanContext->resolutionInfo.size = sizeof(float) * 2;
 
-    createGraphicsPipeline(&boxContext->pipelineLayout, &boxContext->graphicsPipeline,
+    createGraphicsPipeline(&box_context->pipelineLayout, &box_context->graphicsPipeline,
                            vulkanContext->device, vulkanContext->swapChainExtent,
                            vulkanContext->fontRenderPass, VK_NULL_HANDLE,
                            vulkanContext->msaaSamples, Vulkan_BoxInstance::getBindingDescription(),
@@ -174,7 +174,7 @@ VulkanInit()
     createFramebuffers(vulkanContext->swapChainFramebuffers, vulkanContext->device,
                        vulkanContext->colorImageView, vulkanContext->fontRenderPass,
                        vulkanContext->swapChainExtent, vulkanContext->swapChainImageViews);
-    BoxIndexBufferCreate(ctx->boxContext, vulkanContext->physicalDevice, vulkanContext->device,
+    BoxIndexBufferCreate(ctx->box_context, vulkanContext->physicalDevice, vulkanContext->device,
                          vulkanContext->commandPool, vulkanContext->graphicsQueue,
                          vulkanContext->indices);
 
@@ -190,7 +190,7 @@ cleanup()
     Context* ctx = GlobalContextGet();
     VulkanContext* vulkanContext = ctx->vulkanContext;
     GlyphAtlas* glyphAtlas = ctx->glyphAtlas;
-    BoxContext* boxContext = ctx->boxContext;
+    BoxContext* box_context = ctx->box_context;
 
     vkDeviceWaitIdle(vulkanContext->device);
 
@@ -202,7 +202,7 @@ cleanup()
     cleanupSwapChain(vulkanContext);
 
     cleanupFontResources(glyphAtlas, vulkanContext->device);
-    BoxCleanup(boxContext, vulkanContext->device);
+    BoxCleanup(box_context, vulkanContext->device);
 
     vkDestroyRenderPass(vulkanContext->device, vulkanContext->boxRenderPass, nullptr);
     vkDestroyRenderPass(vulkanContext->device, vulkanContext->fontRenderPass, nullptr);
@@ -846,7 +846,7 @@ CommandBufferRecord(u32 imageIndex, u32 currentFrame)
 
     VulkanContext* vulkanContext = context->vulkanContext;
     GlyphAtlas* glyphAtlas = context->glyphAtlas;
-    BoxContext* boxContext = context->boxContext;
+    BoxContext* box_context = context->box_context;
     ProfilingContext* profilingContext = context->profilingContext;
     UI_State* ui_state = context->ui_state;
     (void)profilingContext;
@@ -854,7 +854,7 @@ CommandBufferRecord(u32 imageIndex, u32 currentFrame)
     Arena* frame_arena = ui_state->arena_frame;
     UI_State_FrameReset(ui_state);
     FontFrameReset(frame_arena, glyphAtlas);
-    BoxFrameReset(frame_arena, boxContext);
+    BoxFrameReset(frame_arena, box_context);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -868,7 +868,7 @@ CommandBufferRecord(u32 imageIndex, u32 currentFrame)
     UI_Size semanticSizeX = {.kind = UI_SizeKind_ChildrenSum, .value = 50.0f, .strictness = 0};
     UI_Size semanticSizeY = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
     {
-        UI_Widget_Add(Str8(frame_arena, "Div"), color, 1.0f, 1.0f, 5.0f, flags,
+        UI_Widget_Add(Str8(frame_arena, "Div"), flags,
                 semanticSizeX, semanticSizeY);
     }
 
@@ -886,16 +886,17 @@ CommandBufferRecord(u32 imageIndex, u32 currentFrame)
             color.axis.x += 0.1f;
             String8 name = Str8(frame_arena, "test_name %u", btn_i);
             
-            C_Text_Scoped(Str8(frame_arena, "%u", btn_i))
-            C_FontSize_Scoped(50)
-            UI_Widget_Add(name, color, 1.0f, 1.0f, 5.0f, flags,
+        C_BackgroundColor_Scoped(color)
+        C_Text_Scoped(Str8(frame_arena, "%u", btn_i))
+        C_FontSize_Scoped(50)
+            UI_Widget_Add(name, flags,
                           semanticSizeX, semanticSizeY);
         }
 
         semanticSizeX = {.kind = UI_SizeKind_Pixels, .value = 50, .strictness = 0.0f};
         semanticSizeY = {.kind = UI_SizeKind_Pixels, .value = 100, .strictness = 0.0f};
         String8 name = Str8(frame_arena, "parentSize");
-        UI_Widget_Add(name, color, 0.0f, 0.0f, 0.0f, UI_WidgetFlag_DrawBackground,
+        UI_Widget_Add(name, 0,
                         semanticSizeX, semanticSizeY);
         
         UI_Layout_Scoped
@@ -908,7 +909,8 @@ CommandBufferRecord(u32 imageIndex, u32 currentFrame)
                 String8 name = Str8(frame_arena, "childOfParent%u", c_i);
                 color = {0.0f, 0.0f, 0.0f, 1.0f};
                 color.data[c_i] = 1.0f;
-                UI_Widget_Add(name, color, 0.0f, 0.0f, 0.0f, UI_WidgetFlag_DrawBackground,
+            C_BackgroundColor_Scoped(color)
+                UI_Widget_Add(name, UI_WidgetFlag_DrawBackground,
                     semanticSizeX, semanticSizeY);
             }
         }
@@ -917,14 +919,14 @@ CommandBufferRecord(u32 imageIndex, u32 currentFrame)
     UI_Widget_SizeAndRelativePositionCalculate(glyphAtlas, ui_state);
     F32Vec4 rootWindowRect = {0.0f, 0.0f, 400.0f, 400.0f};
     UI_Widget_AbsolutePositionCalculate(ui_state, rootWindowRect);
-    UI_Widget_DrawPrepare(frame_arena, ui_state, boxContext);
+    UI_Widget_DrawPrepare(frame_arena, ui_state, box_context);
 
     // recording rectangles
     {
         ZoneScopedN("Rectangle CPU");
-        boxContext->numInstances =
-            InstanceBufferFromBoxes(boxContext->boxQueue.first, boxContext->boxInstances);
-        InstanceBufferFillFromBoxes(boxContext, vulkanContext->physicalDevice,
+        box_context->numInstances =
+            InstanceBufferFromBoxes(box_context->boxQueue.first, box_context->boxInstances);
+        InstanceBufferFillFromBoxes(box_context, vulkanContext->physicalDevice,
                                     vulkanContext->device);
     }
     // recording text
@@ -949,7 +951,7 @@ CommandBufferRecord(u32 imageIndex, u32 currentFrame)
     {
         TracyVkZoneC(profilingContext->tracyContexts.data[currentFrame],
                      vulkanContext->commandBuffers.data[currentFrame], "Rectangles GPU", 0xff0000);
-        BoxRenderPassBegin(boxContext, vulkanContext, imageIndex, currentFrame);
+        BoxRenderPassBegin(box_context, vulkanContext, imageIndex, currentFrame);
     }
     {
         TracyVkZoneC(profilingContext->tracyContexts.data[currentFrame],

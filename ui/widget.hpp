@@ -33,8 +33,7 @@ root_function void
 ReassignRelativePositionsOfChildren(UI_Widget* widget, Axis2 axis);
 
 root_function void
-UI_Widget_Add(String8 widgetName, const F32Vec4 color, f32 softness, 
-            f32 borderThickness, f32 cornerRadius, UI_WidgetFlags flags,
+UI_Widget_Add(String8 widgetName, UI_WidgetFlags flags,
             UI_Size semanticSizeX, UI_Size semanticSizeY);
 
 root_function void
@@ -50,7 +49,7 @@ root_function void
 UI_Widget_AbsolutePositionCalculate(UI_State* ui_state, F32Vec4 posAbs);
 
 root_function void
-UI_Widget_DrawPrepare(Arena* arena, UI_State* ui_state, BoxContext* boxContext);
+UI_Widget_DrawPrepare(Arena* arena, UI_State* ui_state, BoxContext* box_context);
 
 // Layout functions
 inline_function void

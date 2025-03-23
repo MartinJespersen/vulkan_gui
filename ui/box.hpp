@@ -105,22 +105,22 @@ struct BoxContext
 };
 
 root_function void
-BoxIndexBufferCreate(BoxContext* boxContext, VkPhysicalDevice physicalDevice, VkDevice device,
+BoxIndexBufferCreate(BoxContext* box_context, VkPhysicalDevice physicalDevice, VkDevice device,
                      VkCommandPool commandPool, VkQueue graphicsQueue, u16_Buffer indices);
 
 root_function void
-BoxRenderPassBegin(BoxContext* boxContext, VulkanContext* vulkanContext, u32 imageIndex,
+BoxRenderPassBegin(BoxContext* box_context, VulkanContext* vulkanContext, u32 imageIndex,
                    u32 currentFrame);
 
 root_function void
-BoxCleanup(BoxContext* boxContext, VkDevice device);
+BoxCleanup(BoxContext* box_context, VkDevice device);
 
 root_function void
-InstanceBufferFillFromBoxes(BoxContext* boxContext, VkPhysicalDevice physicalDevice,
+InstanceBufferFillFromBoxes(BoxContext* box_context, VkPhysicalDevice physicalDevice,
                             VkDevice device);
 
 root_function u64
 InstanceBufferFromBoxes(Box* first, Array<Vulkan_BoxInstance> outBuffer);
 
 root_function void
-BoxFrameReset(Arena* arena, BoxContext* boxContext);
+BoxFrameReset(Arena* arena, BoxContext* box_context);

@@ -128,8 +128,7 @@ root_function Vec2<float>
 TextDimensionsCalculate(Font* font, String8 text);
 
 root_function void
-TextDraw(Font* font, String8 text, Vec2<f32> offset, Vec2<f32> pos0, Vec2<f32> pos1,
-        f32 textHeight);
+TextDraw(Font* font, String8 text, Vec2<f32> pos0, Vec2<f32> pos1);
 
 root_function u64
 InstanceBufferFromFontBuffers(Array<Vulkan_GlyphInstance> outBuffer, FontLL fontLL);

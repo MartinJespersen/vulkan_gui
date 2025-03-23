@@ -1,5 +1,5 @@
 root_function void
-BoxIndexBufferCreate(BoxContext* boxContext, VkPhysicalDevice physicalDevice, VkDevice device,
+BoxIndexBufferCreate(BoxContext* box_context, VkPhysicalDevice physicalDevice, VkDevice device,
                      VkCommandPool commandPool, VkQueue graphicsQueue, u16_Buffer indices)
 {
     VkDeviceSize bufferSize = sizeof(indices.data[0]) * indices.size;
@@ -17,10 +17,10 @@ BoxIndexBufferCreate(BoxContext* boxContext, VkPhysicalDevice physicalDevice, Vk
 
     createBuffer(physicalDevice, device, bufferSize,
                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, boxContext->indexBuffer,
-                 boxContext->indexMemoryBuffer);
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, box_context->indexBuffer,
+                 box_context->indexMemoryBuffer);
 
-    copyBuffer(device, commandPool, graphicsQueue, stagingBuffer, boxContext->indexBuffer,
+    copyBuffer(device, commandPool, graphicsQueue, stagingBuffer, box_context->indexBuffer,
                bufferSize);
 
     vkDestroyBuffer(device, stagingBuffer, nullptr);
@@ -28,7 +28,7 @@ BoxIndexBufferCreate(BoxContext* boxContext, VkPhysicalDevice physicalDevice, Vk
 }
 
 root_function void
-BoxRenderPassBegin(BoxContext* boxContext, VulkanContext* vulkanContext, u32 imageIndex,
+BoxRenderPassBegin(BoxContext* box_context, VulkanContext* vulkanContext, u32 imageIndex,
                    u32 currentFrame)
 {
     VkExtent2D swapChainExtent = vulkanContext->swapChainExtent;
@@ -52,7 +52,7 @@ BoxRenderPassBegin(BoxContext* boxContext, VulkanContext* vulkanContext, u32 ima
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, boxContext->graphicsPipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, box_context->graphicsPipeline);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -68,58 +68,58 @@ BoxRenderPassBegin(BoxContext* boxContext, VulkanContext* vulkanContext, u32 ima
     scissor.extent = swapChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    VkBuffer vertexBuffers[] = {boxContext->instBuffer};
+    VkBuffer vertexBuffers[] = {box_context->instBuffer};
     VkDeviceSize offsets[] = {0};
     f32 resolutionData[2] = {(f32)swapChainExtent.width, (f32)swapChainExtent.height};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-    vkCmdBindIndexBuffer(commandBuffer, boxContext->indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffer, box_context->indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
-    vkCmdPushConstants(commandBuffer, boxContext->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+    vkCmdPushConstants(commandBuffer, box_context->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                        pushContextInfo.offset, pushContextInfo.size, resolutionData);
 
-    vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(boxContext->numInstances), 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, 6, static_cast<uint32_t>(box_context->numInstances), 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 }
 
 root_function void
-BoxCleanup(BoxContext* boxContext, VkDevice device)
+BoxCleanup(BoxContext* box_context, VkDevice device)
 {
-    vkDestroyBuffer(device, boxContext->indexBuffer, nullptr);
-    vkFreeMemory(device, boxContext->indexMemoryBuffer, nullptr);
+    vkDestroyBuffer(device, box_context->indexBuffer, nullptr);
+    vkFreeMemory(device, box_context->indexMemoryBuffer, nullptr);
 
-    vkDestroyBuffer(device, boxContext->instBuffer, nullptr);
-    vkFreeMemory(device, boxContext->instMemoryBuffer, nullptr);
+    vkDestroyBuffer(device, box_context->instBuffer, nullptr);
+    vkFreeMemory(device, box_context->instMemoryBuffer, nullptr);
 
-    vkDestroyPipeline(device, boxContext->graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(device, boxContext->pipelineLayout, nullptr);
+    vkDestroyPipeline(device, box_context->graphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(device, box_context->pipelineLayout, nullptr);
 }
 
 root_function void
-InstanceBufferFillFromBoxes(BoxContext* boxContext, VkPhysicalDevice physicalDevice,
+InstanceBufferFillFromBoxes(BoxContext* box_context, VkPhysicalDevice physicalDevice,
                             VkDevice device)
 {
-    VkDeviceSize bufferSize = sizeof(Vulkan_BoxInstance) * boxContext->numInstances;
-    if (bufferSize > boxContext->instBufferSize)
+    VkDeviceSize bufferSize = sizeof(Vulkan_BoxInstance) * box_context->numInstances;
+    if (bufferSize > box_context->instBufferSize)
     {
-        vkDestroyBuffer(device, boxContext->instBuffer, nullptr);
-        vkFreeMemory(device, boxContext->instMemoryBuffer, nullptr);
+        vkDestroyBuffer(device, box_context->instBuffer, nullptr);
+        vkFreeMemory(device, box_context->instMemoryBuffer, nullptr);
 
         createBuffer(physicalDevice, device, bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                     boxContext->instBuffer, boxContext->instMemoryBuffer);
+                     box_context->instBuffer, box_context->instMemoryBuffer);
     }
 
     // TODO: Consider using vkFlushMappedMemoryRanges and vkInvalidateMappedMemoryRanges instead of
     // VK_MEMORY_PROPERTY_HOST_COHERENT_BIT for performance.
 
     void* data;
-    vkMapMemory(device, boxContext->instMemoryBuffer, 0, bufferSize, 0, &data);
-    MemoryCopy(data, boxContext->boxInstances.data, (size_t)bufferSize);
-    vkUnmapMemory(device, boxContext->instMemoryBuffer);
+    vkMapMemory(device, box_context->instMemoryBuffer, 0, bufferSize, 0, &data);
+    MemoryCopy(data, box_context->boxInstances.data, (size_t)bufferSize);
+    vkUnmapMemory(device, box_context->instMemoryBuffer);
 
-    boxContext->instBufferSize = bufferSize;
+    box_context->instBufferSize = bufferSize;
 }
 
 root_function u64
@@ -142,8 +142,8 @@ InstanceBufferFromBoxes(Box* first, Array<Vulkan_BoxInstance> outBuffer)
 }
 
 root_function void
-BoxFrameReset(Arena* arena, BoxContext* boxContext)
+BoxFrameReset(Arena* arena, BoxContext* box_context)
 {
-    boxContext->boxInstances = ArrayAlloc<Vulkan_BoxInstance>(arena, boxContext->MAX_BOX_INSTANCES);
-    boxContext->boxQueue = {0};
+    box_context->boxInstances = ArrayAlloc<Vulkan_BoxInstance>(arena, box_context->MAX_BOX_INSTANCES);
+    box_context->boxQueue = {0};
 }
