@@ -69,7 +69,7 @@ findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter,
 }
 
 root_function void
-createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size,
+BufferCreate(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size,
              VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer,
              VkDeviceMemory& bufferMemory)
 {
@@ -512,7 +512,8 @@ createRenderPass(VkDevice device, VkFormat swapChainImageFormat, VkSampleCountFl
     dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+    dependency.dstAccessMask =
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 
     const u32 attachmentsCount = 2;
     VkAttachmentDescription attachments[attachmentsCount] = {colorAttachment,

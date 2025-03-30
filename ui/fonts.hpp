@@ -91,6 +91,12 @@ struct FontLL
     Font* last;
 };
 
+struct VK_DescriptorPool
+{
+    VK_DescriptorPool* next;
+    VkDescriptorPool pool;
+};
+
 struct GlyphAtlas
 {
     // persistent arena
@@ -112,7 +118,8 @@ struct GlyphAtlas
     VkBuffer glyphIndexBuffer;
     VkDeviceMemory glyphIndexMemoryBuffer;
 
-    VkDescriptorPool descriptorPool;
+    VK_DescriptorPool* descriptor_pool;
+    static const u64 descriptor_pool_size_default = 1;
 
     VkDescriptorSetLayout descriptorSetLayout;
 
@@ -122,7 +129,7 @@ struct GlyphAtlas
 
 root_function void
 GlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, u32 imageIndex,
-                          u32 currentFrame);
+                     u32 currentFrame);
 
 root_function Vec2<float>
 TextDimensionsCalculate(Font* font, String8 text);
@@ -163,15 +170,16 @@ root_function void
 createGlyphAtlasTextureSampler(Font* font, VkPhysicalDevice physicalDevice, VkDevice device);
 
 root_function void
-FontDescriptorSetsCreate(Font* font, VkDescriptorPool descriptorPool,
+FontDescriptorSetsCreate(Font* font, GlyphAtlas* glyph_atlas,
                          VkDescriptorSetLayout descriptorSetLayout, VkDevice device,
                          const u32 MAX_FRAMES_IN_FLIGHT, Array<VkDescriptorSet> descriptorSets);
 
 root_function void
-FontDescriptorPoolCreate(VkDevice device, const u32 MAX_FRAMES_IN_FLIGHT,
-                         VkDescriptorPool& descriptorPool);
+FontDescriptorPoolCreate(VkDevice device, GlyphAtlas* glyph_atlas, u32 descriptor_set_count);
+
 root_function void
 FontDescriptorSetLayoutCreate(VkDevice device, VkDescriptorSetLayout& descriptorSetLayout);
+
 root_function Font*
 FontFindOrCreate(GlyphAtlas* glyphAtlas, u32 fontSize);
 

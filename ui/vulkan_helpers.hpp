@@ -113,7 +113,7 @@ endSingleTimeCommands(VkDevice device, VkCommandPool commandPool, VkQueue queue,
                       VkCommandBuffer commandBuffer);
 
 root_function void
-createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size,
+BufferCreate(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size,
              VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer,
              VkDeviceMemory& bufferMemory);
 root_function void

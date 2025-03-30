@@ -6,7 +6,7 @@ BoxIndexBufferCreate(BoxContext* box_context, VkPhysicalDevice physicalDevice, V
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
-    createBuffer(physicalDevice, device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    BufferCreate(physicalDevice, device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                  stagingBuffer, stagingBufferMemory);
 
@@ -15,7 +15,7 @@ BoxIndexBufferCreate(BoxContext* box_context, VkPhysicalDevice physicalDevice, V
     MemoryCopy(data, indices.data, (size_t)bufferSize);
     vkUnmapMemory(device, stagingBufferMemory);
 
-    createBuffer(physicalDevice, device, bufferSize,
+    BufferCreate(physicalDevice, device, bufferSize,
                  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, box_context->indexBuffer,
                  box_context->indexMemoryBuffer);
@@ -52,7 +52,8 @@ BoxRenderPassBegin(BoxContext* box_context, VulkanContext* vulkanContext, u32 im
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, box_context->graphicsPipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      box_context->graphicsPipeline);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -106,7 +107,7 @@ InstanceBufferFillFromBoxes(BoxContext* box_context, VkPhysicalDevice physicalDe
         vkDestroyBuffer(device, box_context->instBuffer, nullptr);
         vkFreeMemory(device, box_context->instMemoryBuffer, nullptr);
 
-        createBuffer(physicalDevice, device, bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        BufferCreate(physicalDevice, device, bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                      box_context->instBuffer, box_context->instMemoryBuffer);
     }
@@ -144,6 +145,7 @@ InstanceBufferFromBoxes(Box* first, Array<Vulkan_BoxInstance> outBuffer)
 root_function void
 BoxFrameReset(Arena* arena, BoxContext* box_context)
 {
-    box_context->boxInstances = ArrayAlloc<Vulkan_BoxInstance>(arena, box_context->MAX_BOX_INSTANCES);
+    box_context->boxInstances =
+        ArrayAlloc<Vulkan_BoxInstance>(arena, box_context->MAX_BOX_INSTANCES);
     box_context->boxQueue = {0};
 }

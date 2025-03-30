@@ -1,14 +1,12 @@
 root_function void
 GlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, u32 imageIndex,
-                          u32 currentFrame)
+                     u32 currentFrame)
 {
     ArenaTemp scratchArena = ArenaScratchGet();
     Arena* arena = scratchArena.arena;
 
     if (!glyphAtlas->loaded)
     {
-        u32 totalDescSets = glyphAtlas->fontCount * vulkanContext->MAX_FRAMES_IN_FLIGHT;
-        FontDescriptorPoolCreate(vulkanContext->device, totalDescSets, glyphAtlas->descriptorPool);
         FontDescriptorSetLayoutCreate(vulkanContext->device, glyphAtlas->descriptorSetLayout);
         for (Font* font = glyphAtlas->fontLL.first; !IsNull(font); font = font->next)
         {
@@ -20,7 +18,7 @@ GlyphAtlasRenderPass(GlyphAtlas* glyphAtlas, VulkanContext* vulkanContext, u32 i
                                vulkanContext->msaaSamples,
                                Vulkan_GlyphInstance::getBindingDescription(),
                                Vulkan_GlyphInstance::getAttributeDescriptions(vulkanContext->arena),
-                               vulkanContext->resolutionInfo, Str8(arena,"shaders/text_vert.spv"),
+                               vulkanContext->resolutionInfo, Str8(arena, "shaders/text_vert.spv"),
                                Str8(arena, "shaders/text_frag.spv"), VK_SHADER_STAGE_VERTEX_BIT);
         createGlyphIndexBuffer(glyphAtlas, vulkanContext->physicalDevice, vulkanContext->device);
         glyphAtlas->loaded = true;
@@ -188,7 +186,7 @@ mapGlyphInstancesToBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevic
         vkFreeMemory(device, glyphAtlas->glyphMemoryBuffer, nullptr);
         vkDestroyBuffer(device, glyphAtlas->glyphInstBuffer, nullptr);
 
-        createBuffer(physicalDevice, device, bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        BufferCreate(physicalDevice, device, bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                      glyphAtlas->glyphInstBuffer, glyphAtlas->glyphMemoryBuffer);
     }
@@ -209,7 +207,7 @@ createGlyphIndexBuffer(GlyphAtlas* glyphAtlas, VkPhysicalDevice physicalDevice, 
 {
     VkDeviceSize bufferSize = sizeof(glyphAtlas->indices.data[0]) * glyphAtlas->indices.size;
 
-    createBuffer(
+    BufferCreate(
         physicalDevice, device, bufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, // these are not the most performant flags
@@ -342,7 +340,10 @@ cleanupFontResources(GlyphAtlas* glyphAtlas, VkDevice device)
     vkDestroyBuffer(device, glyphAtlas->glyphIndexBuffer, nullptr);
     vkFreeMemory(device, glyphAtlas->glyphIndexMemoryBuffer, nullptr);
 
-    vkDestroyDescriptorPool(device, glyphAtlas->descriptorPool, nullptr);
+    for (VK_DescriptorPool* pool = glyphAtlas->descriptor_pool; !IsNull(pool); pool = pool->next)
+    {
+        vkDestroyDescriptorPool(device, pool->pool, nullptr);
+    }
     vkDestroyDescriptorSetLayout(device, glyphAtlas->descriptorSetLayout, nullptr);
 }
 
@@ -363,7 +364,7 @@ GlyphAtlasImageCreate(Font* font, VkPhysicalDevice physicalDevice, VkDevice devi
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
 
-    createBuffer(physicalDevice, device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    BufferCreate(physicalDevice, device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                  stagingBuffer, stagingBufferMemory);
 
@@ -439,27 +440,45 @@ createGlyphAtlasTextureSampler(Font* font, VkPhysicalDevice physicalDevice, VkDe
 }
 
 root_function void
-FontDescriptorSetsCreate(Font* font, VkDescriptorPool descriptorPool,
+FontDescriptorSetsCreate(Font* font, GlyphAtlas* glyph_atlas,
                          VkDescriptorSetLayout descriptorSetLayout, VkDevice device,
-                         const u32 MAX_FRAMES_IN_FLIGHT, Array<VkDescriptorSet> descriptorSets)
+                         const u32 frames_in_flight, Array<VkDescriptorSet> descriptorSets)
 {
     ArenaTemp scratchArena = ArenaScratchGet();
     VkDescriptorSetLayout_Buffer layouts =
-        VkDescriptorSetLayout_Buffer_Alloc(scratchArena.arena, MAX_FRAMES_IN_FLIGHT);
-    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        VkDescriptorSetLayout_Buffer_Alloc(scratchArena.arena, frames_in_flight);
+    for (u32 i = 0; i < frames_in_flight; i++)
     {
         layouts.data[i] = descriptorSetLayout;
     }
 
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = descriptorPool;
-    allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
-    allocInfo.pSetLayouts = layouts.data;
-
-    if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data) != VK_SUCCESS)
+    b32 descriptor_set_allocation_succes = 0;
+    for (u32 retry_count = 0; retry_count < 2; retry_count++)
     {
-        exitWithError("failed to allocate descriptor sets!");
+        if (IsNull(glyph_atlas->descriptor_pool))
+        {
+            FontDescriptorPoolCreate(device, glyph_atlas, frames_in_flight);
+        }
+
+        VkDescriptorSetAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = glyph_atlas->descriptor_pool->pool;
+        allocInfo.descriptorSetCount = frames_in_flight;
+        allocInfo.pSetLayouts = layouts.data;
+
+        if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data) != VK_SUCCESS)
+        {
+            FontDescriptorPoolCreate(device, glyph_atlas, frames_in_flight);
+            continue;
+        }
+
+        descriptor_set_allocation_succes = 1;
+        break;
+    }
+
+    if (!descriptor_set_allocation_succes)
+    {
+        exitWithError("Failed to allocate descriptor sets");
     }
 
     VkDescriptorImageInfo imageInfo = {};
@@ -468,7 +487,7 @@ FontDescriptorSetsCreate(Font* font, VkDescriptorPool descriptorPool,
     imageInfo.imageView = font->textureImageView;
     imageInfo.sampler = font->textureSampler;
 
-    for (size_t frameIndex = 0; frameIndex < MAX_FRAMES_IN_FLIGHT; frameIndex++)
+    for (size_t frameIndex = 0; frameIndex < frames_in_flight; frameIndex++)
     {
         VkWriteDescriptorSet descriptorWrites = {};
 
@@ -485,20 +504,28 @@ FontDescriptorSetsCreate(Font* font, VkDescriptorPool descriptorPool,
 }
 
 root_function void
-FontDescriptorPoolCreate(VkDevice device, const u32 descriptorCount,
-                         VkDescriptorPool& descriptorPool)
+FontDescriptorPoolCreate(VkDevice device, GlyphAtlas* glyph_atlas, u32 descriptor_set_count)
 {
+    u32 count = glyph_atlas->descriptor_pool_size_default;
+    if (descriptor_set_count > count)
+    {
+        count = descriptor_set_count;
+    }
+    VK_DescriptorPool* new_pool = PushStructZero(glyph_atlas->fontArena, VK_DescriptorPool);
+    StackPush(glyph_atlas->descriptor_pool, new_pool);
+
     VkDescriptorPoolSize poolSizes = {};
     poolSizes.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes.descriptorCount = descriptorCount;
+    poolSizes.descriptorCount = count;
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = 1;
     poolInfo.pPoolSizes = &poolSizes;
-    poolInfo.maxSets = descriptorCount;
+    poolInfo.maxSets = count;
 
-    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
+    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &glyph_atlas->descriptor_pool->pool) !=
+        VK_SUCCESS)
     {
         exitWithError("failed to create descriptor pool!");
     }
@@ -560,7 +587,7 @@ FontRenderResourcesAlloc(VulkanContext* vulkanContext, GlyphAtlas* glyphAtlas, F
     createGlyphAtlasTextureSampler(font, vulkanContext->physicalDevice, vulkanContext->device);
     font->descriptorSets =
         ArrayAlloc<VkDescriptorSet>(glyphAtlas->fontArena, vulkanContext->MAX_FRAMES_IN_FLIGHT);
-    FontDescriptorSetsCreate(font, glyphAtlas->descriptorPool, glyphAtlas->descriptorSetLayout,
+    FontDescriptorSetsCreate(font, glyphAtlas, glyphAtlas->descriptorSetLayout,
                              vulkanContext->device, vulkanContext->MAX_FRAMES_IN_FLIGHT,
                              font->descriptorSets);
 }
@@ -568,7 +595,8 @@ FontRenderResourcesAlloc(VulkanContext* vulkanContext, GlyphAtlas* glyphAtlas, F
 root_function void
 FontFrameReset(Arena* arena, GlyphAtlas* glyphAtlas)
 {
-    glyphAtlas->glyphInstanceBuffer = ArrayAlloc<Vulkan_GlyphInstance>(arena, glyphAtlas->MAX_GLYPH_INSTANCES);
+    glyphAtlas->glyphInstanceBuffer =
+        ArrayAlloc<Vulkan_GlyphInstance>(arena, glyphAtlas->MAX_GLYPH_INSTANCES);
     for (Font* font = glyphAtlas->fontLL.first; !IsNull(font); font = font->next)
     {
         font->instances = 0;

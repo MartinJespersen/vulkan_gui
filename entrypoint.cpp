@@ -16,7 +16,6 @@
 #include "profiler/tracy/Tracy.hpp"
 #include "profiler/tracy/TracyVulkan.hpp"
 
-
 root_function VkResult
 CreateDebugUtilsMessengerEXT(VkInstance instance,
                              const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -57,7 +56,8 @@ InitContext()
     UI_State* ui_state = ctx->ui_state;
     ui_state->arena_permanent = (Arena*)ArenaAlloc(GIGABYTE(1));
     ui_state->widgetCacheSize = 1; // 4096;
-    ui_state->widgetSlot = PushArray(ui_state->arena_permanent, UI_WidgetSlot, ui_state->widgetCacheSize);
+    ui_state->widgetSlot =
+        PushArray(ui_state->arena_permanent, UI_WidgetSlot, ui_state->widgetCacheSize);
 
     ui_state->arena_frame = ArenaAlloc(GIGABYTE(1));
 
@@ -158,14 +158,13 @@ VulkanInit()
     vulkanContext->resolutionInfo.offset = 0;
     vulkanContext->resolutionInfo.size = sizeof(float) * 2;
 
-    createGraphicsPipeline(&box_context->pipelineLayout, &box_context->graphicsPipeline,
-                           vulkanContext->device, vulkanContext->swapChainExtent,
-                           vulkanContext->fontRenderPass, VK_NULL_HANDLE,
-                           vulkanContext->msaaSamples, Vulkan_BoxInstance::getBindingDescription(),
-                           Vulkan_BoxInstance::getAttributeDescriptions(vulkanContext->arena),
-                           vulkanContext->resolutionInfo, Str8(scratchArena.arena, "shaders/vert.spv"), 
-                           Str8(scratchArena.arena, "shaders/frag.spv"),
-                           VK_SHADER_STAGE_VERTEX_BIT);
+    createGraphicsPipeline(
+        &box_context->pipelineLayout, &box_context->graphicsPipeline, vulkanContext->device,
+        vulkanContext->swapChainExtent, vulkanContext->fontRenderPass, VK_NULL_HANDLE,
+        vulkanContext->msaaSamples, Vulkan_BoxInstance::getBindingDescription(),
+        Vulkan_BoxInstance::getAttributeDescriptions(vulkanContext->arena),
+        vulkanContext->resolutionInfo, Str8(scratchArena.arena, "shaders/vert.spv"),
+        Str8(scratchArena.arena, "shaders/frag.spv"), VK_SHADER_STAGE_VERTEX_BIT);
 
     vulkanContext->colorImageView = createColorResources(
         vulkanContext->physicalDevice, vulkanContext->device, vulkanContext->swapChainImageFormat,
@@ -406,7 +405,7 @@ SwapChainCreate(Arena* arena, VulkanContext* vulkanContext)
     if (queueFamilyIndices.graphicsFamilyIndex != queueFamilyIndices.presentFamilyIndex)
     {
         u32 queueFamilyIndicesSame[] = {vulkanContext->queueFamilyIndices.graphicsFamilyIndex,
-                                    vulkanContext->queueFamilyIndices.presentFamilyIndex};
+                                        vulkanContext->queueFamilyIndices.presentFamilyIndex};
         createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         createInfo.queueFamilyIndexCount = 2;
         createInfo.pQueueFamilyIndices = queueFamilyIndicesSame;
@@ -495,7 +494,7 @@ createInstance(VulkanContext* vulkanContext)
 }
 
 root_function void
-createLogicalDevice(Arena *arena, VulkanContext* vulkanContext)
+createLogicalDevice(Arena* arena, VulkanContext* vulkanContext)
 {
     QueueFamilyIndices queueFamilyIndicies = vulkanContext->queueFamilyIndices;
 
@@ -508,7 +507,8 @@ createLogicalDevice(Arena *arena, VulkanContext* vulkanContext)
     u32 uniqueQueueFamilies[] = {queueFamilyIndicies.graphicsFamilyIndex,
                                  queueFamilyIndicies.presentFamilyIndex};
 
-    VkDeviceQueueCreateInfo* queueCreateInfos = PushArray(arena, VkDeviceQueueCreateInfo, uniqueQueueFamiliesCount);
+    VkDeviceQueueCreateInfo* queueCreateInfos =
+        PushArray(arena, VkDeviceQueueCreateInfo, uniqueQueueFamiliesCount);
     float queuePriority = 1.0f;
     for (u32 i = 0; i < uniqueQueueFamiliesCount; i++)
     {
@@ -868,53 +868,46 @@ CommandBufferRecord(u32 imageIndex, u32 currentFrame)
     UI_Size semanticSizeX = {.kind = UI_SizeKind_ChildrenSum, .value = 50.0f, .strictness = 0};
     UI_Size semanticSizeY = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
     {
-        UI_Widget_Add(Str8(frame_arena, "Div"), flags,
-                semanticSizeX, semanticSizeY);
+        UI_Widget_Add(Str8(frame_arena, "Div"), flags, semanticSizeX, semanticSizeY);
     }
 
-    C_FontSize_Scoped(30)
-    UI_Layout_Scoped
+    C_FontSize_Scoped(30) UI_Layout_Scoped
     {
         ZoneScopedN("Create Button row");
         color = {0.0f, 0.8f, 0.8f, 0.1f};
-        flags =
-            UI_WidgetFlag_Clickable | UI_WidgetFlag_DrawBackground | UI_WidgetFlag_DrawText;
+        flags = UI_WidgetFlag_Clickable | UI_WidgetFlag_DrawBackground | UI_WidgetFlag_DrawText;
         semanticSizeX = {.kind = UI_SizeKind_TextContent, .value = 0, .strictness = 10.0f};
         semanticSizeY = {.kind = UI_SizeKind_Null, .value = 0, .strictness = 0};
         for (u32 btn_i = 0; btn_i < 4; btn_i++)
         {
             color.axis.x += 0.1f;
             String8 name = Str8(frame_arena, "test_name %u", btn_i);
-            
-        C_BackgroundColor_Scoped(color)
-        C_Text_Scoped(Str8(frame_arena, "%u", btn_i))
-        C_FontSize_Scoped(50)
-            UI_Widget_Add(name, flags,
-                          semanticSizeX, semanticSizeY);
+
+            C_BackgroundColor_Scoped(color) C_Text_Scoped(Str8(frame_arena, "%u", btn_i))
+                C_FontSize_Scoped(50) UI_Widget_Add(name, flags, semanticSizeX, semanticSizeY);
         }
 
         semanticSizeX = {.kind = UI_SizeKind_Pixels, .value = 50, .strictness = 0.0f};
         semanticSizeY = {.kind = UI_SizeKind_Pixels, .value = 100, .strictness = 0.0f};
         String8 name = Str8(frame_arena, "parentSize");
-        UI_Widget_Add(name, 0,
-                        semanticSizeX, semanticSizeY);
-        
+        UI_Widget_Add(name, 0, semanticSizeX, semanticSizeY);
+
         UI_Layout_Scoped
         {
             u32 childCount = 3;
-            for (u32 c_i = 0; c_i < childCount; c_i++) {
-                
+            for (u32 c_i = 0; c_i < childCount; c_i++)
+            {
                 semanticSizeX = {.kind = UI_SizeKind_Null, .value = 0.0f, .strictness = 0.0f};
-                semanticSizeY = {.kind = UI_SizeKind_PercentOfParent, .value = 1.0f/childCount, .strictness = 0.0f};
+                semanticSizeY = {.kind = UI_SizeKind_PercentOfParent,
+                                 .value = 1.0f / childCount,
+                                 .strictness = 0.0f};
                 String8 name = Str8(frame_arena, "childOfParent%u", c_i);
                 color = {0.0f, 0.0f, 0.0f, 1.0f};
                 color.data[c_i] = 1.0f;
-            C_BackgroundColor_Scoped(color)
-                UI_Widget_Add(name, UI_WidgetFlag_DrawBackground,
-                    semanticSizeX, semanticSizeY);
+                C_BackgroundColor_Scoped(color)
+                    UI_Widget_Add(name, UI_WidgetFlag_DrawBackground, semanticSizeX, semanticSizeY);
             }
         }
-
     }
     UI_Widget_SizeAndRelativePositionCalculate(glyphAtlas, ui_state);
     F32Vec4 rootWindowRect = {0.0f, 0.0f, 400.0f, 400.0f};
@@ -969,7 +962,7 @@ no_name_mangle void
 drawFrame()
 {
     ZoneScoped;
-    Context *context = GlobalContextGet();
+    Context* context = GlobalContextGet();
     VulkanContext* vulkanContext = context->vulkanContext;
 
     {
